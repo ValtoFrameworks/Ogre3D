@@ -1,0 +1,8 @@
+<map id="Ogre::GLTextureCommon" name="Ogre::GLTextureCommon">
+<area shape="rect" id="node6" href="$class_ogre_1_1_g_l3_plus_texture.html" title="Ogre::GL3PlusTexture" alt="" coords="5,304,157,331"/>
+<area shape="rect" id="node7" href="$class_ogre_1_1_g_l_texture.html" title="Ogre::GLTexture" alt="" coords="182,304,301,331"/>
+<area shape="rect" id="node2" href="$class_ogre_1_1_texture.html" title="Abstract class representing a Texture resource. " alt="" coords="110,155,213,181"/>
+<area shape="rect" id="node3" href="$class_ogre_1_1_resource.html" title="Abstract class representing a loadable resource (e.g. " alt="" coords="104,80,219,107"/>
+<area shape="rect" id="node4" href="$class_ogre_1_1_string_interface.html" title="Class defining the common interface which classes can use to present a reflection&#45;style, self&#45;defining parameter set to callers. " alt="" coords="15,5,158,32"/>
+<area shape="rect" id="node5" href="$class_ogre_1_1_allocated_object.html" title="Superclass for all objects that wish to use custom memory allocators when their new / delete operator..." alt="" coords="183,5,289,32"/>
+</map>
