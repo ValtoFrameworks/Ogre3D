@@ -17,6 +17,7 @@ The latest stable release is **v1.10.7**. For more information see:
 ## Try it
 * [Online Emscripten Demo](https://ogrecave.github.io/ogre/emscripten/) - [Web Assembly & WebGL2](https://ogrecave.github.io/ogre/wasm/)
 * Ubuntu Snap package: `sudo snap install ogre`
+* [Android App on F-Droid](https://f-droid.org/packages/org.ogre.browser/)
 
 ## OpenGL RenderSystem status
 Currently only the legacy GL RenderSystem is able to pass all VTests from the suite. This is partly due to the tests relying on Cg which the other RenderSystems do not support. Still it is considered the gold standard. See below how the GLES2 and GL3Plus RenderSystems behave in comparison:
