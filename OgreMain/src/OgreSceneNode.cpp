@@ -436,22 +436,28 @@ namespace Ogre {
         pChild->removeAndDestroyAllChildren();
 
         removeChild(index);
-        pChild->getCreator()->destroySceneNode(pChild->getName());
+        pChild->getCreator()->destroySceneNode(pChild);
+    }
+    //-----------------------------------------------------------------------
+    void SceneNode::removeAndDestroyChild(SceneNode* child)
+    {
+#if OGRE_NODE_STORAGE_LEGACY
+        removeAndDestroyChild(child->getName());
+#else
+        removeAndDestroyChild(std::find(mChildren.begin(), mChildren.end(), child) - mChildren.begin());
+#endif
     }
     //-----------------------------------------------------------------------
     void SceneNode::removeAndDestroyAllChildren(void)
     {
-        ChildNodeMap::iterator i, iend;
-        iend = mChildren.end();
-        for (i = mChildren.begin(); i != iend;)
-        {
-            SceneNode* sn = static_cast<SceneNode*>(ITER_VAL(i));
-            // increment iterator before destroying (iterator invalidated by 
-            // SceneManager::destroySceneNode because it causes removal from parent)
-            ++i;
+        // do not store iterators (invalidated by
+        // SceneManager::destroySceneNode because it causes removal from parent)
+        while(!mChildren.empty()) {
+            SceneNode* sn = static_cast<SceneNode*>(ITER_VAL(mChildren.begin()));
             sn->removeAndDestroyAllChildren();
-            sn->getCreator()->destroySceneNode(sn->getName());
+            sn->getCreator()->destroySceneNode(sn);
         }
+
         mChildren.clear();
         needUpdate();
     }

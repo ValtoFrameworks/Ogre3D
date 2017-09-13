@@ -232,8 +232,13 @@ namespace Ogre {
     {
         mGLSupport->start();
 
-        RenderWindow *autoWindow = mGLSupport->createWindow(autoCreateWindow,
-                                                            this, windowTitle);
+        RenderWindow* autoWindow = NULL;
+        if(autoCreateWindow) {
+            uint w, h;
+            bool fullscreen;
+            NameValuePairList misc = mGLSupport->parseOptions(w, h, fullscreen);
+            autoWindow = _createRenderWindow(windowTitle, w, h, fullscreen, &misc);
+        }
         RenderSystem::_initialise(autoCreateWindow, windowTitle);
         return autoWindow;
     }
@@ -750,8 +755,13 @@ namespace Ogre {
             GL3PlusRenderBuffer *depthBuffer = new GL3PlusRenderBuffer( depthFormat, fbo->getWidth(),
                                                                         fbo->getHeight(), fbo->getFSAA() );
 
-            GL3PlusRenderBuffer *stencilBuffer = stencilFormat ? depthBuffer : NULL;
-            if ( depthFormat != GL_DEPTH24_STENCIL8 && depthFormat != GL_DEPTH32F_STENCIL8 && stencilFormat )
+            GL3PlusRenderBuffer *stencilBuffer = NULL;
+            if ( depthFormat == GL_DEPTH24_STENCIL8 || depthFormat == GL_DEPTH32F_STENCIL8)
+            {
+                // If we have a packed format, the stencilBuffer is the same as the depthBuffer
+                stencilBuffer = depthBuffer;
+            }
+            else if(stencilFormat)
             {
                 stencilBuffer = new GL3PlusRenderBuffer( stencilFormat, fbo->getWidth(),
                                                          fbo->getHeight(), fbo->getFSAA() );
@@ -1504,31 +1514,20 @@ namespace Ogre {
             numberOfInstances *= getGlobalNumberOfInstances();
         }
 
-        GLSLProgram* program = NULL;
+        GLSLProgram* program;
         if (mCurrentCapabilities->hasCapability(RSC_SEPARATE_SHADER_OBJECTS))
         {
             program = GLSLSeparableProgramManager::getSingleton().getCurrentSeparableProgram();
-            if (program)
-            {
-                if (!op.renderToVertexBuffer)
-                {
-                    program->activate();
-                }
-            }
-            else
-            {
-                Ogre::LogManager::getSingleton().logMessage(
-                    "ERROR: Failed to create separable program.", LML_CRITICAL);
-            }
         }
         else
         {
             program = GLSLMonolithicProgramManager::getSingleton().getActiveMonolithicProgram();
-            if (!program)
-            {
-                Ogre::LogManager::getSingleton().logMessage(
-                    "ERROR: Failed to create monolithic program.", LML_CRITICAL);
-            }
+        }
+
+        if (!program)
+        {
+            LogManager::getSingleton().logMessage("ERROR: Failed to create shader program.",
+                                                  LML_CRITICAL);
         }
 
         GLVertexArrayObject* vao =

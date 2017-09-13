@@ -213,7 +213,13 @@ namespace Ogre {
         // Create the texture manager
         mTextureManager = new GLTextureManager(this);
 
-        RenderWindow* autoWindow = mGLSupport->createWindow(autoCreateWindow, this, windowTitle);
+        RenderWindow* autoWindow = NULL;
+        if(autoCreateWindow) {
+            uint w, h;
+            bool fullscreen;
+            NameValuePairList misc = mGLSupport->parseOptions(w, h, fullscreen);
+            autoWindow = _createRenderWindow(windowTitle, w, h, fullscreen, &misc);
+        }
 
         RenderSystem::_initialise(autoCreateWindow, windowTitle);
 
@@ -1157,8 +1163,13 @@ namespace Ogre {
             GLRenderBuffer *depthBuffer = new GLRenderBuffer( depthFormat, fbo->getWidth(),
                                                               fbo->getHeight(), fbo->getFSAA() );
 
-            GLRenderBuffer *stencilBuffer = stencilFormat ? depthBuffer : NULL;
-            if( depthFormat != GL_DEPTH24_STENCIL8_EXT && stencilFormat )
+            GLRenderBuffer *stencilBuffer = NULL;
+            if ( depthFormat == GL_DEPTH24_STENCIL8_EXT)
+            {
+                // If we have a packed format, the stencilBuffer is the same as the depthBuffer
+                stencilBuffer = depthBuffer;
+            }
+            else if(stencilFormat)
             {
                 stencilBuffer = new GLRenderBuffer( stencilFormat, fbo->getWidth(),
                                                     fbo->getHeight(), fbo->getFSAA() );

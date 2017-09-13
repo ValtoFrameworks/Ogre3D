@@ -83,7 +83,7 @@ JNIEnv* OgreJNIGetEnv() {
     try {
         $action
     }
-#ifdef SWIG_DIRECTORS
+#ifdef SWIGPYTHON
     catch (Swig::DirectorException &e) { 
         SWIG_fail;
     }
@@ -352,6 +352,8 @@ ADD_REPR(ColourValue)
 %include "OgreShadowCaster.h"
 %include "OgreMovableObject.h"
     %include "OgreMovablePlane.h"
+    %ignore Ogre::Light::setPosition;
+    %ignore Ogre::Light::getPosition;
     %include "OgreLight.h"
     %include "OgreNode.h"
         %include "OgreBone.h"
@@ -459,9 +461,13 @@ ADD_REPR(ColourValue)
 %ignore Ogre::SceneManager::getCameraIterator; // deprecated
 %ignore Ogre::SceneManager::getAnimationIterator;
 %ignore Ogre::SceneManager::getAnimationStateIterator;
+%ignore Ogre::SceneManager::setShadowTextureCasterMaterial(const String&);
+%ignore Ogre::SceneManager::setShadowTextureReceiverMaterial(const String&);
 %include "OgreSceneManager.h"
 %include "OgreSceneManagerEnumerator.h"
 %include "OgreConfigDialog.h"
+%template() Ogre::vector<Ogre::RenderSystem*>;
+%template(RenderSystemList) std::vector<Ogre::RenderSystem*>;
 %ignore Ogre::Root::showConfigDialog(); // deprecated
 %ignore Ogre::Root::addResourceLocation; // deprecated
 %ignore Ogre::Root::removeResourceLocation; // deprecated

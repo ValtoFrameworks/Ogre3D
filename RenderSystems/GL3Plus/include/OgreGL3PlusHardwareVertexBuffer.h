@@ -30,6 +30,7 @@ THE SOFTWARE.
 
 #include "OgreGL3PlusPrerequisites.h"
 #include "OgreHardwareVertexBuffer.h"
+#include "OgreGL3PlusHardwareBuffer.h"
 
 namespace Ogre {
 
@@ -37,24 +38,18 @@ namespace Ogre {
     class _OgreGL3PlusExport GL3PlusHardwareVertexBuffer : public HardwareVertexBuffer
     {
     private:
-        GLuint mBufferId;
-        // Scratch buffer handling
-        bool mLockedToScratch;
-        size_t mScratchOffset;
-        size_t mScratchSize;
-        void* mScratchPtr;
-        bool mScratchUploadOnUnlock;
-
+        GL3PlusHardwareBuffer mBuffer;
     protected:
-        /** See HardwareBuffer. */
-        void* lockImpl(size_t offset, size_t length, LockOptions options);
-        /** See HardwareBuffer. */
-        void unlockImpl(void);
+        void* lockImpl(size_t offset, size_t length, LockOptions options) {
+            return mBuffer.lockImpl(offset, length, options);
+        }
+        void unlockImpl() {
+            mBuffer.unlockImpl(mLockSize);
+        }
 
     public:
         GL3PlusHardwareVertexBuffer(HardwareBufferManagerBase* mgr, size_t vertexSize, size_t numVertices,
                                     HardwareBuffer::Usage usage, bool useShadowBuffer);
-        ~GL3PlusHardwareVertexBuffer();
 
         /** See HardwareBuffer. */
         void readData(size_t offset, size_t length, void* pDest);
@@ -70,7 +65,7 @@ namespace Ogre {
         /** See HardwareBuffer. */
         void _updateFromShadow(void);
 
-        inline GLuint getGLBufferId(void) const { return mBufferId; }
+        GLuint getGLBufferId(void) const { return mBuffer.getGLBufferId(); }
     };
 }
 #endif // __GL3PlusHARDWAREVERTEXBUFFER_H__

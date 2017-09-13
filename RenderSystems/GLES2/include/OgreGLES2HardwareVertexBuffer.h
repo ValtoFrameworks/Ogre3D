@@ -32,23 +32,22 @@ THE SOFTWARE.
 #include "OgreGLES2Prerequisites.h"
 #include "OgreHardwareVertexBuffer.h"
 #include "OgreGLES2ManagedResource.h"
+#include "OgreGLES2HardwareBuffer.h"
 
 namespace Ogre {
     /// Specialisation of HardwareVertexBuffer for OpenGL ES
     class _OgreGLES2Export GLES2HardwareVertexBuffer : public HardwareVertexBuffer MANAGED_RESOURCE
     {
         private:
-            GLuint mBufferId;
+            GLES2HardwareBuffer mBuffer;
 
         protected:
-            /** See HardwareBuffer. */
-            void* lockImpl(size_t offset, size_t length, LockOptions options);
-            /** See HardwareBuffer. */
-            void unlockImpl(void);
-        
-            void createBuffer();
-        
-            void destroyBuffer();
+            void* lockImpl(size_t offset, size_t length, LockOptions options) {
+                return mBuffer.lockImpl(offset, length, options);
+            }
+            void unlockImpl() {
+                mBuffer.unlockImpl(mLockSize);
+            }
         
 #if OGRE_PLATFORM == OGRE_PLATFORM_ANDROID || OGRE_PLATFORM == OGRE_PLATFORM_EMSCRIPTEN
             /** See AndroidResource. */
@@ -61,7 +60,6 @@ namespace Ogre {
         public:
             GLES2HardwareVertexBuffer(HardwareBufferManagerBase* mgr, size_t vertexSize, size_t numVertices,
                                    HardwareBuffer::Usage usage, bool useShadowBuffer);
-            virtual ~GLES2HardwareVertexBuffer();
 
             /** See HardwareBuffer. */
             void readData(size_t offset, size_t length, void* pDest);
@@ -77,7 +75,7 @@ namespace Ogre {
             /** See HardwareBuffer. */
             void _updateFromShadow(void);
 
-            inline GLuint getGLBufferId(void) const { return mBufferId; }
+            GLuint getGLBufferId(void) const { return mBuffer.getGLBufferId(); }
     };
 }
 
