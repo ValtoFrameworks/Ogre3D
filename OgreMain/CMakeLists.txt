@@ -286,7 +286,7 @@ if (OGRE_CONFIG_ENABLE_STBI)
   list(APPEND SOURCE_FILES src/OgreSTBICodec.cpp)
   
   if(UNIX)
-    set_source_files_properties(src/OgreSTBICodec.cpp PROPERTIES COMPILE_FLAGS "-Wno-cast-qual -Wno-unused-function -Wno-shadow")
+    set_source_files_properties(src/OgreSTBICodec.cpp PROPERTIES COMPILE_FLAGS "-Wno-cast-qual -Wno-unused-function -Wno-shadow -Wno-missing-declarations")
   endif()
   
   if(CMAKE_COMPILER_IS_GNUCXX)
@@ -308,6 +308,11 @@ endif ()
 if (OGRE_CONFIG_ENABLE_ETC)
   list(APPEND HEADER_FILES include/OgreETCCodec.h)
   list(APPEND SOURCE_FILES src/OgreETCCodec.cpp)
+endif ()
+
+if (OGRE_CONFIG_ENABLE_ASTC)
+  list(APPEND HEADER_FILES include/OgreASTCCodec.h)
+  list(APPEND SOURCE_FILES src/OgreASTCCodec.cpp)
 endif ()
 
 if (OGRE_CONFIG_ENABLE_ZIP)

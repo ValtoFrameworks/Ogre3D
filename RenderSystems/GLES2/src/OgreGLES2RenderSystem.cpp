@@ -106,7 +106,7 @@ static void gl2ext_to_gl3core() {
 
 namespace Ogre {
 
-#if OGRE_PLATFORM != OGRE_PLATFORM_APPLE_IOS
+#if OGRE_PLATFORM != OGRE_PLATFORM_APPLE_IOS && OGRE_PLATFORM != OGRE_PLATFORM_ANDROID
     static GLES2Support* glsupport;
     static GLESWglProc get_proc(const char* proc) {
         return (GLESWglProc)glsupport->getProcAddress(proc);
@@ -136,7 +136,7 @@ namespace Ogre {
         
         mGLSupport = new GLES2Support(getGLSupport(GLNativeSupport::CONTEXT_ES));
         
-#if OGRE_PLATFORM != OGRE_PLATFORM_APPLE_IOS
+#if OGRE_PLATFORM != OGRE_PLATFORM_APPLE_IOS && OGRE_PLATFORM != OGRE_PLATFORM_ANDROID
         glsupport = mGLSupport;
 #endif
 
@@ -296,7 +296,9 @@ namespace Ogre {
             checkExtension("WEBGL_compressed_texture_s3tc") ||
             checkExtension("WEBGL_compressed_texture_atc") ||
             checkExtension("WEBGL_compressed_texture_pvrtc") ||
-            checkExtension("WEBGL_compressed_texture_etc1"))
+            checkExtension("WEBGL_compressed_texture_etc1") ||
+            checkExtension("WEBGL_compressed_texture_astc") ||
+            checkExtension("GL_KHR_texture_compression_astc_ldr"))
 
         {
             rsc->setCapability(RSC_TEXTURE_COMPRESSION);
@@ -321,6 +323,10 @@ namespace Ogre {
             if(checkExtension("GL_AMD_compressed_ATC_texture") ||
                checkExtension("WEBGL_compressed_texture_atc"))
                 rsc->setCapability(RSC_TEXTURE_COMPRESSION_ATC);
+
+            if(checkExtension("WEBGL_compressed_texture_astc") ||
+               checkExtension("GL_KHR_texture_compression_astc_ldr"))
+                rsc->setCapability(RSC_TEXTURE_COMPRESSION_ASTC);
         }
 
         // Check for Anisotropy support
@@ -334,16 +340,20 @@ namespace Ogre {
 
         rsc->setCapability(RSC_FBO);
         rsc->setCapability(RSC_HWRENDER_TO_TEXTURE);
-#if OGRE_NO_GLES3_SUPPORT == 0
-        // Probe number of draw buffers
-        // Only makes sense with FBO support, so probe here
-        GLint buffers;
-        glGetIntegerv(GL_MAX_DRAW_BUFFERS, &buffers);
-        rsc->setNumMultiRenderTargets(std::min<int>(buffers, (GLint)OGRE_MAX_MULTIPLE_RENDER_TARGETS));
-        rsc->setCapability(RSC_MRT_DIFFERENT_BIT_DEPTHS);
-#else
-        rsc->setNumMultiRenderTargets(1);
-#endif
+        if (hasMinGLVersion(3, 0))
+        {
+            // Probe number of draw buffers
+            // Only makes sense with FBO support, so probe here
+            GLint buffers;
+            glGetIntegerv(GL_MAX_DRAW_BUFFERS, &buffers);
+            rsc->setNumMultiRenderTargets(
+                std::min<int>(buffers, (GLint)OGRE_MAX_MULTIPLE_RENDER_TARGETS));
+            rsc->setCapability(RSC_MRT_DIFFERENT_BIT_DEPTHS);
+        }
+        else
+        {
+            rsc->setNumMultiRenderTargets(1);
+        }
 
         // Cube map
         rsc->setCapability(RSC_CUBEMAPPING);
@@ -500,10 +510,11 @@ namespace Ogre {
             rsc->setCapability(RSC_MAPBUFFER);
         }
 
-#if OGRE_NO_GLES3_SUPPORT == 0
-        // Check if render to vertex buffer (transform feedback in OpenGL)
-        rsc->setCapability(RSC_HWRENDER_TO_VERTEX_BUFFER);
-#endif
+        if(hasMinGLVersion(3, 0))
+        {
+            // Check if render to vertex buffer (transform feedback in OpenGL)
+            rsc->setCapability(RSC_HWRENDER_TO_VERTEX_BUFFER);
+        }
         return rsc;
     }
 
@@ -716,11 +727,7 @@ namespace Ogre {
                                                                 fbo->getHeight(), fbo->getFSAA() );
 
             GLES2RenderBuffer *stencilBuffer = NULL;
-            if(
-#if OGRE_NO_GLES3_SUPPORT == 0
-               depthFormat == GL_DEPTH32F_STENCIL8 ||
-#endif
-               depthFormat == GL_DEPTH24_STENCIL8_OES )
+            if (depthFormat == GL_DEPTH32F_STENCIL8 || depthFormat == GL_DEPTH24_STENCIL8_OES)
             {
                 // If we have a packed format, the stencilBuffer is the same as the depthBuffer
                 stencilBuffer = depthBuffer;
@@ -805,31 +812,22 @@ namespace Ogre {
 
     void GLES2RenderSystem::_setTexture(size_t stage, bool enabled, const TexturePtr &texPtr)
     {
-        GLES2TexturePtr tex = static_pointer_cast<GLES2Texture>(texPtr);
-
         if (!mStateCacheManager->activateGLTextureUnit(stage))
             return;
 
         if (enabled)
         {
-            mCurTexMipCount = 0;
-            GLuint texID =  0;
-            if (tex)
-            {
-                // Note used
-                tex->touch();
-                mTextureTypes[stage] = tex->getGLES2TextureTarget();
-                texID = tex->getGLID();
-                mCurTexMipCount = tex->getNumMipmaps();
-            }
-            else
-            {
-                // Assume 2D
-                mTextureTypes[stage] = GL_TEXTURE_2D;
-                texID = static_cast<GLES2TextureManager*>(mTextureManager)->getWarningTextureID();
-            }
+            GLES2TexturePtr tex = static_pointer_cast<GLES2Texture>(
+                texPtr ? texPtr : mTextureManager->_getWarningTexture());
 
-            mStateCacheManager->bindGLTexture(mTextureTypes[stage], texID);
+            mCurTexMipCount = 0;
+
+            // Note used
+            tex->touch();
+            mTextureTypes[stage] = tex->getGLES2TextureTarget();
+            mCurTexMipCount = tex->getNumMipmaps();
+
+            mStateCacheManager->bindGLTexture(mTextureTypes[stage], tex->getGLID());
         }
         else
         {
@@ -1079,6 +1077,16 @@ namespace Ogre {
 
             vp->_clearUpdatedFlag();
         }
+#if OGRE_PLATFORM == OGRE_PLATFORM_APPLE_IOS
+        else
+        {
+            // On iOS RenderWindow is FBO based, renders to multisampled FBO and then resolves
+            // to non-multisampled FBO, therefore we need to restore FBO binding even when
+            // rendering to the same viewport.
+            RenderTarget* target = vp->getTarget();
+            mRTTManager->bind(target);
+        }
+#endif
     }
 
     void GLES2RenderSystem::_beginFrame(void)
@@ -1101,10 +1109,6 @@ namespace Ogre {
         // outside via the resource manager
         unbindGpuProgram(GPT_VERTEX_PROGRAM);
 		unbindGpuProgram(GPT_FRAGMENT_PROGRAM);
-
-#if OGRE_PLATFORM == OGRE_PLATFORM_APPLE_IOS
-        static_cast<EAGLES2Context*>(mMainContext)->bindSampleFramebuffer();
-#endif
     }
 
     void GLES2RenderSystem::_setCullingMode(CullingMode mode)
@@ -1726,7 +1730,7 @@ namespace Ogre {
         mCurrentContext->setCurrent();
 
         mStateCacheManager = mCurrentContext->createOrRetrieveStateCacheManager<GLES2StateCacheManager>();
-        _completeDeferredVaoDestruction();
+        _completeDeferredVaoFboDestruction();
 
         // Check if the context has already done one-time initialisation
         if (!mCurrentContext->getInitialized())
@@ -1755,7 +1759,19 @@ namespace Ogre {
     void GLES2RenderSystem::_unregisterContext(GLContext *context)
     {
         static_cast<GLES2HardwareBufferManager*>(HardwareBufferManager::getSingletonPtr())->notifyContextDestroyed(context);
-
+        
+        for(RenderTargetMap::iterator it = mRenderTargets.begin(); it!=mRenderTargets.end(); ++it)
+        {
+            RenderTarget* target = it->second;
+            if(target)
+            {
+                GLES2FrameBufferObject *fbo = 0;
+                target->getCustomAttribute("FBO", &fbo);
+                if(fbo)
+                    fbo->notifyContextDestroyed(context);
+            }
+        }
+        
         if (mCurrentContext == context)
         {
             // Change the context to something else so that a valid context
@@ -1791,6 +1807,14 @@ namespace Ogre {
         else
             OGRE_CHECK_GL_ERROR(glDeleteVertexArraysOES(1, &vao));
     }
+    
+    void GLES2RenderSystem::_destroyFbo(GLContext* context, uint32 fbo)
+    {
+        if(context != mCurrentContext)
+            context->_getFboDeferredForDestruction().push_back(fbo);
+        else
+            OGRE_CHECK_GL_ERROR(glDeleteFramebuffers(1, &fbo));
+    }
 
     void GLES2RenderSystem::_bindVao(GLContext* context, uint32 vao)
     {
@@ -1801,7 +1825,6 @@ namespace Ogre {
     void GLES2RenderSystem::_oneTimeContextInitialization()
     {
         mStateCacheManager->setDisabled(GL_DITHER);
-        static_cast<GLES2TextureManager*>(mTextureManager)->createWarningTexture();
 
 #if OGRE_NO_GLES3_SUPPORT == 0
         // Enable primitive restarting with fixed indices depending upon the data type
@@ -1820,8 +1843,9 @@ namespace Ogre {
         if (mCurrentContext)
             mCurrentContext->setCurrent();
 
-#if OGRE_PLATFORM == OGRE_PLATFORM_APPLE_IOS
-        // EAGL2Support redirects to glesw for get_proc. Overwriting it there would create an infinite loop.
+#if OGRE_PLATFORM == OGRE_PLATFORM_APPLE_IOS || OGRE_PLATFORM == OGRE_PLATFORM_ANDROID
+        // ios: EAGL2Support redirects to glesw for get_proc. Overwriting it there would create an infinite loop
+        // android: eglGetProcAddress fails in some cases (e.g. Virtual Device), whereas dlsym always works.
         if (glGetError == NULL && gleswInit())
 #else
         if (gleswInit2(get_proc))
@@ -1839,6 +1863,7 @@ namespace Ogre {
 
         if(hasMinGLVersion(3, 0)) {
             gl2ext_to_gl3core();
+            GLES2PixelUtil::useSizedFormats();
         }
 
         LogManager::getSingleton().logMessage("**************************************");

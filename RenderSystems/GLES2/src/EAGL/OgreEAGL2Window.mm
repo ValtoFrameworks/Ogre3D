@@ -40,8 +40,19 @@ THE SOFTWARE.
 #import <UIKit/UIWindow.h>
 #import <UIKit/UIGraphics.h>
 #include "ARCMacros.h"
+#include "OgreDepthBuffer.h"
 
 namespace Ogre {
+
+    struct EAGLContextGuard
+    {
+        EAGLContextGuard(EAGLContext* ctx) : mPrevContext([EAGLContext currentContext]) { if(ctx != mPrevContext) [EAGLContext setCurrentContext:ctx]; }
+        ~EAGLContextGuard() { [EAGLContext setCurrentContext:mPrevContext]; }
+    private:
+         EAGLContext *mPrevContext;
+    };
+
+
     EAGL2Window::EAGL2Window(EAGL2Support *glsupport)
         :   mClosed(false),
             mVisible(false),
@@ -60,6 +71,7 @@ namespace Ogre {
         mIsFullScreen = true;
         mActive = true;
         mHwGamma = false;
+        mDepthBufferPoolId = DepthBuffer::POOL_NO_DEPTH;
     }
 
     EAGL2Window::~EAGL2Window()
@@ -124,7 +136,9 @@ namespace Ogre {
         if(mWidth == widthPx && mHeight == heightPx)
             return;
         
-        // Destroy and recreate the framebuffer with new dimensions 
+        // Destroy and recreate the framebuffer with new dimensions
+        EAGLContextGuard ctx_guard(mContext->getContext());
+        
         mContext->destroyFramebuffer();
         
         mWidth = widthPx;
@@ -151,14 +165,6 @@ namespace Ogre {
             (*it).second->_updateDimensions();
         }
 	}
-
-    void EAGL2Window::_beginUpdate(void)
-    {
-        // Call the base class method first
-        RenderTarget::_beginUpdate();
-
-        mContext->bindSampleFramebuffer();
-    }
 
     void EAGL2Window::createNativeWindow(uint widthPt, uint heightPt, const NameValuePairList *miscParams)
     {
@@ -382,7 +388,7 @@ namespace Ogre {
         GLenum attachments[3];
         unsigned int buffers = mContext->mDiscardBuffers;
         
-        if(buffers & FBT_COLOUR)
+        if((buffers & FBT_COLOUR) && mContext->mIsMultiSampleSupported && mContext->mNumSamples > 0)
         {
             attachments[attachmentCount++] = GL_COLOR_ATTACHMENT0;
         }
@@ -435,6 +441,12 @@ namespace Ogre {
 			*static_cast<GLContext**>(pData) = mContext;
 			return;
 		}
+
+        if( name == "GLFBO" )
+        {
+            *static_cast<GLuint*>(pData) = (mContext->mIsMultiSampleSupported && mContext->mNumSamples>0) ? mContext->mSampleFramebuffer : mContext->mViewFramebuffer;
+            return;
+        }
 
         if( name == "SHAREGROUP" )
 		{

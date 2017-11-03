@@ -257,6 +257,8 @@ ADD_REPR(ColourValue)
     %include "OgreParticleEmitter.h"
         %include "OgreParticleEmitterFactory.h"
     %template(ResourcePtr) Ogre::SharedPtr<Ogre::Resource>;
+    %ignore Ogre::Resource::setManuallyLoaded;
+    %ignore Ogre::Resource::setToLoaded;
     %include "OgreResource.h"
         %template(TexturePtr) Ogre::SharedPtr<Ogre::Texture>;
         %include "OgreTexture.h"
@@ -363,8 +365,8 @@ ADD_REPR(ColourValue)
         %include "OgreShadowCameraSetupFocused.h"
         %include "OgreShadowCameraSetupLiSPSM.h"
         %include "OgreShadowCameraSetupPlaneOptimal.h"
-        %include "OgreShadowCameraSetupPSSM.h"
-    %apply Ogre::Real& OUTPUT {Ogre::Real& outleft, Ogre::Real& outright, Ogre::Real& outtop, Ogre::Real& outbottom};        
+        %include "OgreShadowCameraSetupPSSM.h"  
+    %ignore Ogre::Frustum::getFrustumExtents(Real&, Real& ,Real& ,Real&) const;
     %include "OgreFrustum.h"
         %ignore Ogre::Camera::setPosition;
         %ignore Ogre::Camera::getPosition;
@@ -472,6 +474,10 @@ ADD_REPR(ColourValue)
 %ignore Ogre::Root::addResourceLocation; // deprecated
 %ignore Ogre::Root::removeResourceLocation; // deprecated
 %ignore Ogre::Root::getErrorDescription; // deprecated
+%ignore Ogre::Root::getSceneManagerMetaDataIterator;
+%ignore Ogre::Root::getSceneManagerIterator;
+%ignore Ogre::Root::createSceneManager(SceneTypeMask);
+%ignore Ogre::Root::createSceneManager(SceneTypeMask, const String&);
 %include "OgreRoot.h"
 // dont wrap: platform specific
 // %include "OgreWindowEventUtilities.h"

@@ -31,11 +31,12 @@ THE SOFTWARE.
 #include "OgreRenderSystem.h"
 #include "OgreGLCopyingRenderTexture.h"
 #include "OgreGLTexture.h"
+#include "OgreGLPixelFormat.h"
 
 namespace Ogre {
     //-----------------------------------------------------------------------------
     GLTextureManager::GLTextureManager(GLRenderSystem* renderSystem)
-        : TextureManager(), mRenderSystem(renderSystem), mWarningTextureID(0)
+        : TextureManager(), mRenderSystem(renderSystem)
     {
         // register with group manager
         ResourceGroupManager::getSingleton()._registerResourceManager(mResourceType, this);
@@ -45,8 +46,6 @@ namespace Ogre {
     {
         // unregister with group manager
         ResourceGroupManager::getSingleton()._unregisterResourceManager(mResourceType);
-        // Delete warning texture
-        glDeleteTextures(1, &mWarningTextureID);
     }
     //-----------------------------------------------------------------------------
     Resource* GLTextureManager::createImpl(const String& name, ResourceHandle handle, 
@@ -56,36 +55,6 @@ namespace Ogre {
         return new GLTexture(this, name, handle, group, isManual, loader, mRenderSystem);
     }
 
-    //-----------------------------------------------------------------------------
-    void GLTextureManager::createWarningTexture()
-    {
-        // Generate warning texture
-        uint32 width = 8;
-        uint32 height = 8;
-        uint32 *data = new uint32[width*height];        // 0xXXRRGGBB
-        // Yellow/black stripes
-        for(size_t y=0; y<height; ++y)
-        {
-            for(size_t x=0; x<width; ++x)
-            {
-                data[y*width+x] = (((x+y)%8)<4)?0x000000:0xFFFF00;
-            }
-        }
-        // Create GL resource
-        glGenTextures(1, &mWarningTextureID);
-        glBindTexture(GL_TEXTURE_2D, mWarningTextureID);
-        if (GLEW_VERSION_1_2)
-        {
-            glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAX_LEVEL, 0);
-            glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB8, width, height, 0, GL_BGRA, GL_UNSIGNED_INT_8_8_8_8_REV, (void*)data);
-        }
-        else
-        {
-            glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB8, width, height, 0, GL_BGRA, GL_UNSIGNED_INT, (void*)data);
-        }
-        // Free memory
-        delete [] data;
-    }
     //-----------------------------------------------------------------------------
     PixelFormat GLTextureManager::getNativeFormat(TextureType ttype, PixelFormat format, int usage)
     {
@@ -97,15 +66,20 @@ namespace Ogre {
         if(PixelUtil::isCompressed(format) &&
             !caps->hasCapability( RSC_TEXTURE_COMPRESSION_DXT ))
         {
-            return PF_A8R8G8B8;
+            return PF_BYTE_RGBA;
         }
         // if floating point textures not supported, revert to PF_A8R8G8B8
         if(PixelUtil::isFloatingPoint(format) &&
             !caps->hasCapability( RSC_TEXTURE_FLOAT ))
         {
-            return PF_A8R8G8B8;
+            return PF_BYTE_RGBA;
         }
         
+        if(GLPixelUtil::getGLInternalFormat(format) == GL_NONE)
+        {
+            return PF_BYTE_RGBA;
+        }
+
         // Check if this is a valid rendertarget format
         if( usage & TU_RENDERTARGET )
         {

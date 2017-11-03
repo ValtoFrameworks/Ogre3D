@@ -335,6 +335,10 @@ namespace Ogre {
             rsc->setCapability(RSC_TEXTURE_COMPRESSION_BC6H_BC7);
         }
 
+        if (checkExtension("WEBGL_compressed_texture_astc") ||
+            checkExtension("GL_KHR_texture_compression_astc_ldr"))
+            rsc->setCapability(RSC_TEXTURE_COMPRESSION_ASTC);
+
         rsc->setCapability(RSC_FBO);
         rsc->setCapability(RSC_HWRENDER_TO_TEXTURE);
         // Probe number of draw buffers
@@ -416,6 +420,11 @@ namespace Ogre {
         if (hasMinGLVersion(4, 1) || checkExtension("GL_ARB_separate_shader_objects")) {
             rsc->setCapability(RSC_SEPARATE_SHADER_OBJECTS);
             rsc->setCapability(RSC_GLSL_SSO_REDECLARE);
+        }
+
+        // Mesa 11.2 does not behave according to spec and throws a "gl_Position redefined"
+        if(rsc->getDeviceName().find("Mesa") != String::npos) {
+            rsc->unsetCapability(RSC_GLSL_SSO_REDECLARE);
         }
 
         // Vertex/Fragment Programs
@@ -876,31 +885,19 @@ namespace Ogre {
 
     void GL3PlusRenderSystem::_setTexture(size_t stage, bool enabled, const TexturePtr &texPtr)
     {
-        GL3PlusTexturePtr tex = static_pointer_cast<GL3PlusTexture>(texPtr);
-
         if (!mStateCacheManager->activateGLTextureUnit(stage))
             return;
 
         if (enabled)
         {
-            if (tex)
-            {
-                // Note used
-                tex->touch();
-                mTextureTypes[stage] = tex->getGL3PlusTextureTarget();
-            }
-            else
-                // Assume 2D.
-                mTextureTypes[stage] = GL_TEXTURE_2D;
+            GL3PlusTexturePtr tex = static_pointer_cast<GL3PlusTexture>(
+                texPtr ? texPtr : mTextureManager->_getWarningTexture());
 
-            if (tex)
-            {
-                mStateCacheManager->bindGLTexture( mTextureTypes[stage], tex->getGLID() );
-            }
-            else
-            {
-                mStateCacheManager->bindGLTexture( mTextureTypes[stage], static_cast<GL3PlusTextureManager*>(mTextureManager)->getWarningTextureID() );
-            }
+            // Note used
+            tex->touch();
+            mTextureTypes[stage] = tex->getGL3PlusTextureTarget();
+
+            mStateCacheManager->bindGLTexture( mTextureTypes[stage], tex->getGLID() );
         }
         else
         {
@@ -1905,7 +1902,7 @@ namespace Ogre {
         mCurrentContext->setCurrent();
 
         mStateCacheManager = mCurrentContext->createOrRetrieveStateCacheManager<GL3PlusStateCacheManager>();
-        _completeDeferredVaoDestruction();
+        _completeDeferredVaoFboDestruction();
 
         // Check if the context has already done one-time initialisation
         if (!mCurrentContext->getInitialized())
@@ -2020,6 +2017,14 @@ namespace Ogre {
             OGRE_CHECK_GL_ERROR(glDebugMessageCallbackARB(&GLDebugCallback, NULL));
             OGRE_CHECK_GL_ERROR(glDebugMessageControlARB(GL_DEBUG_SOURCE_THIRD_PARTY, GL_DEBUG_TYPE_OTHER, GL_DONT_CARE, 0, NULL, GL_TRUE));
 #endif
+        }
+
+        if(getCapabilities()->getVendor() == GPU_NVIDIA)
+        {
+            // bug in NVIDIA driver, see e.g.
+            // https://www.opengl.org/discussion_boards/showthread.php/168217-gl_PointCoord-and-OpenGL-3-1-GLSL-1-4
+            glEnable(0x8861); // GL_POINT_SPRITE
+            glGetError();     // clear the error that it generates nevertheless..
         }
     }
 

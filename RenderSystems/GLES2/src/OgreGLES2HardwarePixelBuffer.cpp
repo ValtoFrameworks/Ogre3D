@@ -59,7 +59,6 @@ namespace Ogre {
                         "GLES2HardwarePixelBuffer::blitFromMemory");
         }
 
-        bool freeScaledBuffer = false;
         PixelBox scaled;
 
         if (src.getWidth() != dstBox.getWidth() ||
@@ -72,7 +71,7 @@ namespace Ogre {
             scaled = mBuffer.getSubVolume(dstBox);
             Image::scale(src, scaled, Image::FILTER_BILINEAR);
         }
-        else if (GLES2PixelUtil::getGLOriginFormat(src.format) == 0)
+        else if (src.format != mFormat)
         {
             // Extents match, but format is not accepted as valid source format for GL
             // do conversion in temporary buffer
@@ -84,32 +83,10 @@ namespace Ogre {
         {
             // No scaling or conversion needed
             scaled = src;
-
-            if (src.format == PF_R8G8B8)
-            {
-                freeScaledBuffer = true;
-                size_t srcSize = PixelUtil::getMemorySize(src.getWidth(), src.getHeight(), src.getDepth(), src.format);
-                scaled.format = PF_B8G8R8;
-                scaled.data = new uint8[srcSize];
-                memcpy(scaled.data, src.data, srcSize);
-                PixelUtil::bulkPixelConversion(src, scaled);
-            }
-#if OGRE_PLATFORM != OGRE_PLATFORM_APPLE_IOS
-            if (src.format == PF_A8R8G8B8)
-            {
-                scaled.format = PF_A8B8G8R8;
-                PixelUtil::bulkPixelConversion(src, scaled);
-            }
-#endif
         }
 
         upload(scaled, dstBox);
         freeBuffer();
-        
-        if (freeScaledBuffer)
-        {
-            delete[] (uint8*)scaled.data;
-        }
     }
 
     void GLES2HardwarePixelBuffer::blitToMemory(const Box &srcBox, const PixelBox &dst)
@@ -127,7 +104,7 @@ namespace Ogre {
             dst.getWidth() == getWidth() &&
             dst.getHeight() == getHeight() &&
             dst.getDepth() == getDepth() &&
-            GLES2PixelUtil::getGLOriginFormat(dst.format) != 0)
+            GLES2PixelUtil::getGLInternalFormat(dst.format) != 0)
         {
             // The direct case: the user wants the entire texture in a format supported by GL
             // so we don't need an intermediate buffer
@@ -184,7 +161,7 @@ namespace Ogre {
             mDepth = depth;
 
         mGLInternalFormat = internalFormat;
-        mFormat = GLES2PixelUtil::getClosestOGREFormat(internalFormat, format);
+        mFormat = GLES2PixelUtil::getClosestOGREFormat(internalFormat);
 
         mRowPitch = mWidth;
         mSlicePitch = mHeight*mWidth;
@@ -291,7 +268,7 @@ namespace Ogre {
         LogManager::getSingleton().logMessage("GLES2TextureBuffer::upload - ID: " + StringConverter::toString(mTextureID) +
                                               " Target: " + StringConverter::toString(mTarget) +
                                               " Format: " + PixelUtil::getFormatName(data.format) +
-                                              " Origin format: " + StringConverter::toString(GLES2PixelUtil::getGLOriginFormat(data.format), 0, std::ios::hex) +
+                                              " Origin format: " + StringConverter::toString(GLES2PixelUtil::getGLOriginFormat(data.format), 0, ' ', std::ios::hex) +
                                               " Data type: " + StringConverter::toString(GLES2PixelUtil::getGLOriginDataType(data.format), 0, ' ', std::ios::hex));
 #endif
 #endif
@@ -303,7 +280,7 @@ namespace Ogre {
                             "Compressed images must be consecutive, in the source format",
                             "GLES2TextureBuffer::upload");
 
-            GLenum format = GLES2PixelUtil::getClosestGLInternalFormat(mFormat);
+            GLenum format = GLES2PixelUtil::getGLInternalFormat(mFormat);
             // Data must be consecutive and at beginning of buffer as PixelStorei not allowed
             // for compressed formats
             switch(mTarget) {
@@ -576,7 +553,7 @@ namespace Ogre {
         if(!fboMan->checkFormat(mFormat))
         {
             // If target format not directly supported, create intermediate texture
-            GLenum tempFormat = GLES2PixelUtil::getClosestGLInternalFormat(fboMan->getSupportedAlternative(mFormat));
+            GLenum tempFormat = GLES2PixelUtil::getGLInternalFormat(fboMan->getSupportedAlternative(mFormat));
             OGRE_CHECK_GL_ERROR(glGenTextures(1, &tempTex));
             rs->_getStateCacheManager()->bindGLTexture(GL_TEXTURE_2D, tempTex);
 
@@ -745,7 +722,7 @@ namespace Ogre {
         PixelBox src;
         
         // First, convert the srcbox to a OpenGL compatible pixel format
-        if(GLES2PixelUtil::getGLOriginFormat(src_orig.format) == 0)
+        if(GLES2PixelUtil::getGLInternalFormat(src_orig.format) == 0)
         {
             // Convert to buffer internal format
             buf.reset(OGRE_NEW MemoryDataStream(PixelUtil::getMemorySize(src_orig.getWidth(), src_orig.getHeight(),
@@ -776,7 +753,7 @@ namespace Ogre {
             depth = Bitwise::firstPO2From(depth);
         }
 
-        GLenum format = GLES2PixelUtil::getClosestGLInternalFormat(src.format);
+        GLenum format = GLES2PixelUtil::getGLInternalFormat(src.format);
 
         // Generate texture name
         OGRE_CHECK_GL_ERROR(glGenTextures(1, &id));
@@ -835,7 +812,7 @@ namespace Ogre {
     //********* GLES2RenderBuffer
     //----------------------------------------------------------------------------- 
     GLES2RenderBuffer::GLES2RenderBuffer(GLenum format, uint32 width, uint32 height, GLsizei numSamples):
-    GLES2HardwarePixelBuffer(width, height, 1, GLES2PixelUtil::getClosestOGREFormat(format, GL_RGBA), HBU_WRITE_ONLY)
+    GLES2HardwarePixelBuffer(width, height, 1, GLES2PixelUtil::getClosestOGREFormat(format), HBU_WRITE_ONLY)
     {
         mGLInternalFormat = format;
         mNumSamples = numSamples;

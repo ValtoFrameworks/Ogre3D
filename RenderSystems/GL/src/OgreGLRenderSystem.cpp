@@ -70,7 +70,7 @@ extern "C" void glFlushRenderAPPLE();
 namespace Ogre {
 
     // Callback function used when registering GLGpuPrograms
-    GpuProgram* createGLArbGpuProgram(ResourceManager* creator,
+    static GpuProgram* createGLArbGpuProgram(ResourceManager* creator,
                                       const String& name, ResourceHandle handle,
                                       const String& group, bool isManual, ManualResourceLoader* loader,
                                       GpuProgramType gptype, const String& syntaxCode)
@@ -82,7 +82,7 @@ namespace Ogre {
         return ret;
     }
 
-    GpuProgram* createGLGpuNvparseProgram(ResourceManager* creator,
+    static GpuProgram* createGLGpuNvparseProgram(ResourceManager* creator,
                                           const String& name, ResourceHandle handle,
                                           const String& group, bool isManual, ManualResourceLoader* loader,
                                           GpuProgramType gptype, const String& syntaxCode)
@@ -94,7 +94,7 @@ namespace Ogre {
         return ret;
     }
 
-    GpuProgram* createGL_ATI_FS_GpuProgram(ResourceManager* creator,
+    static GpuProgram* createGL_ATI_FS_GpuProgram(ResourceManager* creator,
                                            const String& name, ResourceHandle handle,
                                            const String& group, bool isManual, ManualResourceLoader* loader,
                                            GpuProgramType gptype, const String& syntaxCode)
@@ -1537,7 +1537,6 @@ namespace Ogre {
     //-----------------------------------------------------------------------------
     void GLRenderSystem::_setTexture(size_t stage, bool enabled, const TexturePtr &texPtr)
     {
-        GLTexturePtr tex = static_pointer_cast<GLTexture>(texPtr);
         GLenum lastTextureType = mTextureTypes[stage];
 
         if (!mStateCacheManager->activateGLTextureUnit(stage))
@@ -1545,15 +1544,12 @@ namespace Ogre {
 
         if (enabled)
         {
-            if (tex)
-            {
-                // note used
-                tex->touch();
-                mTextureTypes[stage] = tex->getGLTextureTarget();
-            }
-            else
-                // assume 2D
-                mTextureTypes[stage] = GL_TEXTURE_2D;
+            GLTexturePtr tex = static_pointer_cast<GLTexture>(
+                texPtr ? texPtr : mTextureManager->_getWarningTexture());
+
+            // note used
+            tex->touch();
+            mTextureTypes[stage] = tex->getGLTextureTarget();
 
             if(lastTextureType != mTextureTypes[stage] && lastTextureType != 0)
             {
@@ -1570,10 +1566,7 @@ namespace Ogre {
                     glEnable( mTextureTypes[stage] );
             }
 
-            if(tex)
-                mStateCacheManager->bindGLTexture( mTextureTypes[stage], tex->getGLID() );
-            else
-                mStateCacheManager->bindGLTexture( mTextureTypes[stage], static_cast<GLTextureManager*>(mTextureManager)->getWarningTextureID() );
+            mStateCacheManager->bindGLTexture( mTextureTypes[stage], tex->getGLID() );
         }
         else
         {
@@ -3302,8 +3295,6 @@ namespace Ogre {
             // Enable seamless cube maps
             glEnable(GL_TEXTURE_CUBE_MAP_SEAMLESS);
 		}
-
-        static_cast<GLTextureManager*>(mTextureManager)->createWarningTexture();
     }
 
     //---------------------------------------------------------------------

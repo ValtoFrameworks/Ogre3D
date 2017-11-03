@@ -60,6 +60,15 @@ THE SOFTWARE.
 @end
 
 namespace Ogre {
+    
+    struct NSOpenGLContextGuard
+    {
+        NSOpenGLContextGuard(NSOpenGLContext* ctx) : mPrevContext([NSOpenGLContext currentContext]) { if(ctx != mPrevContext) [ctx makeCurrentContext]; }
+        ~NSOpenGLContextGuard() { [mPrevContext makeCurrentContext]; }
+    private:
+         NSOpenGLContext *mPrevContext;
+    };
+
 
     CocoaWindow::CocoaWindow() : mWindow(nil), mView(nil), mGLContext(nil), mGLPixelFormat(nil), mWindowOriginPt(NSZeroPoint),
         mWindowDelegate(NULL), mActive(false), mClosed(false), mVSync(true), mHasResized(false), mIsExternal(false), mWindowTitle(""),
@@ -573,6 +582,9 @@ namespace Ogre {
             mWindowOriginPt = [mWindow frame].origin;
             [mWindow setContentSize:NSMakeSize(widthPt, heightPt)];
         }
+        //make sure the context is current
+        NSOpenGLContextGuard ctx_guard(mGLContext);
+
 		[mGLContext update];
     }
 
@@ -584,6 +596,10 @@ namespace Ogre {
     
     void CocoaWindow::windowMovedOrResized()
     {
+        mContentScalingFactor =
+            ([mView respondsToSelector:@selector(wantsBestResolutionOpenGLSurface)] && [(id)mView wantsBestResolutionOpenGLSurface]) ?
+            (mView.window.screen ?: [NSScreen mainScreen]).backingScaleFactor : 1.0f;
+
         NSRect winFrame = [mWindow frame];
         NSRect viewFrame = [mView frame];
         NSRect screenFrame = [[NSScreen mainScreen] visibleFrame];
@@ -595,6 +611,9 @@ namespace Ogre {
         mTop = _getPixelFromPoint((int)topPt);
 
         mWindowOriginPt = NSMakePoint(leftPt, topPt);
+
+        //make sure the context is current
+        NSOpenGLContextGuard ctx_guard(mGLContext);
 
         for (ViewportList::iterator it = mViewportList.begin(); it != mViewportList.end(); ++it)
         {

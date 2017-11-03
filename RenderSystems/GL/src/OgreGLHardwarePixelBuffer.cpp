@@ -64,7 +64,7 @@ void GLHardwarePixelBuffer::blitFromMemory(const PixelBox &src, const Box &dstBo
         scaled = mBuffer.getSubVolume(dstBox);
         Image::scale(src, scaled, Image::FILTER_BILINEAR);
     }
-    else if(GLPixelUtil::getGLOriginFormat(src.format) == 0)
+    else if(GLPixelUtil::getGLInternalFormat(src.format) == 0)
     {
         // Extents match, but format is not accepted as valid source format for GL
         // do conversion in temporary buffer
@@ -93,7 +93,7 @@ void GLHardwarePixelBuffer::blitToMemory(const Box &srcBox, const PixelBox &dst)
        dst.getWidth() == getWidth() &&
        dst.getHeight() == getHeight() &&
        dst.getDepth() == getDepth() &&
-       GLPixelUtil::getGLOriginFormat(dst.format) != 0)
+       GLPixelUtil::getGLInternalFormat(dst.format) != 0)
     {
         // The direct case: the user wants the entire texture in a format supported by GL
         // so we don't need an intermediate buffer
@@ -226,7 +226,7 @@ void GLTextureBuffer::upload(const PixelBox &data, const Box &dest)
             OGRE_EXCEPT(Exception::ERR_INVALIDPARAMS, 
             "Compressed images must be consecutive, in the source format",
             "GLTextureBuffer::upload");
-        GLenum format = GLPixelUtil::getClosestGLInternalFormat(mFormat, mHwGamma);
+        GLenum format = GLPixelUtil::getGLInternalFormat(mFormat, mHwGamma);
         // Data must be consecutive and at beginning of buffer as PixelStorei not allowed
         // for compressed formats
         switch(mTarget) {
@@ -560,7 +560,7 @@ void GLTextureBuffer::blitFromTexture(GLTextureBuffer *src, const Box &srcBox, c
     if(!fboMan->checkFormat(mFormat))
     {
         /// If target format not directly supported, create intermediate texture
-        GLenum tempFormat = GLPixelUtil::getClosestGLInternalFormat(fboMan->getSupportedAlternative(mFormat), mHwGamma);
+        GLenum tempFormat = GLPixelUtil::getGLInternalFormat(fboMan->getSupportedAlternative(mFormat), mHwGamma);
         glGenTextures(1, &tempTex);
         mRenderSystem->_getStateCacheManager()->bindGLTexture(GL_TEXTURE_2D, tempTex);
         mRenderSystem->_getStateCacheManager()->setTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAX_LEVEL, 0);
@@ -696,7 +696,7 @@ void GLTextureBuffer::blitFromMemory(const PixelBox &src_orig, const Box &dstBox
     PixelBox src;
     
     /// First, convert the srcbox to a OpenGL compatible pixel format
-    if(GLPixelUtil::getGLOriginFormat(src_orig.format) == 0)
+    if(GLPixelUtil::getGLInternalFormat(src_orig.format) == 0)
     {
         /// Convert to buffer internal format
         buf.reset(new MemoryDataStream(
@@ -717,7 +717,7 @@ void GLTextureBuffer::blitFromMemory(const PixelBox &src_orig, const Box &dstBox
     GLsizei width = GLPixelUtil::optionalPO2(src.getWidth());
     GLsizei height = GLPixelUtil::optionalPO2(src.getHeight());
     GLsizei depth = GLPixelUtil::optionalPO2(src.getDepth());
-    GLenum format = GLPixelUtil::getClosestGLInternalFormat(src.format, mHwGamma);
+    GLenum format = GLPixelUtil::getGLInternalFormat(src.format, mHwGamma);
     
     /// Generate texture name
     glGenTextures(1, &id);

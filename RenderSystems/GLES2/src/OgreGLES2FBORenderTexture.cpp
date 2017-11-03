@@ -58,6 +58,13 @@ namespace Ogre {
         {
             *static_cast<GLES2FrameBufferObject **>(pData) = &mFB;
         }
+        
+        if( name == "GLCONTEXT" )
+        {
+            *static_cast<GLContext**>(pData) = mFB.getContext();
+            return;
+        }
+
     }
 
     void GLES2FBORenderTexture::swapBuffers()
@@ -112,19 +119,15 @@ namespace Ogre {
     static const GLenum stencilFormats[] =
     {
         GL_NONE,                    // No stencil
-#if OGRE_NO_GLES3_SUPPORT == 1
         GL_STENCIL_INDEX1_OES,
         GL_STENCIL_INDEX4_OES,
-#endif
         GL_STENCIL_INDEX8
     };
     static const size_t stencilBits[] =
     {
         0,
-#if OGRE_NO_GLES3_SUPPORT == 1
         1,
         4,
-#endif
         8
     };
     #define STENCILFORMAT_COUNT (sizeof(stencilFormats)/sizeof(GLenum))
@@ -136,9 +139,7 @@ namespace Ogre {
         , GL_DEPTH_COMPONENT24_OES   // Prefer 24 bit depth
         , GL_DEPTH_COMPONENT32_OES
         , GL_DEPTH24_STENCIL8_OES    // Packed depth / stencil
-#if OGRE_NO_GLES3_SUPPORT == 0
         , GL_DEPTH32F_STENCIL8
-#endif
     };
     static const size_t depthBits[] =
     {
@@ -147,9 +148,7 @@ namespace Ogre {
         ,24
         ,32
         ,24
-#if OGRE_NO_GLES3_SUPPORT == 0
         ,32
-#endif
     };
     #define DEPTHFORMAT_COUNT (sizeof(depthFormats)/sizeof(GLenum))
 
@@ -160,7 +159,7 @@ namespace Ogre {
         OGRE_CHECK_GL_ERROR(glGenFramebuffers(1, &mTempFBO));
 
         // Check multisampling if supported
-        if(!OGRE_NO_GLES3_SUPPORT)
+        if(getGLES2RenderSystem()->hasMinGLVersion(3, 0))
         {
             // Check samples supported
             OGRE_CHECK_GL_ERROR(glGetIntegerv(GL_MAX_SAMPLES_APPLE, &mMaxFSAASamples));
@@ -321,6 +320,11 @@ namespace Ogre {
         GLES2RenderSystem* rs = getGLES2RenderSystem();
         GLuint fb = 0, tid = 0;
 
+        bool hasGLES3 = rs->hasMinGLVersion(3, 0);
+
+        const size_t depthCount = hasGLES3 ? DEPTHFORMAT_COUNT : DEPTHFORMAT_COUNT - 1; // 32_8 is not available on GLES2
+        const size_t stencilStep = hasGLES3 ? 3 : 1; // 1 and 4 bit not available on GLES3
+
         for(size_t x = 0; x < PF_COUNT; ++x)
         {
             mProps[x].valid = false;
@@ -333,6 +337,10 @@ namespace Ogre {
             // Note: letting PF_UNKNOWN pass here is for pure depth/ stencil formats
             // however there are reports that this crashes some unspecified android devices
             if((internalFormat == GL_NONE || fmt == GL_NONE || type == GL_NONE) && (x != 0))
+                continue;
+
+            // not color-renderable in GLES
+            if(fmt == GL_BGRA_EXT)
                 continue;
 
             // No test for compressed formats
@@ -353,17 +361,13 @@ namespace Ogre {
                     << " depth/stencil support: ";
 
                 // For each depth/stencil formats
-                for (size_t depth = 0; depth < DEPTHFORMAT_COUNT; ++depth)
+                for (size_t depth = 0; depth < depthCount; ++depth)
                 {
-#if OGRE_NO_GLES3_SUPPORT == 1
-                    if (depthFormats[depth] != GL_DEPTH24_STENCIL8_OES)
-#else
                     if (depthFormats[depth] != GL_DEPTH24_STENCIL8 && depthFormats[depth] != GL_DEPTH32F_STENCIL8)
-#endif
                     {
                         // General depth/stencil combination
 
-                        for (size_t stencil = 0; stencil < STENCILFORMAT_COUNT; ++stencil)
+                        for (size_t stencil = 0; stencil < STENCILFORMAT_COUNT; stencil += stencilStep)
                         {
 //                            StringStream l;
 //                            l << "Trying " << PixelUtil::getFormatName((PixelFormat)x) 
@@ -391,7 +395,7 @@ namespace Ogre {
                             }
                         }
                     }
-                    else if(rs->hasMinGLVersion(3, 0) || rs->checkExtension("GL_OES_packed_depth_stencil") )
+                    else if(hasGLES3 || rs->checkExtension("GL_OES_packed_depth_stencil") )
                     {
                         // Packed depth/stencil format
                         if (_tryPackedFormat(depthFormats[depth]))
@@ -455,9 +459,6 @@ namespace Ogre {
         int bestscore = -1;
         bool requestDepthOnly = internalFormat == PF_DEPTH;
 
-        GLES2RenderSystem* rs = getGLES2RenderSystem();
-        bool hasPackedStencil = rs->hasMinGLVersion(3, 0) || rs->checkExtension("GL_OES_packed_depth_stencil");
-
         for(size_t mode = 0; mode < props.modes.size(); mode++)
         {
             int desirability = 0;
@@ -473,13 +474,10 @@ namespace Ogre {
                 desirability += 2000;
             if(depthBits[props.modes[mode].depth]==24) // Prefer 24 bit for now
                 desirability += 500;
-            if (hasPackedStencil)
-                if(depthFormats[props.modes[mode].depth] == GL_DEPTH24_STENCIL8_OES) // Prefer 24/8 packed
-                    desirability += 5000;
-#if OGRE_NO_GLES3_SUPPORT == 0
+            if(depthFormats[props.modes[mode].depth] == GL_DEPTH24_STENCIL8_OES) // Prefer 24/8 packed
+                desirability += 5000;
             if(depthFormats[props.modes[mode].depth] == GL_DEPTH32F_STENCIL8) // Prefer 32F/8 packed
                 desirability += 5000;
-#endif
             desirability += stencilBits[props.modes[mode].stencil] + depthBits[props.modes[mode].depth];
             
             if(desirability > bestscore)
@@ -515,11 +513,13 @@ namespace Ogre {
             fbo->bind();
             // Old style context (window/pbuffer) or copying render texture
 #if OGRE_PLATFORM == OGRE_PLATFORM_APPLE_IOS
-        // If we are using FSAA the correct buffer will be bound at another time.
-        else if(target->getFSAA() == 0)
+        else
         {
-            // The screen buffer is 1 on iOS
-            OGRE_CHECK_GL_ERROR(glBindFramebuffer(GL_FRAMEBUFFER, 1));
+            // Non-multisampled screen buffer is FBO #1 on iOS, multisampled is yet another,
+            // so give the target ability to influence decision which FBO to use
+            GLuint glfbo = 0;
+            target->getCustomAttribute("GLFBO", &glfbo);
+            OGRE_CHECK_GL_ERROR(glBindFramebuffer(GL_FRAMEBUFFER, glfbo));
         }
 #else
         else

@@ -145,10 +145,17 @@ namespace Ogre {
                     if (mainPos != String::npos)
                     {
                         size_t versionPos = mSource.find("#version");
-                        int shaderVersion = StringConverter::parseInt(mSource.substr(versionPos+9, 3));
+                        int shaderVersion = 100;
+                        size_t belowVersionPos = 0;
+
+                        if(versionPos != String::npos)
+                        {
+                        	shaderVersion = StringConverter::parseInt(mSource.substr(versionPos+9, 3));
+                            belowVersionPos = mSource.find("\n", versionPos) + 1;
+                        }
+
                         if (shaderVersion >= 150)
                         {
-                            size_t belowVersionPos = mSource.find("\n", versionPos) + 1;
                             switch (mType)
                             {
                             case GPT_VERTEX_PROGRAM:
@@ -172,6 +179,10 @@ namespace Ogre {
                                 // not have standard blocks.
                                 break;
                             }
+                        }
+                        else if(mType == GPT_VERTEX_PROGRAM) // shaderVersion < 150, means we only have vertex shaders
+                        {
+                            mSource.insert(belowVersionPos, "varying vec4 gl_Position;\nvarying float gl_PointSize;\nvarying float gl_ClipDistance[];\n\n");
                         }
                     }
                 }
@@ -354,36 +365,6 @@ namespace Ogre {
             {
                 LogManager::getSingleton().logMessage("The removing of the lines didn't help.", LML_CRITICAL);
             }
-        }
-    }
-
-
-    RenderOperation::OperationType parseOperationType(const String& val)
-    {
-        if (val == "point_list")
-        {
-            return RenderOperation::OT_POINT_LIST;
-        }
-        else if (val == "line_list")
-        {
-            return RenderOperation::OT_LINE_LIST;
-        }
-        else if (val == "line_strip")
-        {
-            return RenderOperation::OT_LINE_STRIP;
-        }
-        else if (val == "triangle_strip")
-        {
-            return RenderOperation::OT_TRIANGLE_STRIP;
-        }
-        else if (val == "triangle_fan")
-        {
-            return RenderOperation::OT_TRIANGLE_FAN;
-        }
-        else
-        {
-            // Triangle list is the default fallback. Keep it this way?
-            return RenderOperation::OT_TRIANGLE_LIST;
         }
     }
 
