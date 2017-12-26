@@ -773,11 +773,10 @@ namespace Ogre
 
             if( !videoMode )
             {
-                LogManager::getSingleton().logMessage(
-                            "WARNING D3D11: Couldn't find requested video mode. Forcing 32bpp. "
+                LogManager::getSingleton().logWarning(
+                            "D3D11: Couldn't find requested video mode. Forcing 32bpp. "
                             "If you have two GPUs and you're rendering to the GPU that is not "
-                            "plugged to the monitor you can then ignore this message.",
-                            LML_CRITICAL );
+                            "plugged to the monitor you can then ignore this message.");
             }
 
             NameValuePairList miscParams;
@@ -786,7 +785,7 @@ namespace Ogre
             miscParams["FSAAHint"] = fsaaHint;
             miscParams["useNVPerfHUD"] = StringConverter::toString(mUseNVPerfHUD);
             miscParams["gamma"] = StringConverter::toString(hwGamma);
-            //miscParams["useFlipSequentialMode"] = StringConverter::toString(true);
+            //miscParams["useFlipMode"] = StringConverter::toString(true);
 
             opt = mOptions.find("VSync");
             if (opt == mOptions.end())
@@ -992,8 +991,9 @@ namespace Ogre
         || SUCCEEDED(mDevice->CheckFormatSupport(DXGI_FORMAT_R32_UINT, &formatSupport)) && 0 != (formatSupport & D3D11_FORMAT_SUPPORT_IA_INDEX_BUFFER))
             rsc->setCapability(RSC_32BIT_INDEX);
 
-        // Set number of texture units, always 16
-        rsc->setNumTextureUnits(16);
+        // Set number of texture units, cap at OGRE_MAX_TEXTURE_LAYERS
+        rsc->setNumTextureUnits(OGRE_MAX_TEXTURE_LAYERS);
+        rsc->setNumVertexAttributes(D3D11_STANDARD_VERTEX_ELEMENT_COUNT);
         rsc->setCapability(RSC_ANISOTROPY);
         rsc->setCapability(RSC_AUTOMIPMAP);
         rsc->setCapability(RSC_AUTOMIPMAP_COMPRESSED);
@@ -1776,16 +1776,6 @@ namespace Ogre
         {
             dest[2][2] = -dest[2][2];
         }
-    }
-    //---------------------------------------------------------------------
-    void D3D11RenderSystem::_setPointParameters(Real size, 
-        bool attenuationEnabled, Real constant, Real linear, Real quadratic,
-        Real minSize, Real maxSize)
-    {
-    }
-    //---------------------------------------------------------------------
-    void D3D11RenderSystem::_setPointSpritesEnabled(bool enabled)
-    {
     }
     //---------------------------------------------------------------------
     void D3D11RenderSystem::_setTexture( size_t stage, bool enabled, const TexturePtr& tex )

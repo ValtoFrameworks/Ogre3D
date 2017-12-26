@@ -152,6 +152,7 @@ JNIEnv* OgreJNIGetEnv() {
 %ignore Ogre::SharedPtr::unspecified_bool; // c++11 compatibility
 %include "OgreSharedPtr.h"
 %ignore Ogre::Any::getType; // deprecated
+%ignore Ogre::Any::destroy; // deprecated
 %include "OgreAny.h"
 %include "OgreIteratorWrapper.h"
 %include "OgreMath.h"
@@ -271,7 +272,15 @@ ADD_REPR(ColourValue)
 %include "OgreControllerManager.h"
 %template(CompositorPtr) Ogre::SharedPtr<Ogre::Compositor>;
 %include "OgreCompositor.h"
+%ignore Ogre::CompositionTechnique::getNumTextureDefinitions;
+%ignore Ogre::CompositionTechnique::getTextureDefinitionIterator;
+%ignore Ogre::CompositionTechnique::getTargetPass;
+%ignore Ogre::CompositionTechnique::getNumTargetPasses;
+%ignore Ogre::CompositionTechnique::getTargetPassIterator;
 %include "OgreCompositionTechnique.h"
+%ignore Ogre::CompositionTargetPass::getPass;
+%ignore Ogre::CompositionTargetPass::getNumPasses;
+%ignore Ogre::CompositionTargetPass::getPassIterator;
 %include "OgreCompositionTargetPass.h"
 %include "OgreResourceBackgroundQueue.h"
 %template(HardwareVertexBufferPtr) Ogre::SharedPtr<Ogre::HardwareVertexBuffer>;
@@ -279,7 +288,7 @@ ADD_REPR(ColourValue)
 %template(HardwareIndexBufferPtr) Ogre::SharedPtr<Ogre::HardwareIndexBuffer>;
 %include "OgreHardwareIndexBuffer.h"
 %template(HardwarePixelBufferPtr) Ogre::SharedPtr<Ogre::HardwarePixelBuffer>;
-#ifdef __ANDROID__
+#ifdef SWIGJAVA
 %ignore Ogre::HardwarePixelBuffer::lock;  // duplicate definition
 #endif
 %include "OgreHardwarePixelBuffer.h"
@@ -305,6 +314,7 @@ ADD_REPR(ColourValue)
 %ignore Ogre::UnifiedHighLevelGpuProgram::setPrioriry;
 %include "OgreUnifiedHighLevelGpuProgram.h"
 // animations
+%ignore Ogre::VertexPoseKeyFrame::getPoseReferenceIterator;
 %include "OgreKeyFrame.h"
 %include "OgrePose.h"
 %include "OgreAnimationTrack.h"
@@ -478,6 +488,8 @@ ADD_REPR(ColourValue)
 %ignore Ogre::Root::getSceneManagerIterator;
 %ignore Ogre::Root::createSceneManager(SceneTypeMask);
 %ignore Ogre::Root::createSceneManager(SceneTypeMask, const String&);
+%ignore Ogre::Root::setFreqUpdatedBuffersUploadOption;
+%ignore Ogre::Root::getFreqUpdatedBuffersUploadOption;
 %include "OgreRoot.h"
 // dont wrap: platform specific
 // %include "OgreWindowEventUtilities.h"

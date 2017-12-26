@@ -79,7 +79,6 @@ namespace Ogre {
         : GLSLProgramCommon(vertexProgram)
         , mGeometryProgram(geometryProgram)
         , mFragmentProgram(fragmentProgram)
-        , mUniformRefsBuilt(false)
     {
         // Initialise uniform cache
         mUniformCache = new GLUniformCache();
@@ -182,6 +181,11 @@ namespace Ogre {
                 mValidAttributes.insert(a.attrib);
             }
         }
+    }
+    //-----------------------------------------------------------------------
+    bool GLSLLinkProgram::isAttributeValid(VertexElementSemantic semantic, uint index)
+    {
+        return mValidAttributes.find(getFixedAttributeIndex(semantic, index)) != mValidAttributes.end();
     }
     //-----------------------------------------------------------------------
     void GLSLLinkProgram::buildGLUniformReferences(void)

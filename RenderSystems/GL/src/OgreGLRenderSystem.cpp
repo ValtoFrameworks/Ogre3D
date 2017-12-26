@@ -294,7 +294,7 @@ namespace Ogre {
                 if (arbUnits > units)
                     units = arbUnits;
             }
-            rsc->setNumTextureUnits(std::min<ushort>(16, units));
+            rsc->setNumTextureUnits(std::min(OGRE_MAX_TEXTURE_LAYERS, units));
         }
         else
         {
@@ -381,6 +381,10 @@ namespace Ogre {
             GLint floatConstantCount;
             glGetProgramivARB(GL_VERTEX_PROGRAM_ARB, GL_MAX_PROGRAM_LOCAL_PARAMETERS_ARB, &floatConstantCount);
             rsc->setVertexProgramConstantFloatCount(floatConstantCount);
+
+            GLint attrs;
+            glGetIntegerv( GL_MAX_VERTEX_ATTRIBS_ARB, &attrs);
+            rsc->setNumVertexAttributes(attrs);
 
             rsc->addShaderProfile("arbvp1");
             if (GLEW_NV_vertex_program2_option)
@@ -1490,13 +1494,9 @@ namespace Ogre {
             else
                 maxSize = maxSize * mActiveViewport->getActualHeight();
 
-            // XXX: why do I need this for results to be consistent with D3D?
-            // Equations are supposedly the same once you factor in vp height
-            Real correction = 0.005;
-            // scaling required
             val[0] = constant;
-            val[1] = linear * correction;
-            val[2] = quadratic * correction;
+            val[1] = linear;
+            val[2] = quadratic;
 
             if (mCurrentCapabilities->hasCapability(RSC_VERTEX_PROGRAM))
                 mStateCacheManager->setEnabled(GL_VERTEX_PROGRAM_POINT_SIZE, true);
@@ -2728,18 +2728,6 @@ namespace Ogre {
         RenderSystem::_render(op);
 
         mMaxBuiltInTextureAttribIndex = 0;
-        if ( ! mEnableFixedPipeline && !mRealCapabilities->hasCapability(RSC_FIXED_FUNCTION)
-             && 
-             (
-                 ( mCurrentVertexProgram == NULL ) ||
-                 ( mCurrentFragmentProgram == NULL && op.operationType != RenderOperation::OT_POINT_LIST) 		  
-             )
-        ) 
-        {
-            OGRE_EXCEPT(Exception::ERR_RENDERINGAPI_ERROR, 
-                        "Attempted to render using the fixed pipeline when it is disabled.",
-                        "GLRenderSystem::_render");
-        }
 
         HardwareVertexBufferSharedPtr globalInstanceVertexBuffer = getGlobalInstanceVertexBuffer();
         VertexDeclaration* globalVertexDeclaration = getGlobalInstanceVertexBufferVertexDeclaration();

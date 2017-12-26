@@ -225,32 +225,27 @@ elseif (MSVC AND NOT NMAKE)
   configure_file(${OGRE_TEMPLATES_DIR}/tests.cfg.in ${OGRE_BINARY_DIR}/bin/relwithdebinfo/tests.cfg)
   configure_file(${OGRE_TEMPLATES_DIR}/tests.cfg.in ${OGRE_BINARY_DIR}/bin/minsizerel/tests.cfg)
 else() # other OS only need one cfg file
-  string(TOLOWER "${CMAKE_BUILD_TYPE}" OGRE_BUILD_TYPE)
-  if (OGRE_BUILD_TYPE STREQUAL "debug" AND NOT APPLE)
-    set(OGRE_CFG_SUFFIX "_d")
-  endif ()
   # create resources.cfg
-  configure_file(${OGRE_TEMPLATES_DIR}/resources.cfg.in ${OGRE_BINARY_DIR}/bin/resources${OGRE_CFG_SUFFIX}.cfg)
+  configure_file(${OGRE_TEMPLATES_DIR}/resources.cfg.in ${OGRE_BINARY_DIR}/bin/resources.cfg)
   # create plugins.cfg
-  configure_file(${OGRE_TEMPLATES_DIR}/plugins${OGRE_CFG_SUFFIX}.cfg.in ${OGRE_BINARY_DIR}/bin/plugins${OGRE_CFG_SUFFIX}.cfg)
+  configure_file(${OGRE_TEMPLATES_DIR}/plugins.cfg.in ${OGRE_BINARY_DIR}/bin/plugins.cfg)
   # create quakemap.cfg
-  configure_file(${OGRE_TEMPLATES_DIR}/quakemap.cfg.in ${OGRE_BINARY_DIR}/bin/quakemap${OGRE_CFG_SUFFIX}.cfg)
+  configure_file(${OGRE_TEMPLATES_DIR}/quakemap.cfg.in ${OGRE_BINARY_DIR}/bin/quakemap.cfg)
   # create samples.cfg
-  configure_file(${OGRE_TEMPLATES_DIR}/samples${OGRE_CFG_SUFFIX}.cfg.in ${OGRE_BINARY_DIR}/bin/samples${OGRE_CFG_SUFFIX}.cfg)
+  configure_file(${OGRE_TEMPLATES_DIR}/samples.cfg.in ${OGRE_BINARY_DIR}/bin/samples.cfg)
   # create tests.cfg
-  configure_file(${OGRE_TEMPLATES_DIR}/tests${OGRE_CFG_SUFFIX}.cfg.in ${OGRE_BINARY_DIR}/bin/tests${OGRE_CFG_SUFFIX}.cfg)
+  configure_file(${OGRE_TEMPLATES_DIR}/tests.cfg.in ${OGRE_BINARY_DIR}/bin/tests.cfg)
 endif ()
 
 
 # Create the CMake package files
 include(CMakePackageConfigHelpers)
 
-if (WIN32)
-   set(OGRE_CMAKE_DIR CMake)
-elseif (UNIX)
-   set(OGRE_CMAKE_DIR lib/OGRE/cmake)
-elseif (APPLE)
-endif ()
+if(WIN32 OR APPLE)
+  set(OGRE_CMAKE_DIR "CMake")
+else()
+  set(OGRE_CMAKE_DIR "${OGRE_LIB_DIRECTORY}/OGRE/cmake")
+endif()
 configure_package_config_file(${OGRE_TEMPLATES_DIR}/OGREConfig.cmake.in ${OGRE_BINARY_DIR}/cmake/OGREConfig.cmake
     INSTALL_DESTINATION ${OGRE_CMAKE_DIR}
     PATH_VARS CMAKE_INSTALL_PREFIX)

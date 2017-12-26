@@ -52,9 +52,8 @@ Copyright (c) 2000-2014 Torus Knot Software Ltd
 #include "OgreGLSLShaderFactory.h"
 #include "OgreGL3PlusFBORenderTexture.h"
 #include "OgreGL3PlusHardwareBufferManager.h"
-#include "OgreGLSLSeparableProgramManager.h"
+#include "OgreGLSLProgramManager.h"
 #include "OgreGLSLSeparableProgram.h"
-#include "OgreGLSLMonolithicProgramManager.h"
 #include "OgreGLVertexArrayObject.h"
 #include "OgreRoot.h"
 #include "OgreConfig.h"
@@ -269,7 +268,10 @@ namespace Ogre {
         // Multitexturing support and set number of texture units
         GLint units;
         OGRE_CHECK_GL_ERROR(glGetIntegerv(GL_MAX_TEXTURE_IMAGE_UNITS, &units));
-        rsc->setNumTextureUnits(std::min<ushort>(16, units));
+        rsc->setNumTextureUnits(std::min(OGRE_MAX_TEXTURE_LAYERS, units));
+
+        glGetIntegerv( GL_MAX_VERTEX_ATTRIBS , &units);
+        rsc->setNumVertexAttributes(units);
 
         // Check for Anisotropy support
         if (checkExtension("GL_EXT_texture_filter_anisotropic"))
@@ -842,45 +844,6 @@ namespace Ogre {
         }
 
         delete pWin;
-    }
-
-    void GL3PlusRenderSystem::_setPointParameters(Real size,
-                                                  bool attenuationEnabled, Real constant, Real linear, Real quadratic,
-                                                  Real minSize, Real maxSize)
-    {
-
-        if (attenuationEnabled)
-        {
-            // Point size is still calculated in pixels even when attenuation is
-            // enabled, which is pretty awkward, since you typically want a viewport
-            // independent size if you're looking for attenuation.
-            // So, scale the point size up by viewport size (this is equivalent to
-            // what D3D does as standard).
-            size = size * mActiveViewport->getActualHeight();
-
-            // XXX: why do I need this for results to be consistent with D3D?
-            // Equations are supposedly the same once you factor in vp height.
-            // Real correction = 0.005;
-            // Scaling required.
-            // float val[4] = {1, 0, 0, 1};
-            // val[1] = linear * correction;
-            // val[2] = quadratic * correction;
-            // val[3] = 1;
-
-            mStateCacheManager->setEnabled(GL_PROGRAM_POINT_SIZE,true);
-        }
-        else
-        {
-            mStateCacheManager->setEnabled(GL_PROGRAM_POINT_SIZE,false);
-        }
-
-         mStateCacheManager->setPointSize(size);
-        //OGRE_CHECK_GL_ERROR(glPointParameterf(GL_POINT_FADE_THRESHOLD_SIZE, 64.0));
-    }
-
-    void GL3PlusRenderSystem::_setPointSpritesEnabled(bool enabled)
-    {
-        // Point sprites are always on in OpenGL 3.2 and up.
     }
 
     void GL3PlusRenderSystem::_setTexture(size_t stage, bool enabled, const TexturePtr &texPtr)
@@ -1511,20 +1474,11 @@ namespace Ogre {
             numberOfInstances *= getGlobalNumberOfInstances();
         }
 
-        GLSLProgram* program;
-        if (mCurrentCapabilities->hasCapability(RSC_SEPARATE_SHADER_OBJECTS))
-        {
-            program = GLSLSeparableProgramManager::getSingleton().getCurrentSeparableProgram();
-        }
-        else
-        {
-            program = GLSLMonolithicProgramManager::getSingleton().getActiveMonolithicProgram();
-        }
+        GLSLProgram* program = GLSLProgramManager::getSingleton().getActiveProgram();
 
         if (!program)
         {
-            LogManager::getSingleton().logMessage("ERROR: Failed to create shader program.",
-                                                  LML_CRITICAL);
+            LogManager::getSingleton().logError("Failed to create shader program.");
         }
 
         GLVertexArrayObject* vao =
@@ -2019,6 +1973,8 @@ namespace Ogre {
 #endif
         }
 
+        glEnable(GL_PROGRAM_POINT_SIZE);
+
         if(getCapabilities()->getVendor() == GPU_NVIDIA)
         {
             // bug in NVIDIA driver, see e.g.
@@ -2490,11 +2446,6 @@ namespace Ogre {
     {
         VertexElementSemantic sem = elem.getSemantic();
         unsigned short elemIndex = elem.getIndex();
-
-        if (!GLSLProgramCommon::isAttributeValid(sem, elemIndex))
-        {
-            return;
-        }
 
         GLuint attrib = (GLuint)GLSLProgramCommon::getFixedAttributeIndex(sem, elemIndex);
 

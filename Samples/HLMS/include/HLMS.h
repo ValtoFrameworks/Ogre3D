@@ -157,8 +157,10 @@ protected:
 			}
 		}
 
+		mCameraMan->setStyle(CS_ORBIT);
+		mTrayMgr->showCursor();
+		mCameraMan->setYawPitchDist(Degree(0), Degree(25), 20);
 		mCameraMan->setTopSpeed(5);
-        mCameraNode->setPosition(0, 5, 20);
 		mCamera->setNearClipDistance(1);
     }
 

@@ -114,7 +114,7 @@ namespace Ogre
         bool vsync = false;
         bool hidden = false;
         unsigned int vsyncInterval = 1;
-        int gamma = 0;
+        bool gamma = false;
         ::GLXContext glxContext = 0;
         ::GLXDrawable glxDrawable = 0;
         Window externalWindow = 0;
@@ -297,6 +297,7 @@ namespace Ogre
 #if OGRE_NO_QUAD_BUFFER_STEREO == 0
 				GLX_STEREO, mStereoEnabled ? True : False,
 #endif
+                GLX_FRAMEBUFFER_SRGB_CAPABLE_EXT, gamma,
                 None
             };
 
@@ -319,11 +320,13 @@ namespace Ogre
             mGLSupport->getFBConfigAttrib(fbConfig, GLX_SAMPLES, &fsaa);            
             mFSAA = fsaa;
 
-            if (gamma != 0)
+            if (gamma)
             {
-                mGLSupport->getFBConfigAttrib(fbConfig, GL_FRAMEBUFFER_SRGB_CAPABLE_EXT, &gamma);
+                int val = 0;
+                gamma = mGLSupport->getFBConfigAttrib(fbConfig, GLX_FRAMEBUFFER_SRGB_CAPABLE_EXT, &val) == 0;
+                gamma = gamma && val; // can an supported extension return 0? lets rather be safe..
             }
-            mHwGamma = (gamma != 0);
+            mHwGamma = gamma;
 
             LogManager::getSingleton().logMessage("Actual frame buffer FSAA: " + StringConverter::toString(mFSAA) + ", gamma: " + StringConverter::toString(mHwGamma));
         }

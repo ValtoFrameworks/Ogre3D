@@ -174,7 +174,8 @@ namespace Ogre
     {
         InstanceBatch *instanceBatch;
 
-        if( mInstanceBatches.empty() )
+        if( mInstanceBatches.empty() ||
+            (mInstanceBatches[materialName].size () == 0))
             instanceBatch = buildNewBatch( materialName, true );
         else
             instanceBatch = getFreeBatch( materialName );
@@ -527,7 +528,9 @@ namespace Ogre
             TIndexType index = data[i];
             if (indicesMap.find(index) == indicesMap.end()) 
             {
-                indicesMap[index] = (uint32)(indicesMap.size());
+                //We need to guarantee that the size is read before an entry is added, hence these are on separate lines.
+                uint32 size = (uint32)(indicesMap.size());
+                indicesMap[index] = size;
             }
         }
 

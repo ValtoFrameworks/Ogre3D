@@ -77,17 +77,15 @@ public:
                                                                          */
     bool isSkeletalAnimationIncluded(void) const { return mSkeletalAnimation; }
 
-    /// has the attribute been found in the linked code?
-    static bool isAttributeValid(VertexElementSemantic semantic, uint index) {
-        return getFixedAttributeIndex(semantic, index) != NOT_FOUND_CUSTOM_ATTRIBUTES_INDEX;
-    }
-
     /// Get the GL Handle for the program object
     uint getGLProgramHandle(void) const { return mGLProgramHandle; }
 
     /** Makes a program object active by making sure it is linked and then putting it in use.
      */
     virtual void activate(void) = 0;
+
+    /// query if the program is using the given shader
+    virtual bool isUsingShader(GLSLShaderCommon* shader) const = 0;
 
     /** Updates program object uniforms using data from GpuProgramParameters.
         Normally called by GLSLShader::bindParameters() just before rendering occurs.
@@ -106,6 +104,13 @@ public:
 
     /** Get the fixed attribute bindings normally used by GL for a semantic. */
     static int32 getFixedAttributeIndex(VertexElementSemantic semantic, uint index);
+
+    /**
+     * use alternate vertex attribute layout using only 8 vertex attributes
+     *
+     * For "Vivante GC1000" and "VideoCore IV" (notably in Raspberry Pi) on GLES2
+     */
+    static void useTightAttributeLayout();
 protected:
     /// Container of uniform references that are active in the program object
     GLUniformReferenceList mGLUniformReferences;
@@ -136,7 +141,7 @@ protected:
     /// Compiles and links the vertex and fragment programs
     virtual void compileAndLink(void) = 0;
 
-    static VertexElementSemantic getAttributeSemanticEnum(String type);
+    static VertexElementSemantic getAttributeSemanticEnum(const String& type);
     static const char * getAttributeSemanticString(VertexElementSemantic semantic);
 
     /// Name / attribute list

@@ -46,8 +46,7 @@ THE SOFTWARE.
 #include "OgreGLSLESCgProgramFactory.h"
 #endif
 #include "OgreGLSLESLinkProgram.h"
-#include "OgreGLSLESLinkProgramManager.h"
-#include "OgreGLSLESProgramPipelineManager.h"
+#include "OgreGLSLESProgramManager.h"
 #include "OgreGLSLESProgramPipeline.h"
 #include "OgreGLES2StateCacheManager.h"
 #include "OgreRenderWindow.h"
@@ -136,7 +135,7 @@ namespace Ogre {
         
         mGLSupport = new GLES2Support(getGLSupport(GLNativeSupport::CONTEXT_ES));
         
-#if OGRE_PLATFORM != OGRE_PLATFORM_APPLE_IOS && OGRE_PLATFORM != OGRE_PLATFORM_ANDROID
+#if OGRE_PLATFORM != OGRE_PLATFORM_APPLE_IOS && OGRE_PLATFORM != OGRE_PLATFORM_ANDROID && OGRE_PLATFORM != OGRE_PLATFORM_WIN32
         glsupport = mGLSupport;
 #endif
 
@@ -253,7 +252,10 @@ namespace Ogre {
         // Multitexturing support and set number of texture units
         GLint units;
         OGRE_CHECK_GL_ERROR(glGetIntegerv(GL_MAX_TEXTURE_IMAGE_UNITS, &units));
-        rsc->setNumTextureUnits(std::min<ushort>(16, units));
+        rsc->setNumTextureUnits(std::min(OGRE_MAX_TEXTURE_LAYERS, units));
+
+        glGetIntegerv( GL_MAX_VERTEX_ATTRIBS , &units);
+        rsc->setNumVertexAttributes(units);
 
         // Check for hardware stencil support and set bit depth
         GLint stencil;
@@ -503,9 +505,8 @@ namespace Ogre {
             rsc->setCapability(RSC_DEBUG);
         }
 
-        if((!OGRE_NO_GLES3_SUPPORT && OGRE_PLATFORM != OGRE_PLATFORM_EMSCRIPTEN)
-                        || checkExtension("GL_EXT_map_buffer_range")
-                        || checkExtension("GL_OES_mapbuffer"))
+        if ((hasMinGLVersion(3, 0) && OGRE_PLATFORM != OGRE_PLATFORM_EMSCRIPTEN) ||
+            checkExtension("GL_EXT_map_buffer_range"))
         {
             rsc->setCapability(RSC_MAPBUFFER);
         }
@@ -526,6 +527,9 @@ namespace Ogre {
                         "Trying to initialize GLES2RenderSystem from RenderSystemCapabilities that do not support OpenGL ES",
                         "GLES2RenderSystem::initialiseFromRenderSystemCapabilities");
         }
+
+        if(caps->getNumVertexAttributes() < 16)
+            GLSLProgramCommon::useTightAttributeLayout();
 
         mGpuProgramManager = OGRE_NEW GLES2GpuProgramManager();
 
@@ -1758,7 +1762,8 @@ namespace Ogre {
 
     void GLES2RenderSystem::_unregisterContext(GLContext *context)
     {
-        static_cast<GLES2HardwareBufferManager*>(HardwareBufferManager::getSingletonPtr())->notifyContextDestroyed(context);
+        if(HardwareBufferManager::getSingletonPtr())
+            static_cast<GLES2HardwareBufferManager*>(HardwareBufferManager::getSingletonPtr())->notifyContextDestroyed(context);
         
         for(RenderTargetMap::iterator it = mRenderTargets.begin(); it!=mRenderTargets.end(); ++it)
         {
@@ -1843,7 +1848,7 @@ namespace Ogre {
         if (mCurrentContext)
             mCurrentContext->setCurrent();
 
-#if OGRE_PLATFORM == OGRE_PLATFORM_APPLE_IOS || OGRE_PLATFORM == OGRE_PLATFORM_ANDROID
+#if OGRE_PLATFORM == OGRE_PLATFORM_APPLE_IOS || OGRE_PLATFORM == OGRE_PLATFORM_ANDROID || OGRE_PLATFORM == OGRE_PLATFORM_WIN32
         // ios: EAGL2Support redirects to glesw for get_proc. Overwriting it there would create an infinite loop
         // android: eglGetProcAddress fails in some cases (e.g. Virtual Device), whereas dlsym always works.
         if (glGetError == NULL && gleswInit())
@@ -2208,11 +2213,6 @@ namespace Ogre {
     {
         VertexElementSemantic sem = elem.getSemantic();
         unsigned short elemIndex = elem.getIndex();
-
-        if (!GLSLProgramCommon::isAttributeValid(sem, elemIndex))
-        {
-            return;
-        }
 
         const GLES2HardwareVertexBuffer* hwGlBuffer = static_cast<const GLES2HardwareVertexBuffer*>(vertexBuffer.get());
 

@@ -206,11 +206,6 @@ namespace Ogre {
         op = mRenderOp;
     }
     //---------------------------------------------------------------------
-    void PanelOverlayElement::setMaterialName(const String& matName)
-    {
-        OverlayContainer::setMaterialName(matName);
-    }
-    //---------------------------------------------------------------------
     void PanelOverlayElement::_updateRenderQueue(RenderQueue* queue)
     {
         if (mVisible)
@@ -257,7 +252,7 @@ namespace Ogre {
         HardwareVertexBufferSharedPtr vbuf =
             mRenderOp.vertexData->vertexBufferBinding->getBuffer(POSITION_BINDING);
         float* pPos = static_cast<float*>(
-            vbuf->lock(HardwareBuffer::HBL_DISCARD, Root::getSingleton().getFreqUpdatedBuffersUploadOption()) );
+            vbuf->lock(HardwareBuffer::HBL_DISCARD) );
 
         // Use the furthest away depth value, since materials should have depth-check off
         // This initialised the depth buffer for any 3D objects in front
