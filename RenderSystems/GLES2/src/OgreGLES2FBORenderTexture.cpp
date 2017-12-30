@@ -170,7 +170,7 @@ namespace Ogre {
     {
         if(!mRenderBufferMap.empty())
         {
-            LogManager::getSingleton().logMessage("GL ES 2: Warning! GLES2FBOManager destructor called, but not all renderbuffers were released.");
+            LogManager::getSingleton().logWarning("GLES2FBOManager destructor called, but not all renderbuffers were released.");
         }
         
         OGRE_CHECK_GL_ERROR(glDeleteFramebuffers(1, &mTempFBO));
@@ -310,6 +310,8 @@ namespace Ogre {
     void GLES2FBOManager::detectFBOFormats()
     {
 #if OGRE_PLATFORM == OGRE_PLATFORM_EMSCRIPTEN
+        memset(mProps, 0, sizeof(mProps));
+
         // TODO: Fix that probing all formats slows down startup not just on the web also on Android / iOS
         mProps[PF_A8B8G8R8].valid = true;
         FormatProperties::Mode mode = {1, 0};

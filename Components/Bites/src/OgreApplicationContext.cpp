@@ -33,13 +33,12 @@ namespace OgreBites {
 
 static const char* SHADER_CACHE_FILENAME = "cache.bin";
 
-ApplicationContext::ApplicationContext(const Ogre::String& appName, bool grabInput)
+ApplicationContext::ApplicationContext(const Ogre::String& appName, bool)
 #if (OGRE_THREAD_PROVIDER == 3) && (OGRE_NO_TBB_SCHEDULER == 1)
     : mTaskScheduler(tbb::task_scheduler_init::deferred)
     #endif
 {
     mAppName = appName;
-    mGrabInput = grabInput;
     mFSLayer = new Ogre::FileSystemLayer(mAppName);
     mRoot = NULL;
     mOverlaySystem = NULL;
@@ -196,7 +195,6 @@ void ApplicationContext::setup()
     mRoot->initialise(false);
     createWindow(mAppName);
 
-    setupInput(mGrabInput);
     locateResources();
     initialiseRTShaderSystem();
     loadResources();
@@ -355,6 +353,7 @@ NativeWindowPair ApplicationContext::createWindow(const Ogre::String& name, Ogre
     {
         miscParams["FSAA"] = ropts["FSAA"].currentValue;
         miscParams["vsync"] = ropts["VSync"].currentValue;
+        miscParams["gamma"] = ropts["sRGB Gamma Conversion"].currentValue;
     }
 
     if(!mWindows.empty()) {
@@ -529,21 +528,12 @@ void ApplicationContext::_fireInputEvent(const Event& event, uint32_t windowID) 
     }
 }
 
-void ApplicationContext::setupInput(bool _grab)
+void ApplicationContext::setWindowGrab(NativeWindowType* win, bool _grab)
 {
 #if OGRE_BITES_HAVE_SDL
-    if (!mWindows[0].native)
-    {
-        OGRE_EXCEPT(Ogre::Exception::ERR_INVALID_STATE,
-                    "you must create a SDL window first",
-                    "SampleContext::setupInput");
-    }
-
-    SDL_ShowCursor(SDL_FALSE);
-
     SDL_bool grab = SDL_bool(_grab);
 
-    SDL_SetWindowGrab(mWindows[0].native, grab);
+    SDL_SetWindowGrab(win, grab);
     SDL_SetRelativeMouseMode(grab);
 #endif
 }
@@ -567,7 +557,7 @@ void ApplicationContext::locateResources()
     cf.load(openAPKFile(mFSLayer->getConfigFilePath("resources.cfg")));
 #   else
     Ogre::String resourcesPath = mFSLayer->getConfigFilePath("resources.cfg");
-    if (Ogre::FileSystemLayer::fileExists(resourcesPath))
+    if (Ogre::FileSystemLayer::fileExists(resourcesPath) || OGRE_PLATFORM == OGRE_PLATFORM_EMSCRIPTEN)
     {
         cf.load(resourcesPath);
     }

@@ -349,7 +349,8 @@ void SceneManager::destroyCamera(const String& name)
             mShadowCamLightMapping.erase( camLightIt );
 
         // Notify render system
-        mDestRenderSystem->_notifyCameraRemoved(i->second);
+        if(mDestRenderSystem)
+            mDestRenderSystem->_notifyCameraRemoved(i->second);
         OGRE_DELETE i->second;
         mCameras.erase(i);
     }
@@ -1226,6 +1227,11 @@ const Pass* SceneManager::_setPass(const Pass* pass, bool evenIfSuppressed,
         if (mDestRenderSystem->getCapabilities()->hasCapability(RSC_POINT_SPRITES))
             mDestRenderSystem->_setPointSpritesEnabled(pass->getPointSpritesEnabled());
 
+        mAutoParamDataSource->setPointParameters(
+            pass->getPointSize(), pass->isPointAttenuationEnabled(),
+            pass->getPointAttenuationConstant(), pass->getPointAttenuationLinear(),
+            pass->getPointAttenuationQuadratic());
+
         // Texture unit settings
         size_t unit = 0;
         // Reset the shadow texture index for each pass
@@ -1906,8 +1912,8 @@ void SceneManager::_setSkyBox(
         if (!m->getBestTechnique() || 
             !m->getBestTechnique()->getNumPasses())
         {
-            LogManager::getSingleton().logMessage(
-                "Warning, skybox material " + materialName + " is not supported, defaulting.", LML_CRITICAL);
+            LogManager::getSingleton().logWarning("skybox material " + materialName +
+                                                  " is not supported, defaulting");
             m = MaterialManager::getSingleton().getDefaultSettings();
         }
 
@@ -2060,21 +2066,19 @@ void SceneManager::_setSkyBox(
                 }
 
                 // section per material
-                mSkyBoxObj->begin(matName, RenderOperation::OT_TRIANGLE_LIST, groupName);
-                // top left
-                mSkyBoxObj->position(middle + up - right);
-                mSkyBoxObj->textureCoord(0,0);
+                mSkyBoxObj->begin(matName, RenderOperation::OT_TRIANGLE_STRIP, groupName);
                 // bottom left
                 mSkyBoxObj->position(middle - up - right);
                 mSkyBoxObj->textureCoord(0,1);
                 // bottom right
                 mSkyBoxObj->position(middle - up + right);
                 mSkyBoxObj->textureCoord(1,1);
+                // top left
+                mSkyBoxObj->position(middle + up - right);
+                mSkyBoxObj->textureCoord(0,0);
                 // top right
                 mSkyBoxObj->position(middle + up + right);
                 mSkyBoxObj->textureCoord(1,0);
-                
-                mSkyBoxObj->quad(0, 1, 2, 3);
 
                 mSkyBoxObj->end();
 
@@ -4365,9 +4369,9 @@ void SceneManager::setShadowTechnique(ShadowTechnique technique)
         // Otherwise forget it
         if (!mDestRenderSystem->getCapabilities()->hasCapability(RSC_HWSTENCIL))
         {
-            LogManager::getSingleton().logMessage(
-                "WARNING: Stencil shadows were requested, but this device does not "
-                "have a hardware stencil. Shadows disabled.", LML_CRITICAL);
+            LogManager::getSingleton().logWarning(
+                "Stencil shadows were requested, but this device does not "
+                "have a hardware stencil. Shadows disabled.");
             mShadowTechnique = SHADOWTYPE_NONE;
         }
         else if (!mShadowIndexBuffer)
@@ -6426,6 +6430,9 @@ void SceneManager::destroyShadowTextures(void)
     }
     mShadowTextures.clear();
     mShadowTextureCameras.clear();
+
+    // set by render*TextureShadowedQueueGroupObjects
+    mAutoParamDataSource->setTextureProjector(NULL, 0);
 
     // Will destroy if no other scene managers referencing
     ShadowTextureManager::getSingleton().clearUnused();

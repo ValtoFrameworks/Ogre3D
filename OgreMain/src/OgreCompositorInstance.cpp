@@ -306,10 +306,11 @@ void CompositorInstance::collectPasses(TargetOperation &finalState, CompositionT
     Technique *srctech;
     MaterialPtr mat, srcmat;
     
-    CompositionTargetPass::PassIterator it = target->getPassIterator();
-    while(it.hasMoreElements())
+    CompositionTargetPass::Passes::const_iterator it = target->getPasses().begin();
+
+    for (;it != target->getPasses().end(); ++it)
     {
-        CompositionPass *pass = it.getNext();
+        CompositionPass *pass = *it;
         switch(pass->getType())
         {
         case CompositionPass::PT_CLEAR:
@@ -334,14 +335,14 @@ void CompositorInstance::collectPasses(TargetOperation &finalState, CompositionT
             {
                 /// Mismatch -- warn user
                 /// XXX We could support repeating the last queue, with some effort
-                LogManager::getSingleton().logMessage("Warning in compilation of Compositor "
+                LogManager::getSingleton().logWarning("in compilation of Compositor "
                     +mCompositor->getName()+": Attempt to render queue "+
                     StringConverter::toString(pass->getFirstRenderQueue())+" after "+
-                    StringConverter::toString(finalState.currentQueueGroupID), LML_CRITICAL);
+                    StringConverter::toString(finalState.currentQueueGroupID));
             }
 
             RSSetSchemeOperation* setSchemeOperation = 0;
-            if (pass->getMaterialScheme() != BLANKSTRING)
+            if (!pass->getMaterialScheme().empty())
             {
                 //Add the triggers that will set the scheme and restore it each frame
                 finalState.currentQueueGroupID = pass->getFirstRenderQueue();
@@ -373,16 +374,16 @@ void CompositorInstance::collectPasses(TargetOperation &finalState, CompositionT
             if(!srcmat)
             {
                 /// No material -- warn user
-                LogManager::getSingleton().logMessage("Warning in compilation of Compositor "
-                    +mCompositor->getName()+": No material defined for composition pass", LML_CRITICAL);
+                LogManager::getSingleton().logWarning("in compilation of Compositor "
+                    +mCompositor->getName()+": No material defined for composition pass");
                 break;
             }
             srcmat->load();
             if(srcmat->getSupportedTechniques().empty())
             {
                 /// No supported techniques -- warn user
-                LogManager::getSingleton().logMessage("Warning in compilation of Compositor "
-                    +mCompositor->getName()+": material "+srcmat->getName()+" has no supported techniques", LML_CRITICAL);
+                LogManager::getSingleton().logWarning("in compilation of Compositor "
+                    +mCompositor->getName()+": material "+srcmat->getName()+" has no supported techniques");
                 break;
             }
             srctech = srcmat->getBestTechnique(0);
@@ -409,9 +410,9 @@ void CompositorInstance::collectPasses(TargetOperation &finalState, CompositionT
                         else
                         {
                             /// Texture unit not there
-                            LogManager::getSingleton().logMessage("Warning in compilation of Compositor "
+                            LogManager::getSingleton().logWarning("in compilation of Compositor "
                                 +mCompositor->getName()+": material "+srcmat->getName()+" texture unit "
-                                +StringConverter::toString(x)+" out of bounds", LML_CRITICAL);
+                                +StringConverter::toString(x)+" out of bounds");
                         }
                     }
                 }
@@ -444,10 +445,11 @@ void CompositorInstance::_compileTargetOperations(CompiledState &compiledState)
     if(mPreviousInstance)
         mPreviousInstance->_compileTargetOperations(compiledState);
     /// Texture targets
-    CompositionTechnique::TargetPassIterator it = mTechnique->getTargetPassIterator();
-    while(it.hasMoreElements())
+    const CompositionTechnique::TargetPasses& passes = mTechnique->getTargetPasses();
+    CompositionTechnique::TargetPasses::const_iterator it;
+    for (it = passes.begin(); it != passes.end(); ++it)
     {
-        CompositionTargetPass *target = it.getNext();
+        CompositionTargetPass *target = *it;
         
         TargetOperation ts(getTargetForTex(target->getOutputName()));
         /// Set "only initial" flag, visibilityMask and lodBias according to CompositionTargetPass.
@@ -511,10 +513,11 @@ void CompositorInstance::setTechnique(CompositionTechnique* tech, bool reuseText
             // make sure we store all (shared) textures in use in our reserve pool
             // this will ensure they don't get destroyed as unreferenced
             // so they're ready to use again later
-            CompositionTechnique::TextureDefinitionIterator it = mTechnique->getTextureDefinitionIterator();
-            while(it.hasMoreElements())
+            const CompositionTechnique::TextureDefinitions& tdefs = mTechnique->getTextureDefinitions();
+            CompositionTechnique::TextureDefinitions::const_iterator it = tdefs.begin();
+            for (; it != tdefs.end(); ++it)
             {
-                CompositionTechnique::TextureDefinition *def = it.getNext();
+                CompositionTechnique::TextureDefinition *def = *it;
                 if (def->pooled)
                 {
                     LocalTextureMap::iterator i = mLocalTextures.find(def->name);
@@ -616,11 +619,13 @@ void CompositorInstance::createResources(bool forResizeOnly)
     /// In principle, temporary textures could be shared between multiple viewports
     /// (CompositorChains). This will save a lot of memory in case more viewports
     /// are composited.
-    CompositionTechnique::TextureDefinitionIterator it = mTechnique->getTextureDefinitionIterator();
     CompositorManager::UniqueTextureSet assignedTextures;
-    while(it.hasMoreElements())
+
+    const CompositionTechnique::TextureDefinitions& tdefs = mTechnique->getTextureDefinitions();
+    CompositionTechnique::TextureDefinitions::const_iterator it = tdefs.begin();
+    for (; it != tdefs.end(); ++it)
     {
-        CompositionTechnique::TextureDefinition *def = it.getNext();
+        CompositionTechnique::TextureDefinition *def = *it;
         
         if (!def->refCompName.empty()) {
             //This is a reference, isn't created in this compositor
@@ -808,10 +813,11 @@ void CompositorInstance::deriveTextureRenderTargetOptions(
     // or use input previous
     bool renderingScene = false;
 
-    CompositionTechnique::TargetPassIterator it = mTechnique->getTargetPassIterator();
-    while (it.hasMoreElements())
+    const CompositionTechnique::TargetPasses& passes = mTechnique->getTargetPasses();
+    CompositionTechnique::TargetPasses::const_iterator it;
+    for (it = passes.begin(); it != passes.end(); ++it)
     {
-        CompositionTargetPass* tp = it.getNext();
+        CompositionTargetPass* tp = *it;
         if (tp->getOutputName() == texname)
         {
             if (tp->getInputMode() == CompositionTargetPass::IM_PREVIOUS)
@@ -839,10 +845,11 @@ void CompositorInstance::deriveTextureRenderTargetOptions(
             else
             {
                 // look for a render_scene pass
-                CompositionTargetPass::PassIterator pit = tp->getPassIterator();
-                while(pit.hasMoreElements())
+                CompositionTargetPass::Passes::const_iterator pit = tp->getPasses().begin();
+
+                for (;pit != tp->getPasses().end(); ++pit)
                 {
-                    CompositionPass* pass = pit.getNext();
+                    CompositionPass* pass = *pit;
                     if (pass->getType() == CompositionPass::PT_RENDERSCENE)
                     {
                         renderingScene = true;
@@ -888,10 +895,11 @@ void CompositorInstance::freeResources(bool forResizeOnly, bool clearReserveText
     // We can also only free textures which are derived from the target size, if
     // required (saves some time & memory thrashing / fragmentation on resize)
 
-    CompositionTechnique::TextureDefinitionIterator it = mTechnique->getTextureDefinitionIterator();
-    while(it.hasMoreElements())
+    const CompositionTechnique::TextureDefinitions& tdefs = mTechnique->getTextureDefinitions();
+    CompositionTechnique::TextureDefinitions::const_iterator it = tdefs.begin();
+    for (; it != tdefs.end(); ++it)
     {
-        CompositionTechnique::TextureDefinition *def = it.getNext();
+        CompositionTechnique::TextureDefinition *def = *it;
 
         if (!def->refCompName.empty()) 
         {

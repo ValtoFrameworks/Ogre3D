@@ -236,7 +236,7 @@ namespace Ogre {
         assert(mEnd >= mPos);
     }
     //-----------------------------------------------------------------------
-    MemoryDataStream::MemoryDataStream(DataStreamPtr& sourceStream, 
+    MemoryDataStream::MemoryDataStream(const DataStreamPtr& sourceStream,
         bool freeOnClose, bool readOnly)
         : DataStream(static_cast<uint16>(readOnly ? READ : (READ | WRITE)))
     {
@@ -575,8 +575,8 @@ namespace Ogre {
         }
         if (delim.size() > 1)
         {
-            LogManager::getSingleton().logMessage(
-                "WARNING: FileStreamDataStream::readLine - using only first delimeter");
+            LogManager::getSingleton().logWarning(
+                "FileStreamDataStream::readLine - using only first delimeter");
         }
         // Deal with both Unix & Windows LFs
         bool trimCR = false;

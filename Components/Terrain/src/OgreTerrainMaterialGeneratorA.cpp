@@ -269,7 +269,7 @@ namespace Ogre
             mat = matMgr.getByName(matName);
             if (!mat)
             {
-                mat = matMgr.create(matName, ResourceGroupManager::DEFAULT_RESOURCE_GROUP_NAME);
+                mat = matMgr.create(matName, terrain->_getDerivedResourceGroup());
             }
         }
         // clear everything
@@ -319,7 +319,7 @@ namespace Ogre
             mat = matMgr.getByName(matName);
             if (!mat)
             {
-                mat = matMgr.create(matName, ResourceGroupManager::DEFAULT_RESOURCE_GROUP_NAME);
+                mat = matMgr.create(matName, terrain->_getDerivedResourceGroup());
             }
         }
         // clear everything
@@ -351,14 +351,9 @@ namespace Ogre
             {
                 mShaderGen = OGRE_NEW ShaderHelperHLSL();
             }
-            else if (hmgr.isLanguageSupported("glsl") &&
-                     Root::getSingleton().getRenderSystem()->getNativeShadingLanguageVersion() >= 150)
+            else if (hmgr.isLanguageSupported("glsl") || hmgr.isLanguageSupported("glsles"))
             {
                 mShaderGen = OGRE_NEW ShaderHelperGLSL();
-            }
-            else if (hmgr.isLanguageSupported("glsles"))
-            {
-                mShaderGen = OGRE_NEW ShaderHelperGLSLES();
             }
             else if (hmgr.isLanguageSupported("cg"))
             {

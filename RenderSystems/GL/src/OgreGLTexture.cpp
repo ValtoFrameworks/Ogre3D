@@ -175,8 +175,7 @@ namespace Ogre {
             // Provide temporary buffer filled with zeroes as glCompressedTexImageXD does not
             // accept a 0 pointer like normal glTexImageXD
             // Run through this process for every mipmap to pregenerate mipmap piramid
-            uint8 *tmpdata = new uint8[size];
-            memset(tmpdata, 0, size);
+            vector<uint8>::type tmpdata(size);
             
             for(uint32 mip=0; mip<=mNumMipmaps; mip++)
             {
@@ -186,24 +185,24 @@ namespace Ogre {
                     case TEX_TYPE_1D:
                         glCompressedTexImage1DARB(GL_TEXTURE_1D, mip, internalformat, 
                             width, 0, 
-                            size, tmpdata);
+                            size, &tmpdata[0]);
                         break;
                     case TEX_TYPE_2D:
                         glCompressedTexImage2DARB(GL_TEXTURE_2D, mip, internalformat,
                             width, height, 0, 
-                            size, tmpdata);
+                            size, &tmpdata[0]);
                         break;
                     case TEX_TYPE_2D_ARRAY:
                     case TEX_TYPE_3D:
                         glCompressedTexImage3DARB(getGLTextureTarget(), mip, internalformat,
                             width, height, depth, 0, 
-                            size, tmpdata);
+                            size, &tmpdata[0]);
                         break;
                     case TEX_TYPE_CUBE_MAP:
                         for(int face=0; face<6; face++) {
                             glCompressedTexImage2DARB(GL_TEXTURE_CUBE_MAP_POSITIVE_X + face, mip, internalformat,
                                 width, height, 0, 
-                                size, tmpdata);
+                                size, &tmpdata[0]);
                         }
                         break;
                     case TEX_TYPE_2D_RECT:
@@ -216,7 +215,6 @@ namespace Ogre {
                 if(depth>1 && mTextureType != TEX_TYPE_2D_ARRAY)
                     depth = depth/2;
             }
-            delete [] tmpdata;
         }
         else
         {
@@ -306,26 +304,26 @@ namespace Ogre {
     {
         mSurfaceList.clear();
         
+        uint32 depth = mDepth;
+
         // For all faces and mipmaps, store surfaces as HardwarePixelBufferSharedPtr
         for(GLint face=0; face<static_cast<GLint>(getNumFaces()); face++)
         {
+            uint32 width = mWidth;
+            uint32 height = mHeight;
+
             for(uint32 mip=0; mip<=getNumMipmaps(); mip++)
             {
-                GLHardwarePixelBuffer *buf = new GLTextureBuffer(mRenderSystem, mName, getGLTextureTarget(), mTextureID, face, mip,
-                        static_cast<HardwareBuffer::Usage>(mUsage), mHwGamma, mFSAA);
+                GLHardwarePixelBuffer* buf =
+                    new GLTextureBuffer(mRenderSystem, this, face, mip, width, height, depth);
                 mSurfaceList.push_back(HardwarePixelBufferSharedPtr(buf));
                 
-                /// Check for error
-                if(buf->getWidth()==0 || buf->getHeight()==0 || buf->getDepth()==0)
-                {
-                    OGRE_EXCEPT(
-                        Exception::ERR_RENDERINGAPI_ERROR, 
-                        "Zero sized texture surface on texture "+getName()+
-                            " face "+StringConverter::toString(face)+
-                            " mipmap "+StringConverter::toString(mip)+
-                            ". Probably, the GL driver refused to create the texture.", 
-                            "GLTexture::_createSurfaceList");
-                }
+                if (width > 1)
+                    width = width / 2;
+                if (height > 1)
+                    height = height / 2;
+                if (depth > 1 && mTextureType != TEX_TYPE_2D_ARRAY)
+                    depth = depth / 2;
             }
         }
     }

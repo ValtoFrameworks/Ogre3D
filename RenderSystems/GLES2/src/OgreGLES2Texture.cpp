@@ -139,6 +139,9 @@ namespace Ogre {
                                                             GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
 
         bool hasGLES30 = mRenderSystem->hasMinGLVersion(3, 0);
+#if OGRE_PLATFORM == OGRE_PLATFORM_EMSCRIPTEN
+        hasGLES30 = false; // still just Editors Draft
+#endif
 
         // Set up texture swizzling
         if (hasGLES30 && PixelUtil::isLuminance(mFormat))
@@ -176,8 +179,7 @@ namespace Ogre {
             // accept a 0 pointer like normal glTexImageXD
             // Run through this process for every mipmap to pregenerate mipmap pyramid
             
-            uint8* tmpdata = new uint8[size];
-            memset(tmpdata, 0, size);
+            vector<uint8>::type tmpdata(size);
             for (uint32 mip = 0; mip <= mNumMipmaps; mip++)
             {
 #if OGRE_DEBUG_MODE
@@ -201,13 +203,13 @@ namespace Ogre {
                                                width, height,
                                                0,
                                                size,
-                                               tmpdata));
+                                               &tmpdata[0]));
                         break;
                     case TEX_TYPE_CUBE_MAP:
                         for(int face = 0; face < 6; face++) {
                             OGRE_CHECK_GL_ERROR(glCompressedTexImage2D(GL_TEXTURE_CUBE_MAP_POSITIVE_X + face, mip, internalformat,
                                 width, height, 0, 
-                                size, tmpdata));
+                                size, &tmpdata[0]));
                         }
                         break;
                     case TEX_TYPE_2D_ARRAY:
@@ -217,7 +219,7 @@ namespace Ogre {
                     case TEX_TYPE_3D:
                         glCompressedTexImage3DOES(getGLES2TextureTarget(), mip, format,
                             width, height, depth, 0, 
-                            size, tmpdata);
+                            size, &tmpdata[0]);
                         break;
                 };
                 
@@ -234,7 +236,6 @@ namespace Ogre {
                     depth = depth / 2;
                 }
             }
-            delete [] tmpdata;
             return;
         }
 
@@ -428,41 +429,27 @@ namespace Ogre {
     {
         mSurfaceList.clear();
 
+        uint32 depth = mDepth;
+
         // For all faces and mipmaps, store surfaces as HardwarePixelBufferSharedPtr
         for (size_t face = 0; face < getNumFaces(); face++)
         {
             uint32 width = mWidth;
             uint32 height = mHeight;
-            uint32 depth = mDepth;
 
             for (uint32 mip = 0; mip <= getNumMipmaps(); mip++)
             {
-                GLES2HardwarePixelBuffer *buf = OGRE_NEW GLES2TextureBuffer(mName,
-                                                                            getGLES2TextureTarget(),
-                                                                            mTextureID,
-                                                                            width, height, depth,
-                                                                            GLES2PixelUtil::getGLInternalFormat(mFormat, mHwGamma),
-                                                                            GLES2PixelUtil::getGLOriginDataType(mFormat),
-                                                                            static_cast<GLint>(face),
-                                                                            mip,
-                                                                            static_cast<HardwareBuffer::Usage>(mUsage),
-                                                                            mHwGamma, mFSAA);
+                GLES2HardwarePixelBuffer* buf = OGRE_NEW GLES2TextureBuffer(
+                    this, static_cast<GLint>(face), mip, width, height, depth);
 
                 mSurfaceList.push_back(HardwarePixelBufferSharedPtr(buf));
 
-                // Check for error
-                if (buf->getWidth() == 0 ||
-                    buf->getHeight() == 0 ||
-                    buf->getDepth() == 0)
-                {
-                    OGRE_EXCEPT(
-                        Exception::ERR_RENDERINGAPI_ERROR,
-                        "Zero sized texture surface on texture " + getName() +
-                            " face " + StringConverter::toString(face) +
-                            " mipmap " + StringConverter::toString(mip) +
-                            ". The GL driver probably refused to create the texture.",
-                            "GLES2Texture::_createSurfaceList");
-                }
+                if (width > 1)
+                    width = width / 2;
+                if (height > 1)
+                    height = height / 2;
+                if (depth > 1 && mTextureType != TEX_TYPE_2D_ARRAY)
+                    depth = depth / 2;
             }
         }
     }

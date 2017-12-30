@@ -465,14 +465,12 @@ namespace Ogre {
             mLockPtr = static_cast<float*>(
                 mMainBuf->lock(0, numBillboards * billboardSize, 
                 mMainBuf->getUsage() & HardwareBuffer::HBU_DYNAMIC ?
-                HardwareBuffer::HBL_DISCARD : HardwareBuffer::HBL_NORMAL,
-                mAutoUpdate ? Root::getSingleton().getFreqUpdatedBuffersUploadOption() : HardwareBuffer::HBU_DEFAULT) );
+                HardwareBuffer::HBL_DISCARD : HardwareBuffer::HBL_NORMAL) );
         }
         else // lock the entire thing
             mLockPtr = static_cast<float*>(
             mMainBuf->lock(mMainBuf->getUsage() & HardwareBuffer::HBU_DYNAMIC ?
-            HardwareBuffer::HBL_DISCARD : HardwareBuffer::HBL_NORMAL,
-            mAutoUpdate ? Root::getSingleton().getFreqUpdatedBuffersUploadOption() : HardwareBuffer::HBU_DEFAULT) );
+            HardwareBuffer::HBL_DISCARD : HardwareBuffer::HBL_NORMAL) );
 
     }
     //-----------------------------------------------------------------------
@@ -769,10 +767,10 @@ namespace Ogre {
         if (mPointRendering && mBillboardType != BBT_POINT)
         {
 
-            LogManager::getSingleton().logMessage("Warning: BillboardSet " +
+            LogManager::getSingleton().logWarning("BillboardSet " +
                 mName + " has point rendering enabled but is using a type "
                 "other than BBT_POINT, this may not give you the results you "
-                "expect.", LML_CRITICAL);
+                "expect.");
         }
 
         mVertexData = OGRE_NEW VertexData();

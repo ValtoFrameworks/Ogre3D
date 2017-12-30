@@ -66,15 +66,6 @@ namespace Ogre {
     class _OgreGL3PlusExport GLSLProgram : public GLSLProgramCommon
     {
     public:
-        /// Constructor should only be used by GLSLMonolithicProgramManager and GLSLSeparableProgramManager
-        GLSLProgram(GLSLShader* vertexProgram,
-                    GLSLShader* hullProgram,
-                    GLSLShader* domainProgram,
-                    GLSLShader* geometryProgram,
-                    GLSLShader* fragmentProgram,
-                    GLSLShader* computeProgram);
-        virtual ~GLSLProgram(void);
-
         void bindFixedAttributes(GLuint program);
 
         GLSLShader* getVertexShader() const { return static_cast<GLSLShader*>(mVertexShader); }
@@ -84,8 +75,28 @@ namespace Ogre {
         GLSLShader* getFragmentShader() const { return mFragmentShader; }
         GLSLShader* getComputeShader() const { return mComputeShader; }
 
+        bool isUsingShader(GLSLShaderCommon* shader) const
+        {
+            return mVertexShader == shader || (GLSLShaderCommon*)mGeometryShader == shader ||
+                   (GLSLShaderCommon*)mFragmentShader == shader ||
+                   (GLSLShaderCommon*)mHullShader == shader ||
+                   (GLSLShaderCommon*)mDomainShader == shader ||
+                   (GLSLShaderCommon*)mComputeShader == shader;
+        }
+
+        virtual void updateAtomicCounters(GpuProgramParametersSharedPtr params, uint16 mask,
+                                          GpuProgramType fromProgType) = 0;
+
         void setTransformFeedbackVaryings(const std::vector<String>& nameStrings);
     protected:
+        /// Constructor should only be used by GLSLMonolithicProgramManager and GLSLSeparableProgramManager
+        GLSLProgram(GLSLShader* vertexProgram,
+                    GLSLShader* hullProgram,
+                    GLSLShader* domainProgram,
+                    GLSLShader* geometryProgram,
+                    GLSLShader* fragmentProgram,
+                    GLSLShader* computeProgram);
+
         /// Container of atomic counter uniform references that are active in the program object
         GLAtomicCounterReferenceList mGLAtomicCounterReferences;
         /// Map of shared parameter blocks to uniform buffer references
