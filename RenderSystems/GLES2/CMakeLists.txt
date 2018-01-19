@@ -10,6 +10,9 @@
 # Configure OpenGL ES 2.0 RenderSystem build
 
 file(GLOB HEADER_FILES "include/*.h")
+list(APPEND HEADER_FILES
+    ${CMAKE_BINARY_DIR}/include/OgreGLES2Exports.h
+    ${CMAKE_BINARY_DIR}/include/OgreGLES2Config.h)
 file(GLOB SOURCE_FILES "src/*.cpp")
 list(APPEND SOURCE_FILES "${CMAKE_CURRENT_SOURCE_DIR}/src/glesw.c")
 
@@ -39,13 +42,7 @@ if(NOT OPENGLES3_FOUND)
 endif()
 
 # Add system specific settings
-if (OGRE_BUILD_PLATFORM_NACL)
-  file(GLOB PLATFORM_HEADERS "include/NaCl/*.h")
-  file(GLOB PLATFORM_SOURCES "src/NaCl/*.cpp")
-
-  include_directories(src/NaCl include/NaCl)
-  set(PLATFORM_HEADER_INSTALL "NaCl")
-elseif (APPLE)
+if (APPLE)
   file(GLOB PLATFORM_HEADERS "include/EAGL/*.h")
   file(GLOB PLATFORM_SOURCES "src/EAGL/*.mm")
 
@@ -65,6 +62,14 @@ include_directories(
 ogre_add_library_to_folder(RenderSystems RenderSystem_GLES2 ${OGRE_LIB_TYPE} ${HEADER_FILES} ${GLESW_HEADERS} ${KHR_HEADERS} ${PLATFORM_HEADERS} ${SOURCE_FILES} ${PLATFORM_SOURCES} SEPARATE ${GLSLES_FILES})
 target_link_libraries(RenderSystem_GLES2 OgreMain ${GLSUPPORT_LIBS} ${OPENGLES3_LIBRARIES} ${OPENGLES2_LIBRARIES})
 
+if (OGRE_CONFIG_ENABLE_GLES2_GLSL_OPTIMISER)
+  target_link_libraries(RenderSystem_GLES2 ${GLSL_Optimizer_LIBRARIES})
+endif ()
+
+if (OGRE_CONFIG_ENABLE_GLES2_CG_SUPPORT)
+  target_link_libraries(RenderSystem_GLES2 ${HLSL2GLSL_LIBRARIES})
+endif ()
+
 if (NOT OGRE_STATIC)
   set_target_properties(RenderSystem_GLES2 PROPERTIES
     COMPILE_DEFINITIONS OGRE_GLES2PLUGIN_EXPORTS
@@ -74,6 +79,10 @@ endif ()
 if (OGRE_CONFIG_THREADS)
   target_link_libraries(RenderSystem_GLES2 ${OGRE_THREAD_LIBRARIES})
 endif ()
+
+generate_export_header(RenderSystem_GLES2 
+    EXPORT_MACRO_NAME _OgreGLES2Export
+    EXPORT_FILE_NAME ${CMAKE_BINARY_DIR}/include/OgreGLES2Exports.h)
 
 ogre_config_plugin(RenderSystem_GLES2)
 

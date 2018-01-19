@@ -33,11 +33,9 @@ THE SOFTWARE.
 
 #if OGRE_PLATFORM == OGRE_PLATFORM_WIN32 || OGRE_PLATFORM == OGRE_PLATFORM_WINRT
 #   include <windows.h>
-#endif
-
-#if OGRE_PLATFORM == OGRE_PLATFORM_NACL
-#   include "ppapi/cpp/var.h"
-#   include "ppapi/cpp/instance.h"
+#   if _WIN32_WINNT >= _WIN32_WINNT_VISTA
+#       include <werapi.h>
+#   endif
 #endif
 
 namespace {
@@ -48,25 +46,35 @@ namespace {
 
 namespace Ogre
 {
-#if OGRE_PLATFORM == OGRE_PLATFORM_NACL
-    pp::Instance* Log::mInstance = NULL;    
-#endif
-    
     //-----------------------------------------------------------------------
-    Log::Log( const String& name, bool debuggerOuput, bool suppressFile ) : 
-        mLogLevel(LL_NORMAL), mDebugOut(debuggerOuput),
+    Log::Log( const String& name, bool debuggerOutput, bool suppressFile ) : 
+        mLogLevel(LL_NORMAL), mDebugOut(debuggerOutput),
         mSuppressFile(suppressFile), mTimeStamp(true), mLogName(name), mTermHasColours(false)
     {
         if (!mSuppressFile)
         {
             mLog.open(name.c_str());
+
+#if (OGRE_PLATFORM == OGRE_PLATFORM_WIN32 || OGRE_PLATFORM == OGRE_PLATFORM_WINRT) && _WIN32_WINNT >= _WIN32_WINNT_VISTA
+            // Register log file to be collected by Windows Error Reporting
+            const int utf16Length = ::MultiByteToWideChar(CP_ACP, 0, name.c_str(), (int)name.size(), NULL, 0);
+            if(utf16Length > 0)
+            {
+                std::wstring wname;
+                wname.resize(utf16Length);
+                if (0 != ::MultiByteToWideChar(CP_ACP, 0, name.c_str(), (int)name.size(), &wname[0], (int)wname.size()))
+                    WerRegisterFile(wname.c_str(), WerRegFileTypeOther, WER_FILE_ANONYMOUS_DATA);
+            }
+#endif
         }
 
+#if OGRE_PLATFORM != OGRE_PLATFORM_WINRT
         if(mDebugOut)
         {
             char* val = getenv("TERM");
             mTermHasColours = val && String(val).find("xterm") != String::npos;
         }
+#endif
     }
     //-----------------------------------------------------------------------
     Log::~Log()
@@ -90,12 +98,6 @@ namespace Ogre
             
             if (!skipThisMessage)
             {
-#if OGRE_PLATFORM == OGRE_PLATFORM_NACL
-                if(mInstance != NULL)
-                {
-                    mInstance->PostMessage(message.c_str());
-                }
-#else
                 if (mDebugOut && !maskDebug)
                 {
 #    if (OGRE_PLATFORM == OGRE_PLATFORM_WIN32 || OGRE_PLATFORM == OGRE_PLATFORM_WINRT) && OGRE_DEBUG_MODE
@@ -121,7 +123,6 @@ namespace Ogre
 
                     os << std::endl;
                 }
-#endif
 
                 // Write time into log
                 if (!mSuppressFile)

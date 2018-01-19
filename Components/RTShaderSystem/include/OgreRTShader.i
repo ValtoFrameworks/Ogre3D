@@ -3,6 +3,7 @@
 /* Includes the header in the wrapper code */
 #include "Ogre.h"
 #include "OgreRTShaderSystem.h"
+#include "OgreUnifiedHighLevelGpuProgram.h"
 %}
 
 %include std_string.i
@@ -11,6 +12,7 @@
 
 #define _OgreRTSSExport
 
+%include "OgreRTShaderConfig.h"
 %include "OgreShaderPrerequisites.h"
 %include "OgreShaderScriptTranslator.h"
 %include "OgreShaderSubRenderState.h"

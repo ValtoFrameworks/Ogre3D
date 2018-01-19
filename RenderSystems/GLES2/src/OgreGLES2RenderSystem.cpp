@@ -411,7 +411,6 @@ namespace Ogre {
         rsc->setCapability(RSC_FRAGMENT_PROGRAM);
 
         // Separate shader objects
-#if OGRE_PLATFORM != OGRE_PLATFORM_NACL
         OGRE_IF_IOS_VERSION_IS_GREATER_THAN(5.0)
         if(checkExtension("GL_EXT_separate_shader_objects"))
         {
@@ -423,7 +422,6 @@ namespace Ogre {
         if(rsc->getDeviceName().find("Mesa") != String::npos) {
             rsc->unsetCapability(RSC_GLSL_SSO_REDECLARE);
         }
-#endif
 
         GLfloat floatConstantCount = 0;
 #if OGRE_NO_GLES3_SUPPORT == 0
@@ -1559,22 +1557,21 @@ namespace Ogre {
         }
 
         if(getCapabilities()->hasCapability(RSC_VAO))
-            // Unbind the vertex array object.  Marks the end of what state will be included.
-            mStateCacheManager->bindGLVertexArray(0);
-
-        // Unbind all attributes
-        for (vector<GLuint>::type::iterator ai = mRenderAttribsBound.begin(); ai != mRenderAttribsBound.end(); ++ai)
         {
-            mStateCacheManager->setVertexAttribDisabled(*ai);
-//          OGRE_CHECK_GL_ERROR(glDisableVertexAttribArray(*ai));
+            // Do not unbind the vertex array object if VAOs are supported
+            // VAOs > 0 are selected each time before usage
+            // VAO #0 WOULD BE explicitly selected by Ogre before usage
         }
-
-        // Unbind any instance attributes
-        for (vector<GLuint>::type::iterator ai = mRenderInstanceAttribsBound.begin(); ai != mRenderInstanceAttribsBound.end(); ++ai)
+        else // VAOs are not supported, we should clear scratch 'VAO #0'
         {
-            glVertexAttribDivisorEXT(*ai, 0);
-        }
+            // Unbind all attributes
+            for(vector<GLuint>::type::iterator ai = mRenderAttribsBound.begin(); ai != mRenderAttribsBound.end(); ++ai)
+                OGRE_CHECK_GL_ERROR(glDisableVertexAttribArray(*ai));
 
+            // Unbind any instance attributes
+            for (vector<GLuint>::type::iterator ai = mRenderInstanceAttribsBound.begin(); ai != mRenderInstanceAttribsBound.end(); ++ai)
+                OGRE_CHECK_GL_ERROR(glVertexAttribDivisorEXT(*ai, 0));
+        }
         mRenderAttribsBound.clear();
         mRenderInstanceAttribsBound.clear();
     }
@@ -2266,7 +2263,7 @@ namespace Ogre {
                                                   static_cast<GLsizei>(vertexBuffer->getVertexSize()),
                                                   pBufferData));
 
-        mStateCacheManager->setVertexAttribEnabled(attrib);
+        OGRE_CHECK_GL_ERROR(glEnableVertexAttribArray(attrib));
         mRenderAttribsBound.push_back(attrib);
     }
 

@@ -71,8 +71,8 @@ class SGMaterialSerializerListener;
 class ProgramWriterFactory;
 class ProgramWriterManager;
 
-typedef SharedPtr<Parameter>        ParameterPtr;
-typedef SharedPtr<UniformParameter> UniformParameterPtr;
+typedef shared_ptr<Parameter>        ParameterPtr;
+typedef shared_ptr<UniformParameter> UniformParameterPtr;
 typedef vector<ParameterPtr>::type  ShaderParameterList;
 
 // Vertex shader output parameters compact policy.
@@ -93,25 +93,8 @@ enum SkinningType
 }
 }
 
-#if OGRE_PLATFORM == OGRE_PLATFORM_WIN32 || OGRE_PLATFORM == OGRE_PLATFORM_WINRT
-#   if defined( OGRE_STATIC_LIB )
-#       define _OgreRTSSExport
-#   else
-#       if defined( OgreRTShaderSystem_EXPORTS )
-#           define _OgreRTSSExport __declspec( dllexport )
-#       else
-#           if defined( __MINGW32__ )
-#               define _OgreRTSSExport
-#           else
-#               define _OgreRTSSExport __declspec( dllimport )
-#           endif
-#       endif
-#   endif
-#elif defined ( OGRE_GCC_VISIBILITY )
-#   define _OgreRTSSExport __attribute__ ((visibility("default")))
-#else
-#   define _OgreRTSSExport
-#endif 
+#include "OgreRTShaderExports.h"
+#include "OgreRTShaderConfig.h"
 
 
 #endif

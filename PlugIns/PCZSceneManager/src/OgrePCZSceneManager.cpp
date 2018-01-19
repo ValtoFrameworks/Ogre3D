@@ -44,12 +44,6 @@ email                : ericc@xenopi.com
 #include "OgreLogManager.h"
 #include "OgreRoot.h"
 
-#if OGRE_NODE_STORAGE_LEGACY
-#define ITER_VAL(it) it->second
-#else
-#define ITER_VAL(it) (*it)
-#endif
-
 namespace Ogre
 {
     PCZSceneManager::PCZSceneManager(const String& name) :
@@ -338,11 +332,8 @@ namespace Ogre
     SceneNode * PCZSceneManager::createSceneNode( void )
     {
         SceneNode * on = createSceneNodeImpl();
-#if OGRE_NODE_STORAGE_LEGACY
-        mSceneNodes[ on->getName() ] = on;
-#else
         mSceneNodes.push_back(on);
-#endif
+
         // create any zone-specific data necessary
         createZoneSpecificNodeData((PCZSceneNode*)on);
         // return pointer to the node
@@ -360,11 +351,8 @@ namespace Ogre
                 "PCZSceneManager::createSceneNode" );
         }
         SceneNode * on = createSceneNodeImpl( name );
-#if OGRE_NODE_STORAGE_LEGACY
-        mSceneNodes[ on->getName() ] = on;
-#else
         mSceneNodes.push_back(on);
-#endif
+
         // create any zone-specific data necessary
         createZoneSpecificNodeData((PCZSceneNode*)on);
         // return pointer to the node
@@ -440,7 +428,7 @@ namespace Ogre
         for (SceneNodeList::iterator i = mSceneNodes.begin();
             i != mSceneNodes.end(); ++i)
         {
-            OGRE_DELETE ITER_VAL(i);
+            OGRE_DELETE *i;
         }
         mSceneNodes.clear();
         mAutoTrackingSceneNodes.clear();
@@ -613,7 +601,7 @@ namespace Ogre
 
         while ( it != mSceneNodes.end() )
         {
-            pczsn = (PCZSceneNode*)ITER_VAL(it);
+            pczsn = (PCZSceneNode*)*it;
             if (pczsn->isMoved() && pczsn->isEnabled())
             {
                 // Update a single entry 
@@ -774,7 +762,7 @@ namespace Ogre
         for (SceneNodeList::iterator i = mSceneNodes.begin();
             i != mSceneNodes.end(); ++i)
         {
-            PCZSceneNode * pczsn = (PCZSceneNode*)ITER_VAL(i);
+            PCZSceneNode * pczsn = (PCZSceneNode*)*i;
             if (!destroySceneNodes)
             {
                 if (pczsn->getHomeZone() == zone)
@@ -920,7 +908,7 @@ namespace Ogre
         {
             while ( it != mSceneNodes.end() )
             {
-                pczsn = (PCZSceneNode*)ITER_VAL(it);
+                pczsn = (PCZSceneNode*)*it;
                 // create zone specific data for the node 
                 zone->createNodeZoneData(pczsn);
                 // proceed to next entry in the list

@@ -73,9 +73,6 @@ if (OGRE_BUILD_SAMPLES)
   if (OGRE_BUILD_RENDERSYSTEM_GL3PLUS)
   	set(SAMPLE_DEPENDENCIES ${SAMPLE_DEPENDENCIES} RenderSystem_GL3Plus)
   endif ()
-  if (OGRE_BUILD_RENDERSYSTEM_GLES)
-  	set(SAMPLE_DEPENDENCIES ${SAMPLE_DEPENDENCIES} RenderSystem_GLES)
-  endif ()
   if (OGRE_BUILD_RENDERSYSTEM_GLES2)
   	set(SAMPLE_DEPENDENCIES ${SAMPLE_DEPENDENCIES} RenderSystem_GLES2)
   endif ()
@@ -107,15 +104,6 @@ if (OGRE_BUILD_SAMPLES)
 
 	# Link to all enabled plugins
 	set(OGRE_LIBRARIES ${OGRE_LIBRARIES} ${SAMPLE_DEPENDENCIES})
-
-	# Need to include resource files so that icons are linked
-	if (WIN32)
-		set(RESOURCE_FILES
-    		${OGRE_SOURCE_DIR}/OgreMain/src/WIN32/resource.h
-	    	${OGRE_SOURCE_DIR}/OgreMain/src/WIN32/OgreWin32Resources.rc
-		)
-		source_group(Resources FILES ${RESOURCE_FILES})
-	endif ()
   else ()
 	# Link to RT Shader System if enabled.
 	if (OGRE_BUILD_COMPONENT_RTSHADERSYSTEM)	
@@ -149,6 +137,7 @@ if (OGRE_BUILD_SAMPLES)
   add_subdirectory(NewInstancing)
   add_subdirectory(OceanDemo)
   add_subdirectory(ParticleFX)
+  add_subdirectory(PBR)
   add_subdirectory(PNTrianglesTessellation)
   if (OGRE_BUILD_COMPONENT_RTSHADERSYSTEM)
     add_subdirectory(ShaderSystem)
@@ -182,7 +171,6 @@ if (OGRE_BUILD_COMPONENT_VOLUME)
 endif ()
   add_subdirectory(Water)
 
-if (NOT OGRE_BUILD_RENDERSYSTEM_GLES OR OGRE_BUILD_RENDERSYSTEM_GLES2)
   add_subdirectory(BSP)
   add_subdirectory(CelShading)
   add_subdirectory(DeferredShading)
@@ -192,7 +180,6 @@ if (NOT OGRE_BUILD_RENDERSYSTEM_GLES OR OGRE_BUILD_RENDERSYSTEM_GLES2)
   add_subdirectory(Isosurf)
   add_subdirectory(ParticleGS)
   add_subdirectory(SSAO)
-endif ()
 
 if (OGRE_BUILD_COMPONENT_HLMS)
   add_subdirectory(HLMS)

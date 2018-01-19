@@ -18,7 +18,7 @@ include(PrecompiledHeader)
 # define header and source files for the library
 file(GLOB HEADER_FILES "${CMAKE_CURRENT_SOURCE_DIR}/include/*.h")
 list(APPEND HEADER_FILES
-    ${OGRE_BINARY_DIR}/include/OgreBuildSettings.h
+    ${CMAKE_BINARY_DIR}/include/OgreBuildSettings.h
     ${CMAKE_BINARY_DIR}/include/OgreExports.h
     src/OgreImageResampler.h
     src/OgrePixelConversions.h
@@ -42,7 +42,6 @@ list(REMOVE_ITEM HEADER_FILES "${CMAKE_CURRENT_SOURCE_DIR}/include/OgreFreeImage
 
 # Remove optional source files
 list(REMOVE_ITEM SOURCE_FILES "${CMAKE_CURRENT_SOURCE_DIR}/src/OgreFreeImageCodec.cpp"
-    "${CMAKE_CURRENT_SOURCE_DIR}/src/OgreConfigDialogNoOp.cpp"
     "${CMAKE_CURRENT_SOURCE_DIR}/src/OgreFileSystemLayerNoOp.cpp"
     "${CMAKE_CURRENT_SOURCE_DIR}/src/OgreDDSCodec.cpp"
     "${CMAKE_CURRENT_SOURCE_DIR}/src/OgrePVRTCCodec.cpp"
@@ -53,41 +52,15 @@ list(REMOVE_ITEM SOURCE_FILES "${CMAKE_CURRENT_SOURCE_DIR}/src/OgreFreeImageCode
     "${CMAKE_CURRENT_SOURCE_DIR}/src/OgreSTBICodec.cpp"
 )
 
-# Add threading (backport from 2.X)
-list(APPEND HEADER_FILES ${CMAKE_CURRENT_SOURCE_DIR}/include/Threading/OgreThreads.h
-    ${CMAKE_CURRENT_SOURCE_DIR}/include/Threading/OgreBarrier.h
-	${CMAKE_CURRENT_SOURCE_DIR}/include/Threading/OgreLightweightMutex.h)
-	
-if(WIN32 AND NOT ANDROID)
-	list(APPEND SOURCE_FILES ${CMAKE_CURRENT_SOURCE_DIR}/src/Threading/OgreBarrierWin.cpp
-		${CMAKE_CURRENT_SOURCE_DIR}/src/Threading/OgreThreadsWin.cpp
-		${CMAKE_CURRENT_SOURCE_DIR}/src/Threading/OgreLightweightMutexWin.cpp)
-else()
-	list(APPEND SOURCE_FILES ${CMAKE_CURRENT_SOURCE_DIR}/src/Threading/OgreBarrierPThreads.cpp
-		${CMAKE_CURRENT_SOURCE_DIR}/src/Threading/OgreLightweightMutexPThreads.cpp
-		${CMAKE_CURRENT_SOURCE_DIR}/src/Threading/OgreThreadsPThreads.cpp)
-endif()
-
 # Add platform specific files
-if (OGRE_BUILD_PLATFORM_NACL)
-  include_directories("include/NaCl")
-  file(GLOB PLATFORM_HEADERS "${CMAKE_CURRENT_SOURCE_DIR}/include/NaCl/*.h")
-  file(GLOB PLATFORM_SOURCE_FILES "${CMAKE_CURRENT_SOURCE_DIR}/src/NaCl/*.cpp"
-    "${CMAKE_CURRENT_SOURCE_DIR}/src/OgrePOSIXTimer.cpp"
-    "${CMAKE_CURRENT_SOURCE_DIR}/src/OgreFileSystemLayerNoOp.cpp"
-    "${CMAKE_CURRENT_SOURCE_DIR}/src/OgreConfigDialogNoOp.cpp")
-
-  set(PLATFORM_LIBS nosys)
-  set(PLATFORM_HEADER_INSTALL "NaCl")
-elseif (EMSCRIPTEN)
+if (EMSCRIPTEN)
   list(REMOVE_ITEM HEADER_FILES "${CMAKE_CURRENT_SOURCE_DIR}/include/OgrePOSIXTimerImp.h")
 
   include_directories(include/Emscripten)
 
   file(GLOB PLATFORM_HEADERS ${CMAKE_CURRENT_SOURCE_DIR}/include/Emscripten/*.h)
   file(GLOB PLATFORM_SOURCE_FILES "${CMAKE_CURRENT_SOURCE_DIR}/src/Emscripten/*.cpp"
-      "${CMAKE_CURRENT_SOURCE_DIR}/src/OgreFileSystemLayerNoOp.cpp"
-      "${CMAKE_CURRENT_SOURCE_DIR}/src/OgreConfigDialogNoOp.cpp")
+      "${CMAKE_CURRENT_SOURCE_DIR}/src/OgreFileSystemLayerNoOp.cpp")
 
   set(PLATFORM_HEADER_INSTALL "Emscripten")
 elseif (WIN32)
@@ -100,7 +73,6 @@ elseif (WIN32)
     )
     set(PLATFORM_SOURCE_FILES
       src/WIN32/OgreOptimisedUtilDirectXMath.cpp
-      src/OgreConfigDialogNoOp.cpp
       src/WIN32/OgreFileSystemLayer.cpp
       src/WIN32/OgreTimer.cpp
     )  
@@ -109,44 +81,17 @@ elseif (WIN32)
   else ()
     include_directories("include/WIN32")
     set(PLATFORM_HEADERS
-      include/WIN32/OgreErrorDialogImp.h
       include/WIN32/OgreTimerImp.h
       include/WIN32/OgreMinGWSupport.h
       include/WIN32/OgreComPtr.h
     )
     
-    list(REMOVE_ITEM SOURCE_FILES "${CMAKE_CURRENT_SOURCE_DIR}/src/OgreErrorDialogNoOp.cpp")
     set(PLATFORM_SOURCE_FILES
       src/WIN32/OgreOptimisedUtilDirectXMath.cpp
-      src/WIN32/OgreConfigDialog.cpp
-      src/WIN32/OgreErrorDialog.cpp
       src/WIN32/OgreFileSystemLayer.cpp
       src/WIN32/OgreTimer.cpp
-      src/WIN32/resource.h
     )  
-    set(RESOURCE_FILES
-      src/WIN32/resource.h
-      src/WIN32/OgreWin32Resources.rc
-    )
-    source_group(Resources FILES ${RESOURCE_FILES})
     set(PLATFORM_HEADER_INSTALL "WIN32")
-
-    if (MINGW)
-      # Older CMake versions do not know how to deal with resource files on MinGW.
-      # Newer ones do, but pass along invalid command options to windres.
-      # This is a manual fix for the moment.
-      if (NOT CMAKE_RC_COMPILER)
-        message(SEND_ERROR "Could not find MinGW resource compiler. Please specify path in CMAKE_RC_COMPILER.")
-      endif ()
-      add_custom_command(OUTPUT ${CMAKE_CURRENT_BINARY_DIR}/OgreWin32Resources.rc.obj
-        COMMAND ${CMAKE_RC_COMPILER} -I${CMAKE_CURRENT_SOURCE_DIR}/src/WIN32 
-                                     -i${CMAKE_CURRENT_SOURCE_DIR}/src/WIN32/OgreWin32Resources.rc
-                                     -o${CMAKE_CURRENT_BINARY_DIR}/OgreWin32Resources.rc.obj
-        DEPENDS ${RESOURCE_FILES})
-      list(APPEND PLATFORM_SOURCE_FILES ${CMAKE_CURRENT_BINARY_DIR}/OgreWin32Resources.rc.obj)
-    else ()
-      list(APPEND PLATFORM_SOURCE_FILES src/WIN32/OgreWin32Resources.rc)
-    endif ()
   endif ()
 
 elseif (APPLE)
@@ -155,28 +100,17 @@ elseif (APPLE)
     file(GLOB PLATFORM_HEADERS "${CMAKE_CURRENT_SOURCE_DIR}/include/iOS/*.h")
     file(GLOB PLATFORM_SOURCE_FILES "${CMAKE_CURRENT_SOURCE_DIR}/src/iOS/*.cpp"
       "${CMAKE_CURRENT_SOURCE_DIR}/src/iOS/*.mm"
-      "${CMAKE_CURRENT_SOURCE_DIR}/src/OgrePOSIXTimer.cpp"
-      "${CMAKE_CURRENT_SOURCE_DIR}/src/OgreConfigDialogNoOp.cpp")
+      "${CMAKE_CURRENT_SOURCE_DIR}/src/OgrePOSIXTimer.cpp")
 
     set(PLATFORM_LIBS "")
     set(PLATFORM_HEADER_INSTALL "iOS")
   else ()
     include_directories("include/OSX")
-    
     file(GLOB PLATFORM_HEADERS "${CMAKE_CURRENT_SOURCE_DIR}/include/OSX/*.h")
-    
-    list(REMOVE_ITEM SOURCE_FILES "${CMAKE_CURRENT_SOURCE_DIR}/src/OgreErrorDialogNoOp.cpp")
     file(GLOB PLATFORM_SOURCE_FILES "${CMAKE_CURRENT_SOURCE_DIR}/src/OSX/*.cpp"
       "${CMAKE_CURRENT_SOURCE_DIR}/src/OSX/*.mm"
       "${CMAKE_CURRENT_SOURCE_DIR}/src/OgrePOSIXTimer.cpp"
-      include/OSX/ogrelogo.png
     )
-
-    set(RESOURCE_FILES
-	  include/OSX/ogrelogo.png
-    )
-    source_group(Resources FILES ${RESOURCE_FILES})
-
     set(PLATFORM_LIBS ${Carbon_LIBRARY_FWK} ${Cocoa_LIBRARY_FWK})
     set(PLATFORM_HEADER_INSTALL "OSX")
   endif ()
@@ -186,19 +120,15 @@ elseif(ANDROID)
 
   file(GLOB PLATFORM_HEADERS "${CMAKE_CURRENT_SOURCE_DIR}/include/Android/*.h")
   file(GLOB PLATFORM_SOURCE_FILES "${CMAKE_CURRENT_SOURCE_DIR}/src/Android/*.cpp"
-      "${CMAKE_CURRENT_SOURCE_DIR}/src/OgrePOSIXTimer.cpp"
-      "${CMAKE_CURRENT_SOURCE_DIR}/src/OgreConfigDialogNoOp.cpp")
+      "${CMAKE_CURRENT_SOURCE_DIR}/src/OgrePOSIXTimer.cpp")
 
   set(PLATFORM_HEADER_INSTALL "Android")
 elseif (UNIX)
   include_directories(include/GLX ${X11_INCLUDE_DIR})
-
-  file(GLOB PLATFORM_HEADERS "${CMAKE_CURRENT_SOURCE_DIR}/include/GLX/*.h")
   file(GLOB PLATFORM_SOURCE_FILES "${CMAKE_CURRENT_SOURCE_DIR}/src/GLX/*.cpp"
       "${CMAKE_CURRENT_SOURCE_DIR}/src/OgrePOSIXTimer.cpp")
 
-  set(PLATFORM_LIBS ${X11_LIBRARIES} ${X11_Xt_LIB} ${XAW_LIBRARY} pthread)
-  set(PLATFORM_HEADER_INSTALL "GLX")
+  set(PLATFORM_LIBS ${X11_LIBRARIES} pthread)
   # some platforms require explicit linking to libdl, see if it's available
   find_library(DL_LIBRARY NAMES dl dlsym)
   mark_as_advanced(DL_LIBRARY)
@@ -263,11 +193,6 @@ endif ()
 
 list(APPEND HEADER_FILES ${THREAD_HEADER_FILES})
 
-# Add needed definitions and nedmalloc include dir
-if(NOT OGRE_CONFIG_ALLOCATOR EQUAL 1)
-  include_directories(${CMAKE_CURRENT_SOURCE_DIR}/src/nedmalloc)
-endif()
-
 set(LIBRARIES ${PLATFORM_LIBS})
 
 if (OGRE_CONFIG_THREADS)
@@ -325,14 +250,6 @@ if (OGRE_CONFIG_ENABLE_ZIP)
 
   list(APPEND LIBRARIES "${ZZip_LIBRARIES}")
   list(APPEND LIBRARIES "${ZLIB_LIBRARIES}")
-endif ()
-
-if (OGRE_CONFIG_ENABLE_GLES2_GLSL_OPTIMISER)
-  list(APPEND LIBRARIES "${GLSL_Optimizer_LIBRARIES}")
-endif ()
-
-if (OGRE_CONFIG_ENABLE_GLES2_CG_SUPPORT)
-  list(APPEND LIBRARIES "${HLSL2GLSL_LIBRARIES}")
 endif ()
 
 set (TARGET_LINK_FLAGS "")

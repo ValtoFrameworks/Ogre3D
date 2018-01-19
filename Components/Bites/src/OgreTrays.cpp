@@ -8,11 +8,7 @@
 #include "OgreTrays.h"
 
 #if OGRE_UNICODE_SUPPORT
-#   if  OGRE_STRING_USE_CUSTOM_MEMORY_ALLOCATOR
-#       define DISPLAY_STRING_TO_STRING(DS) (DS.asUTF8_c_str())
-#   else
-#       define DISPLAY_STRING_TO_STRING(DS) (DS.asUTF8())
-#   endif
+    #define DISPLAY_STRING_TO_STRING(DS) (DS.asUTF8())
 #else
     #define DISPLAY_STRING_TO_STRING(DS) (DS)
 #endif
@@ -1997,7 +1993,7 @@ void TrayManager::frameRendered(const Ogre::FrameEvent &evt)
 
 void TrayManager::windowUpdate()
 {
-#if OGRE_PLATFORM != OGRE_PLATFORM_APPLE_IOS && OGRE_PLATFORM != OGRE_PLATFORM_NACL
+#if OGRE_PLATFORM != OGRE_PLATFORM_APPLE_IOS
     mWindow->update();
 #endif
 }

@@ -14,7 +14,7 @@
 # OGRE_DEPENDENCIES_DIR can be used to specify a single base
 # folder where the required dependencies may be found.
 set(OGRE_DEPENDENCIES_DIR "" CACHE PATH "Path to prebuilt OGRE dependencies")
-option(OGRE_BUILD_DEPENDENCIES "automaitcally build Ogre Dependencies (freetype, zzip)" TRUE)
+option(OGRE_BUILD_DEPENDENCIES "automatically build Ogre Dependencies (freetype, zzip)" TRUE)
 
 include(FindPkgMacros)
 getenv_path(OGRE_DEPENDENCIES_DIR)
@@ -227,10 +227,6 @@ endif()
 # Find OpenGL 3+
 find_package(OpenGL)
 macro_log_feature(OPENGL_FOUND "OpenGL 3+" "Support for the OpenGL 3+ render system" "http://www.opengl.org/" FALSE "" "")
-
-# Find OpenGL ES 1.x
-find_package(OpenGLES)
-macro_log_feature(OPENGLES_FOUND "OpenGL ES 1.x" "Support for the OpenGL ES 1.x render system (DEPRECATED)" "http://www.khronos.org/opengles/" FALSE "" "")
 
 # Find OpenGL ES 2.x
 find_package(OpenGLES2)

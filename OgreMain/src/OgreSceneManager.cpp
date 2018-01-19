@@ -69,12 +69,6 @@ THE SOFTWARE.
 
 #include <cstdio>
 
-#if OGRE_NODE_STORAGE_LEGACY
-#define ITER_VAL(it) it->second
-#else
-#define ITER_VAL(it) (*it)
-#endif
-
 namespace Ogre {
 
 //-----------------------------------------------------------------------
@@ -796,7 +790,7 @@ void SceneManager::clearScene(void)
     for (SceneNodeList::iterator i = mSceneNodes.begin();
         i != mSceneNodes.end(); ++i)
     {
-        OGRE_DELETE ITER_VAL(i);
+        OGRE_DELETE *i;
     }
     mSceneNodes.clear();
     mAutoTrackingSceneNodes.clear();
@@ -831,12 +825,7 @@ SceneNode* SceneManager::createSceneNodeImpl(const String& name)
 SceneNode* SceneManager::createSceneNode(void)
 {
     SceneNode* sn = createSceneNodeImpl();
-#if OGRE_NODE_STORAGE_LEGACY
-    assert(mSceneNodes.find(sn->getName()) == mSceneNodes.end());
-    mSceneNodes[sn->getName()] = sn;
-#else
     mSceneNodes.push_back(sn);
-#endif
     return sn;
 }
 //-----------------------------------------------------------------------
@@ -852,11 +841,7 @@ SceneNode* SceneManager::createSceneNode(const String& name)
     }
 
     SceneNode* sn = createSceneNodeImpl(name);
-#if OGRE_NODE_STORAGE_LEGACY
-    mSceneNodes[sn->getName()] = sn;
-#else
     mSceneNodes.push_back(sn);
-#endif
     return sn;
 }
 //-----------------------------------------------------------------------
@@ -869,13 +854,9 @@ struct SceneNodeNameExists {
 void SceneManager::destroySceneNode(const String& name)
 {
     SceneNodeList::iterator i;
-#if OGRE_NODE_STORAGE_LEGACY
-    i = mSceneNodes.find(name);
-#else
     OgreAssert(!name.empty(), "name must not be empty");
     SceneNodeNameExists pred = {name};
     i = std::find_if(mSceneNodes.begin(), mSceneNodes.end(), pred);
-#endif
     _destroySceneNode(i);
 }
 
@@ -884,7 +865,7 @@ void SceneManager::_destroySceneNode(SceneNodeList::iterator i)
 
     if (i == mSceneNodes.end())
     {
-        OGRE_EXCEPT(Exception::ERR_ITEM_NOT_FOUND, "SceneNode '" + ITER_VAL(i)->getName() + "' not found.",
+        OGRE_EXCEPT(Exception::ERR_ITEM_NOT_FOUND, "SceneNode '" + (*i)->getName() + "' not found.",
             "SceneManager::destroySceneNode");
     }
 
@@ -897,13 +878,13 @@ void SceneManager::_destroySceneNode(SceneNodeList::iterator i)
         AutoTrackingSceneNodes::iterator curri = ai++;
         SceneNode* n = *curri;
         // Tracking this node
-        if (n->getAutoTrackTarget() == ITER_VAL(i))
+        if (n->getAutoTrackTarget() == *i)
         {
             // turn off, this will notify SceneManager to remove
             n->setAutoTracking(false);
         }
         // node is itself a tracker
-        else if (n == ITER_VAL(i))
+        else if (n == *i)
         {
             mAutoTrackingSceneNodes.erase(curri);
         }
@@ -911,19 +892,14 @@ void SceneManager::_destroySceneNode(SceneNodeList::iterator i)
 
     // detach from parent (don't do this in destructor since bulk destruction
     // behaves differently)
-    Node* parentNode = ITER_VAL(i)->getParent();
+    Node* parentNode = (*i)->getParent();
     if (parentNode)
     {
-        parentNode->removeChild(ITER_VAL(i));
+        parentNode->removeChild(*i);
     }
-    OGRE_DELETE ITER_VAL(i);
-
-#if OGRE_NODE_STORAGE_LEGACY
-    mSceneNodes.erase(i);
-#else
+    OGRE_DELETE *i;
     std::swap(*i, mSceneNodes.back());
     mSceneNodes.pop_back();
-#endif
 }
 //---------------------------------------------------------------------
 void SceneManager::destroySceneNode(SceneNode* sn)
@@ -931,11 +907,7 @@ void SceneManager::destroySceneNode(SceneNode* sn)
     if(!sn)
         OGRE_EXCEPT(Exception::ERR_INVALIDPARAMS, "Cannot destroy a null SceneNode.", "SceneManager::destroySceneNode");
 
-#if OGRE_NODE_STORAGE_LEGACY
-    destroySceneNode(sn->getName());
-#else
     _destroySceneNode(std::find(mSceneNodes.begin(), mSceneNodes.end(), sn));
-#endif
 }
 //-----------------------------------------------------------------------
 SceneNode* SceneManager::getRootSceneNode(void)
@@ -953,13 +925,9 @@ SceneNode* SceneManager::getRootSceneNode(void)
 SceneNode* SceneManager::getSceneNode(const String& name) const
 {
     SceneNodeList::const_iterator i;
-#if OGRE_NODE_STORAGE_LEGACY
-    i = mSceneNodes.find(name);
-#else
     OgreAssert(!name.empty(), "name must not be empty");
     SceneNodeNameExists pred = {name};
     i = std::find_if(mSceneNodes.begin(), mSceneNodes.end(), pred);
-#endif
 
     if (i == mSceneNodes.end())
     {
@@ -967,19 +935,15 @@ SceneNode* SceneManager::getSceneNode(const String& name) const
             "SceneManager::getSceneNode");
     }
 
-    return ITER_VAL(i);
+    return *i;
 
 }
 //-----------------------------------------------------------------------
 bool SceneManager::hasSceneNode(const String& name) const
 {
-#if OGRE_NODE_STORAGE_LEGACY
-    return (mSceneNodes.find(name) != mSceneNodes.end());
-#else
     OgreAssert(!name.empty(), "name must not be empty");
     SceneNodeNameExists pred = {name};
     return std::find_if(mSceneNodes.begin(), mSceneNodes.end(), pred) != mSceneNodes.end();
-#endif
 }
 
 //-----------------------------------------------------------------------
@@ -4780,9 +4744,6 @@ void SceneManager::initShadowVolumeMaterials(void)
             mShadowDebugPass->setSceneBlending(SBT_ADD); 
             mShadowDebugPass->setLightingEnabled(false);
             mShadowDebugPass->setDepthWriteEnabled(false);
-            TextureUnitState* t = mShadowDebugPass->createTextureUnitState();
-            t->setColourOperationEx(LBX_MODULATE, LBS_MANUAL, LBS_CURRENT, 
-                ColourValue(0.7, 0.0, 0.2));
             mShadowDebugPass->setCullingMode(CULL_NONE);
 
             if (mDestRenderSystem->getCapabilities()->hasCapability(
@@ -4791,9 +4752,9 @@ void SceneManager::initShadowVolumeMaterials(void)
                 ShadowVolumeExtrudeProgram::initialise();
 
                 // Enable the (infinite) point light extruder for now, just to get some params
-                mShadowDebugPass->setVertexProgram(
-                    ShadowVolumeExtrudeProgram::programNames[ShadowVolumeExtrudeProgram::POINT_LIGHT]);
-                mShadowDebugPass->setFragmentProgram(ShadowVolumeExtrudeProgram::frgProgramName);               
+                mShadowDebugPass->setGpuProgram(
+                    GPT_VERTEX_PROGRAM, ShadowVolumeExtrudeProgram::get(Light::LT_POINT, false));
+                mShadowDebugPass->setGpuProgram(GPT_FRAGMENT_PROGRAM, ShadowVolumeExtrudeProgram::frgProgram);
                 mInfiniteExtrusionParams = 
                     mShadowDebugPass->getVertexProgramParameters();
                 mInfiniteExtrusionParams->setAutoConstant(0, 
@@ -4845,9 +4806,9 @@ void SceneManager::initShadowVolumeMaterials(void)
             {
 
                 // Enable the finite point light extruder for now, just to get some params
-                mShadowStencilPass->setVertexProgram(
-                    ShadowVolumeExtrudeProgram::programNames[ShadowVolumeExtrudeProgram::POINT_LIGHT_FINITE]);
-                mShadowStencilPass->setFragmentProgram(ShadowVolumeExtrudeProgram::frgProgramName);             
+                mShadowStencilPass->setGpuProgram(
+                    GPT_VERTEX_PROGRAM, ShadowVolumeExtrudeProgram::get(Light::LT_POINT, true));
+                mShadowStencilPass->setGpuProgram(GPT_FRAGMENT_PROGRAM, ShadowVolumeExtrudeProgram::frgProgram);
                 mFiniteExtrusionParams = 
                     mShadowStencilPass->getVertexProgramParameters();
                 mFiniteExtrusionParams->setAutoConstant(0, 
@@ -5658,10 +5619,10 @@ void SceneManager::renderShadowVolumesToStencil(const Light* light,
         extrudeInSoftware = false;
         // attach the appropriate extrusion vertex program
         // Note we never unset it because support for vertex programs is constant
-        mShadowStencilPass->setVertexProgram(
-            ShadowVolumeExtrudeProgram::getProgramName(light->getType(), finiteExtrude, false)
-            , false);
-        mShadowStencilPass->setFragmentProgram(ShadowVolumeExtrudeProgram::frgProgramName);             
+        mShadowStencilPass->setGpuProgram(
+            GPT_VERTEX_PROGRAM, ShadowVolumeExtrudeProgram::get(light->getType(), finiteExtrude),
+            false);
+        mShadowStencilPass->setGpuProgram(GPT_FRAGMENT_PROGRAM, ShadowVolumeExtrudeProgram::frgProgram);
         // Set params
         if (finiteExtrude)
         {
@@ -5673,10 +5634,10 @@ void SceneManager::renderShadowVolumesToStencil(const Light* light,
         }
         if (mDebugShadows)
         {
-            mShadowDebugPass->setVertexProgram(
-                ShadowVolumeExtrudeProgram::getProgramName(light->getType(), finiteExtrude, true)
-                 , false);
-            mShadowDebugPass->setFragmentProgram(ShadowVolumeExtrudeProgram::frgProgramName);               
+            mShadowDebugPass->setGpuProgram(
+                GPT_VERTEX_PROGRAM,
+                ShadowVolumeExtrudeProgram::get(light->getType(), finiteExtrude, true), false);
+            mShadowDebugPass->setGpuProgram(GPT_FRAGMENT_PROGRAM, ShadowVolumeExtrudeProgram::frgProgram);
 
                
             // Set params
@@ -5691,7 +5652,7 @@ void SceneManager::renderShadowVolumesToStencil(const Light* light,
         }
 
         bindGpuProgram(mShadowStencilPass->getVertexProgram()->_getBindingDelegate());
-        if (!ShadowVolumeExtrudeProgram::frgProgramName.empty())
+        if (ShadowVolumeExtrudeProgram::frgProgram)
         {
             bindGpuProgram(mShadowStencilPass->getFragmentProgram()->_getBindingDelegate());
         }
@@ -5819,9 +5780,11 @@ void SceneManager::renderShadowVolumesToStencil(const Light* light,
         {
             // reset stencil & colour ops
             mDestRenderSystem->setStencilBufferParams();
-            mShadowDebugPass->getTextureUnitState(0)->
-                setColourOperationEx(LBX_MODULATE, LBS_MANUAL, LBS_CURRENT,
-                zfailAlgo ? ColourValue(0.7, 0.0, 0.2) : ColourValue(0.0, 0.7, 0.2));
+            if (mShadowDebugPass->hasFragmentProgram())
+            {
+                mShadowDebugPass->getFragmentProgramParameters()->setNamedConstant(
+                    "colour", zfailAlgo ? ColourValue(0.7, 0.0, 0.2) : ColourValue(0.0, 0.7, 0.2));
+            }
             _setPass(mShadowDebugPass);
             renderShadowVolumeObjects(iShadowRenderables, mShadowDebugPass, &lightList, flags,
                 true, false, false);
