@@ -52,6 +52,9 @@ elseif (APPLE)
   file(GLOB PLATFORM_HEADERS "include/OSX/*.h")
   file(GLOB PLATFORM_SOURCES "src/OSX/*.mm")
 
+  # ignore usage of deprecated OSX API for now
+  add_definitions(-Wno-deprecated-declarations)
+
   set(NATIVE_INCLUDES
     ${CMAKE_CURRENT_SOURCE_DIR}/include/OSX 
     ${OGRE_SOURCE_DIR}/OgreMain/include/OSX)
@@ -74,10 +77,6 @@ elseif (UNIX)
     
     set(PLATFORM_LIBS ${X11_LIBRARIES} ${X11_Xrandr_LIB} ${OPENGL_gl_LIBRARY})
   endif()
-  
-  if(NOT OGRE_STATIC)
-      add_definitions(-fPIC)
-  endif()
 endif ()
 
 file(GLOB GLSUPPORT_HEADERS "${CMAKE_CURRENT_SOURCE_DIR}/include/*.h")
@@ -92,7 +91,7 @@ if(OGRE_CONFIG_ENABLE_GL_STATE_CACHE_SUPPORT)
     PROPERTIES COMPILE_DEFINITIONS OGRE_ENABLE_STATE_CACHE)
 endif()
 
-ogre_add_library_to_folder(RenderSystems OgreGLSupport STATIC 
+add_library(OgreGLSupport STATIC 
     ${GLSUPPORT_HEADERS} ${PLATFORM_HEADERS} ${PLATFORM_SOURCES} ${GLSL_SOURCES} 
     src/OgreGLRenderSystemCommon.cpp 
     src/OgreGLTextureCommon.cpp
@@ -102,6 +101,7 @@ ogre_add_library_to_folder(RenderSystems OgreGLSupport STATIC
     src/OgreGLVertexArrayObject.cpp
 )
 target_link_libraries(OgreGLSupport OgreMain ${PLATFORM_LIBS})
+set_property(TARGET OgreGLSupport PROPERTY POSITION_INDEPENDENT_CODE ON)
 generate_export_header(OgreGLSupport 
     EXPORT_MACRO_NAME _OgreGLExport
     EXPORT_FILE_NAME ${CMAKE_BINARY_DIR}/include/OgreGLSupportPrerequisites.h)

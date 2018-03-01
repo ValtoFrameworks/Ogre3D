@@ -28,7 +28,6 @@ THE SOFTWARE.
 #include "OgreD3D11RenderWindow.h"
 #include "OgreException.h"
 #include "OgreD3D11RenderSystem.h"
-#include "OgreWindowEventUtilities.h"
 #include "OgreD3D11Driver.h"
 #include "OgreRoot.h"
 #include "OgreD3D11DepthBuffer.h"
@@ -283,41 +282,30 @@ namespace Ogre
 
         if( name == "D3DDEVICE" )
         {
-            ID3D11DeviceN  **device = (ID3D11DeviceN **)pData;
-            *device = mDevice.get();
-            return;
+            *(ID3D11DeviceN **)pData = mDevice.get();
         }
         else if( name == "isTexture" )
         {
-            bool *b = static_cast< bool * >( pData );
-            *b = false;
-            return;
+            *(bool*)pData = false;
         }
         else if( name == "ID3D11RenderTargetView" )
         {
-            *static_cast<ID3D11RenderTargetView**>(pData) = mRenderTargetView.Get();
-            return;
+            *(ID3D11RenderTargetView**)pData = mRenderTargetView.Get();
         }
         else if( name == "ID3D11Texture2D" )
         {
-            ID3D11Texture2D **pBackBuffer = (ID3D11Texture2D**)pData;
-            *pBackBuffer = mpBackBuffer.Get();
-            return;
+            *(ID3D11Texture2D**)pData = mpBackBuffer.Get();
         }
         else if( name == "numberOfViews" )
         {
-            unsigned int* n = static_cast<unsigned int*>(pData);
-            *n = 1;
-            return;
+            *(unsigned*)pData = 1;
         }
         else if( name == "DDBACKBUFFER" )
         {
-            ID3D11Texture2D **ppBackBuffer = (ID3D11Texture2D**) pData;
-            ppBackBuffer[0] = NULL;
-            return;
+            *(ID3D11Texture2D**)pData = NULL;
         }
-
-        RenderWindow::getCustomAttribute(name, pData);
+        else
+            RenderWindow::getCustomAttribute(name, pData);
     }
     //---------------------------------------------------------------------
     void D3D11RenderWindowBase::copyContentsToMemory(const Box& src, const PixelBox &dst, FrameBuffer buffer)
@@ -853,14 +841,13 @@ namespace Ogre
 			static const TCHAR staticVar;
 			GetModuleHandleEx(GET_MODULE_HANDLE_EX_FLAG_FROM_ADDRESS | GET_MODULE_HANDLE_EX_FLAG_UNCHANGED_REFCOUNT, &staticVar, &hInst);
 
-			WNDCLASS wc = { classStyle, WindowEventUtilities::_WndProc, 0, 0, hInst,
+			WNDCLASS wc = { classStyle, DefWindowProc, 0, 0, hInst,
 				LoadIcon(0, IDI_APPLICATION), LoadCursor(NULL, IDC_ARROW),
 				(HBRUSH)GetStockObject(BLACK_BRUSH), 0, OGRE_D3D11_WIN_CLASS_NAME };
 			RegisterClass(&wc);
 			mIsExternal = false;
 			mHWnd = CreateWindowEx(dwStyleEx, OGRE_D3D11_WIN_CLASS_NAME, title.c_str(), getWindowStyle(fullScreen),
 				mLeft, mTop, winWidth, winHeight, parentHWnd, 0, hInst, this);
-			WindowEventUtilities::_addRenderWindow(this);
 		}
 		else
 		{
@@ -899,7 +886,6 @@ namespace Ogre
 
         if (mHWnd && !mIsExternal)
         {
-            WindowEventUtilities::_removeRenderWindow(this);
             DestroyWindow(mHWnd);
         }
 

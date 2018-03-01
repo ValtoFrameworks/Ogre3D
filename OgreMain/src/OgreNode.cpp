@@ -26,76 +26,37 @@ THE SOFTWARE.
 -----------------------------------------------------------------------------
 */
 #include "OgreStableHeaders.h"
-#include "OgreNode.h"
-
-#include "OgreException.h"
-#include "OgreMath.h"
-
-// Dependencies on render-related types due to ability to render node
-#include "OgreMaterialManager.h"
-#include "OgreMeshManager.h"
-#include "OgreSubMesh.h"
-#include "OgreCamera.h"
-#include "OgreTechnique.h"
 #include "OgreManualObject.h"
-#include "OgreMesh.h"
 
 namespace Ogre {
 
     Node::QueuedUpdates Node::msQueuedUpdates;
     //-----------------------------------------------------------------------
-    Node::Node()
-        :mParent(0),
-        mNeedParentUpdate(false),
-        mNeedChildUpdate(false),
-        mParentNotified(false),
-        mQueuedForUpdate(false),
-        mOrientation(Quaternion::IDENTITY),
-        mPosition(Vector3::ZERO),
-        mScale(Vector3::UNIT_SCALE),
-        mInheritOrientation(true),
-        mInheritScale(true),
-        mDerivedOrientation(Quaternion::IDENTITY),
-        mDerivedPosition(Vector3::ZERO),
-        mDerivedScale(Vector3::UNIT_SCALE),
-        mInitialPosition(Vector3::ZERO),
-        mInitialOrientation(Quaternion::IDENTITY),
-        mInitialScale(Vector3::UNIT_SCALE),
-        mCachedTransformOutOfDate(true),
-        mListener(0), 
-        mDebug(0)
-    {
-        needUpdate();
-
-    }
+    Node::Node() : Node(BLANKSTRING) {}
     //-----------------------------------------------------------------------
     Node::Node(const String& name)
-        :
-        mParent(0),
+        :mParent(0),
+        mName(name),
         mNeedParentUpdate(false),
         mNeedChildUpdate(false),
         mParentNotified(false),
         mQueuedForUpdate(false),
-        mName(name),
+        mInheritOrientation(true),
+        mInheritScale(true),
+        mCachedTransformOutOfDate(true),
         mOrientation(Quaternion::IDENTITY),
         mPosition(Vector3::ZERO),
         mScale(Vector3::UNIT_SCALE),
-        mInheritOrientation(true),
-        mInheritScale(true),
         mDerivedOrientation(Quaternion::IDENTITY),
         mDerivedPosition(Vector3::ZERO),
         mDerivedScale(Vector3::UNIT_SCALE),
         mInitialPosition(Vector3::ZERO),
         mInitialOrientation(Quaternion::IDENTITY),
         mInitialScale(Vector3::UNIT_SCALE),
-        mCachedTransformOutOfDate(true),
         mListener(0), 
         mDebug(0)
-
     {
-
         needUpdate();
-
     }
 
     //-----------------------------------------------------------------------
@@ -152,12 +113,12 @@ namespace Ogre {
     }
 
     //-----------------------------------------------------------------------
-    const Matrix4& Node::_getFullTransform(void) const
+    const Affine3& Node::_getFullTransform(void) const
     {
         if (mCachedTransformOutOfDate)
         {
 #if OGRE_NODE_INHERIT_TRANSFORM
-            Ogre::Matrix4 tr;
+            Affine3 tr;
             tr.makeTransform(mPosition, mScale, mOrientation);
 
             if(mParent == NULL)
@@ -175,14 +136,14 @@ namespace Ogre {
             }
             else // shear is inherited together with orientation, controlled by mInheritOrientation
             {
-                const Ogre::Matrix4& parentTr = mParent->_getFullTransform();
-                Ogre::Vector3 parentScale(
-                    parentTr.transformDirectionAffine(Vector3::UNIT_X).length(),
-                    parentTr.transformDirectionAffine(Vector3::UNIT_Y).length(),
-                    parentTr.transformDirectionAffine(Vector3::UNIT_Z).length());
+                const Affine3& parentTr = mParent->_getFullTransform();
+                Vector3 parentScale(
+                    parentTr.transformDirection(Vector3::UNIT_X).length(),
+                    parentTr.transformDirection(Vector3::UNIT_Y).length(),
+                    parentTr.transformDirection(Vector3::UNIT_Z).length());
 
                 assert(mInheritOrientation ^ mInheritScale);
-                mCachedTransform = (mInheritOrientation ? Matrix4::getScale(1.0f / parentScale)  * parentTr : Matrix4::getScale(parentScale)) * tr;
+                mCachedTransform = (mInheritOrientation ? Affine3::getScale(1.0f / parentScale)  * parentTr : Affine3::getScale(parentScale)) * tr;
             }
 #else
             // Use derived values
@@ -593,7 +554,7 @@ namespace Ogre {
             _updateFromParent();
         }
 #if OGRE_NODE_INHERIT_TRANSFORM
-        return _getFullTransform().inverseAffine().transformAffine(worldPos);
+        return _getFullTransform().inverse() * worldPos;
 #else
         return mDerivedOrientation.Inverse() * (worldPos - mDerivedPosition) / mDerivedScale;
 #endif
@@ -605,7 +566,7 @@ namespace Ogre {
         {
             _updateFromParent();
         }
-        return _getFullTransform().transformAffine(localPos);
+        return _getFullTransform() * localPos;
     }
     //-----------------------------------------------------------------------
     Vector3 Node::convertWorldToLocalDirection( const Vector3 &worldDir, bool useScale )
@@ -631,9 +592,7 @@ namespace Ogre {
         {
             _updateFromParent();
         }
-        return useScale ? 
-            _getFullTransform().transformDirectionAffine(localDir) :
-            mDerivedOrientation * localDir;
+        return useScale ? _getFullTransform().linear() * localDir : mDerivedOrientation * localDir;
     }
     //-----------------------------------------------------------------------
     Quaternion Node::convertWorldToLocalOrientation( const Quaternion &worldOrientation )

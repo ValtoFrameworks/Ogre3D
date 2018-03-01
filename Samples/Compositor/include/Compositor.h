@@ -613,12 +613,19 @@ void Sample_Compositor::createTextures(void)
         TU_DYNAMIC_WRITE_ONLY
     );
 
+    MaterialManager::getSingleton()
+        .getByName("Ogre/Compositor/Halftone", "General")
+        ->getTechnique(0)
+        ->getPass(0)
+        ->getTextureUnitState("noise")
+        ->setTexture(tex);
+
     if(tex)
     {
         HardwarePixelBufferSharedPtr ptr = tex->getBuffer(0,0);
         ptr->lock(HardwareBuffer::HBL_DISCARD);
         const PixelBox &pb = ptr->getCurrentLock();
-        Ogre::uint8 *data = static_cast<Ogre::uint8*>(pb.data);
+        Ogre::uint8 *data = pb.data;
 
         size_t height = pb.getHeight();
         size_t width = pb.getWidth();
@@ -656,10 +663,17 @@ void Sample_Compositor::createTextures(void)
         TU_DYNAMIC_WRITE_ONLY
     );
 
+    MaterialManager::getSingleton()
+        .getByName("Ogre/Compositor/Dither", "General")
+        ->getTechnique(0)
+        ->getPass(0)
+        ->getTextureUnitState("noise")
+        ->setTexture(tex2);
+
     HardwarePixelBufferSharedPtr ptr2 = tex2->getBuffer(0,0);
     ptr2->lock(HardwareBuffer::HBL_DISCARD);
     const PixelBox &pb2 = ptr2->getCurrentLock();
-    Ogre::uint8 *data2 = static_cast<Ogre::uint8*>(pb2.data);
+    Ogre::uint8 *data2 = pb2.data;
 
     size_t height2 = pb2.getHeight();
     size_t width2 = pb2.getWidth();

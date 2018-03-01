@@ -9,6 +9,14 @@
 
 # Configure OpenGL ES 2.0 RenderSystem build
 
+# GLSL-Optimizer
+find_package(GLSLOptimizer)
+macro_log_feature(GLSL_Optimizer_FOUND "GLSL Optimizer" "GLSL Optimizer" "http://github.com/aras-p/glsl-optimizer/" FALSE "" "")
+
+# HLSL2GLSL
+find_package(HLSL2GLSL)
+macro_log_feature(HLSL2GLSL_FOUND "HLSL2GLSL" "HLSL2GLSL" "http://hlsl2glslfork.googlecode.com/" FALSE "" "")
+
 file(GLOB HEADER_FILES "include/*.h")
 list(APPEND HEADER_FILES
     ${CMAKE_BINARY_DIR}/include/OgreGLES2Exports.h
@@ -59,7 +67,7 @@ include_directories(
   ${OPENGLES3_INCLUDE_DIR} ${OPENGLES2_INCLUDE_DIR} ${EGL_INCLUDE_DIR}
 )
 
-ogre_add_library_to_folder(RenderSystems RenderSystem_GLES2 ${OGRE_LIB_TYPE} ${HEADER_FILES} ${GLESW_HEADERS} ${KHR_HEADERS} ${PLATFORM_HEADERS} ${SOURCE_FILES} ${PLATFORM_SOURCES} SEPARATE ${GLSLES_FILES})
+add_library(RenderSystem_GLES2 ${OGRE_LIB_TYPE} ${HEADER_FILES} ${GLESW_HEADERS} ${KHR_HEADERS} ${PLATFORM_HEADERS} ${SOURCE_FILES} ${PLATFORM_SOURCES} ${GLSLES_FILES})
 target_link_libraries(RenderSystem_GLES2 OgreMain ${GLSUPPORT_LIBS} ${OPENGLES3_LIBRARIES} ${OPENGLES2_LIBRARIES})
 
 if (OGRE_CONFIG_ENABLE_GLES2_GLSL_OPTIMISER)

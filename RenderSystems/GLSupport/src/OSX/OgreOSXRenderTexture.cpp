@@ -25,7 +25,6 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 THE SOFTWARE.
 -----------------------------------------------------------------------------
 */
-#include "OgreStableHeaders.h"
 
 #include "OgreException.h"
 #include "OgreLogManager.h"
@@ -40,7 +39,6 @@ THE SOFTWARE.
 #include <OpenGL/gl.h>
 #define GL_EXT_texture_env_combine 1
 #include <OpenGL/glext.h>
-#include <OpenGL/glu.h>
 #include <AGL/agl.h>
 
 namespace Ogre

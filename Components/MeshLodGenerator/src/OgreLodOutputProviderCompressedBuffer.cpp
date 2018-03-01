@@ -26,8 +26,7 @@
  * -----------------------------------------------------------------------------
  */
 
-#include "OgreLodOutputProviderCompressedBuffer.h"
-#include "OgreLodOutputProviderBuffer.h"
+#include "OgreMeshLodPrecompiledHeaders.h"
 
 namespace Ogre
 {

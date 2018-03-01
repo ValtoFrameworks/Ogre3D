@@ -27,29 +27,13 @@ Copyright (c) 2000-2014 Torus Knot Software Ltd
 */
 #include "OgreStableHeaders.h"
 #include "OgreEntity.h"
-
-#include "OgreMeshManager.h"
-#include "OgreSubMesh.h"
 #include "OgreSubEntity.h"
-#include "OgreException.h"
-#include "OgreSceneManager.h"
-#include "OgreLogManager.h"
-#include "OgreSkeleton.h"
-#include "OgreBone.h"
-#include "OgreCamera.h"
 #include "OgreTagPoint.h"
-#include "OgreAxisAlignedBox.h"
-#include "OgreHardwareBufferManager.h"
-#include "OgreVector4.h"
-#include "OgreRoot.h"
-#include "OgreTechnique.h"
-#include "OgrePass.h"
 #include "OgreSkeletonInstance.h"
 #include "OgreOptimisedUtil.h"
-#include "OgreSceneNode.h"
 #include "OgreLodStrategy.h"
 #include "OgreLodListener.h"
-#include "OgreMaterialManager.h"
+
 
 namespace Ogre {
     //-----------------------------------------------------------------------
@@ -62,21 +46,22 @@ namespace Ogre {
           mHardwareVertexAnimVertexData(0),
           mVertexAnimationAppliedThisFrame(false),
           mPreparedForShadowVolumes(false),
+          mDisplaySkeleton(false),
+          mCurrentHWAnimationState(false),
+          mSkipAnimStateUpdates(false),
+          mAlwaysUpdateMainSkeleton(false),
+          mUpdateBoundingBoxFromSkeleton(false),
+          mVertexProgramInUse(false),
+          mInitialised(false),
+          mHardwarePoseCount(0),
+          mNumBoneMatrices(0),
           mBoneWorldMatrices(NULL),
           mBoneMatrices(NULL),
-          mNumBoneMatrices(0),
           mFrameAnimationLastUpdated(std::numeric_limits<unsigned long>::max()),
           mFrameBonesLastUpdated(NULL),
           mSharedSkeletonEntities(NULL),
-          mDisplaySkeleton(false),
-        mCurrentHWAnimationState(false),
-        mHardwarePoseCount(0),
-        mVertexProgramInUse(false),
         mSoftwareAnimationRequests(0),
         mSoftwareAnimationNormalsRequests(0),
-        mSkipAnimStateUpdates(false),
-        mAlwaysUpdateMainSkeleton(false),
-          mUpdateBoundingBoxFromSkeleton(false),
         mMeshLodIndex(0),
         mMeshLodFactorTransformed(1.0f),
         mMinMeshLodIndex(99),
@@ -86,54 +71,20 @@ namespace Ogre {
         mMinMaterialLodIndex(99),
         mMaxMaterialLodIndex(0),        // Backwards, remember low value = high detail
         mSkeletonInstance(0),
-        mInitialised(false),
-        mLastParentXform(Matrix4::ZERO),
+        mLastParentXform(Affine3::ZERO),
         mMeshStateCount(0),
         mFullBoundingBox()
     {
     }
     //-----------------------------------------------------------------------
-    Entity::Entity( const String& name, const MeshPtr& mesh) :
-        MovableObject(name),
-        mMesh(mesh),
-        mAnimationState(NULL),
-        mSkelAnimVertexData(0),
-        mSoftwareVertexAnimVertexData(0),
-        mHardwareVertexAnimVertexData(0),
-        mVertexAnimationAppliedThisFrame(false),
-        mPreparedForShadowVolumes(false),
-        mBoneWorldMatrices(NULL),
-        mBoneMatrices(NULL),
-        mNumBoneMatrices(0),
-        mFrameAnimationLastUpdated(std::numeric_limits<unsigned long>::max()),
-        mFrameBonesLastUpdated(NULL),
-        mSharedSkeletonEntities(NULL),
-        mDisplaySkeleton(false),
-        mCurrentHWAnimationState(false),
-        mVertexProgramInUse(false),
-        mSoftwareAnimationRequests(0),
-        mSoftwareAnimationNormalsRequests(0),
-        mSkipAnimStateUpdates(false),
-        mAlwaysUpdateMainSkeleton(false),
-        mUpdateBoundingBoxFromSkeleton(false),
-        mMeshLodIndex(0),
-        mMeshLodFactorTransformed(1.0f),
-        mMinMeshLodIndex(99),
-        mMaxMeshLodIndex(0),        // Backwards, remember low value = high detail
-        mMaterialLodFactor(1.0f),
-        mMaterialLodFactorTransformed(1.0f),
-        mMinMaterialLodIndex(99),
-        mMaxMaterialLodIndex(0),        // Backwards, remember low value = high detail
-        mSkeletonInstance(0),
-        mInitialised(false),
-        mLastParentXform(Matrix4::ZERO),
-        mMeshStateCount(0),
-        mFullBoundingBox()
+    Entity::Entity( const String& name, const MeshPtr& mesh) : Entity()
     {
+        mName = name;
+        mMesh = mesh;
         _initialise();
     }
     //-----------------------------------------------------------------------
-    void Entity::backgroundLoadingComplete(Resource* res)
+    void Entity::loadingComplete(Resource* res)
     {
         if (res == mMesh.get())
         {
@@ -216,7 +167,7 @@ namespace Ogre {
         {
             mFrameBonesLastUpdated = OGRE_NEW_T(unsigned long, MEMCATEGORY_ANIMATION)(std::numeric_limits<unsigned long>::max());
             mNumBoneMatrices = mSkeletonInstance->getNumBones();
-            mBoneMatrices = static_cast<Matrix4*>(OGRE_MALLOC_SIMD(sizeof(Matrix4) * mNumBoneMatrices, MEMCATEGORY_ANIMATION));
+            mBoneMatrices = static_cast<Affine3*>(OGRE_MALLOC_SIMD(sizeof(Affine3) * mNumBoneMatrices, MEMCATEGORY_ANIMATION));
         }
         if (hasSkeleton() || hasVertexAnimation())
         {
@@ -621,7 +572,7 @@ namespace Ogre {
             aa_box = child_itr->second->getBoundingBox();
             TagPoint* tp = static_cast<TagPoint*>(child_itr->second->getParentNode());
             // Use transform local to skeleton since world xform comes later
-            aa_box.transformAffine(tp->_getFullLocalTransform());
+            aa_box.transform(tp->_getFullLocalTransform());
 
             full_aa_box.merge(aa_box);
         }
@@ -950,7 +901,7 @@ namespace Ogre {
                 // Software blend?
                 if (softwareAnimation)
                 {
-                    const Matrix4* blendMatrices[256];
+                    const Affine3* blendMatrices[256];
 
                     // Ok, we need to do a software blend
                     // Firstly, check out working vertex buffers
@@ -1035,7 +986,7 @@ namespace Ogre {
                 if (!mBoneWorldMatrices)
                 {
                     mBoneWorldMatrices =
-                        static_cast<Matrix4*>(OGRE_MALLOC_SIMD(sizeof(Matrix4) * mNumBoneMatrices, MEMCATEGORY_ANIMATION));
+                        static_cast<Affine3*>(OGRE_MALLOC_SIMD(sizeof(Affine3) * mNumBoneMatrices, MEMCATEGORY_ANIMATION));
                 }
 
                 OptimisedUtil::getImplementation()->concatenateAffineMatrices(
@@ -2034,10 +1985,9 @@ namespace Ogre {
 
         // Calculate the object space light details
         Vector4 lightPos = light->getAs4DVector();
-        Matrix4 world2Obj = mParentNode->_getFullTransform().inverseAffine();
-        lightPos = world2Obj.transformAffine(lightPos);
-        Matrix3 world2Obj3x3;
-        world2Obj.extract3x3Matrix(world2Obj3x3);
+        Affine3 world2Obj = mParentNode->_getFullTransform().inverse();
+        lightPos = world2Obj * lightPos;
+        Matrix3 world2Obj3x3 = world2Obj.linear();
         extrusionDistance *= Math::Sqrt(std::min(std::min(world2Obj3x3.GetColumn(0).squaredLength(), world2Obj3x3.GetColumn(1).squaredLength()), world2Obj3x3.GetColumn(2).squaredLength()));
 
         // We need to search the edge list for silhouette edges
@@ -2448,7 +2398,7 @@ namespace Ogre {
             mMesh->_initAnimationState(mAnimationState);
             mFrameBonesLastUpdated = OGRE_NEW_T(unsigned long, MEMCATEGORY_ANIMATION)(std::numeric_limits<unsigned long>::max());
             mNumBoneMatrices = mSkeletonInstance->getNumBones();
-            mBoneMatrices = static_cast<Matrix4*>(OGRE_MALLOC_SIMD(sizeof(Matrix4) * mNumBoneMatrices, MEMCATEGORY_ANIMATION));
+            mBoneMatrices = static_cast<Affine3*>(OGRE_MALLOC_SIMD(sizeof(Affine3) * mNumBoneMatrices, MEMCATEGORY_ANIMATION));
 
             mSharedSkeletonEntities->erase(this);
             if (mSharedSkeletonEntities->size() == 1)

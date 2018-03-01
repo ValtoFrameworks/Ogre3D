@@ -29,16 +29,8 @@ THE SOFTWARE.
 
 #include "OgreAutoParamDataSource.h"
 #include "OgreRenderable.h"
-#include "OgreCamera.h"
 #include "OgreRenderTarget.h"
 #include "OgreControllerManager.h"
-#include "OgreMath.h"
-#include "OgreRoot.h"
-#include "OgreRenderSystem.h"
-#include "OgreMatrix4.h"
-#include "OgreVector4.h"
-#include "OgreColourValue.h"
-#include "OgreSceneNode.h"
 #include "OgreViewport.h"
 
 namespace Ogre {
@@ -270,19 +262,19 @@ namespace Ogre {
         mCurrentSceneManager = sm;
     }
     //-----------------------------------------------------------------------------
-    void AutoParamDataSource::setWorldMatrices(const Matrix4* m, size_t count)
+    void AutoParamDataSource::setWorldMatrices(const Affine3* m, size_t count)
     {
         mWorldMatrixArray = m;
         mWorldMatrixCount = count;
         mWorldMatrixDirty = false;
     }
     //-----------------------------------------------------------------------------
-    const Matrix4& AutoParamDataSource::getWorldMatrix(void) const
+    const Affine3& AutoParamDataSource::getWorldMatrix(void) const
     {
         if (mWorldMatrixDirty)
         {
             mWorldMatrixArray = mWorldMatrix;
-            mCurrentRenderable->getWorldTransforms(mWorldMatrix);
+            mCurrentRenderable->getWorldTransforms(reinterpret_cast<Matrix4*>(mWorldMatrix));
             mWorldMatrixCount = mCurrentRenderable->getNumWorldTransforms();
             if (mCameraRelativeRendering)
             {
@@ -303,19 +295,19 @@ namespace Ogre {
         return mWorldMatrixCount;
     }
     //-----------------------------------------------------------------------------
-    const Matrix4* AutoParamDataSource::getWorldMatrixArray(void) const
+    const Affine3* AutoParamDataSource::getWorldMatrixArray(void) const
     {
         // trigger derivation
         getWorldMatrix();
         return mWorldMatrixArray;
     }
     //-----------------------------------------------------------------------------
-    const Matrix4& AutoParamDataSource::getViewMatrix(void) const
+    const Affine3& AutoParamDataSource::getViewMatrix(void) const
     {
         if (mViewMatrixDirty)
         {
             if (mCurrentRenderable && mCurrentRenderable->getUseIdentityView())
-                mViewMatrix = Matrix4::IDENTITY;
+                mViewMatrix = Affine3::IDENTITY;
             else
             {
                 mViewMatrix = mCurrentCamera->getViewMatrix(true);
@@ -370,11 +362,11 @@ namespace Ogre {
         return mProjectionMatrix;
     }
     //-----------------------------------------------------------------------------
-    const Matrix4& AutoParamDataSource::getWorldViewMatrix(void) const
+    const Affine3& AutoParamDataSource::getWorldViewMatrix(void) const
     {
         if (mWorldViewMatrixDirty)
         {
-            mWorldViewMatrix = getViewMatrix().concatenateAffine(getWorldMatrix());
+            mWorldViewMatrix = getViewMatrix() * getWorldMatrix();
             mWorldViewMatrixDirty = false;
         }
         return mWorldViewMatrix;
@@ -390,31 +382,31 @@ namespace Ogre {
         return mWorldViewProjMatrix;
     }
     //-----------------------------------------------------------------------------
-    const Matrix4& AutoParamDataSource::getInverseWorldMatrix(void) const
+    const Affine3& AutoParamDataSource::getInverseWorldMatrix(void) const
     {
         if (mInverseWorldMatrixDirty)
         {
-            mInverseWorldMatrix = getWorldMatrix().inverseAffine();
+            mInverseWorldMatrix = getWorldMatrix().inverse();
             mInverseWorldMatrixDirty = false;
         }
         return mInverseWorldMatrix;
     }
     //-----------------------------------------------------------------------------
-    const Matrix4& AutoParamDataSource::getInverseWorldViewMatrix(void) const
+    const Affine3& AutoParamDataSource::getInverseWorldViewMatrix(void) const
     {
         if (mInverseWorldViewMatrixDirty)
         {
-            mInverseWorldViewMatrix = getWorldViewMatrix().inverseAffine();
+            mInverseWorldViewMatrix = getWorldViewMatrix().inverse();
             mInverseWorldViewMatrixDirty = false;
         }
         return mInverseWorldViewMatrix;
     }
     //-----------------------------------------------------------------------------
-    const Matrix4& AutoParamDataSource::getInverseViewMatrix(void) const
+    const Affine3& AutoParamDataSource::getInverseViewMatrix(void) const
     {
         if (mInverseViewMatrixDirty)
         {
-            mInverseViewMatrix = getViewMatrix().inverseAffine();
+            mInverseViewMatrix = getViewMatrix().inverse();
             mInverseViewMatrixDirty = false;
         }
         return mInverseViewMatrix;
@@ -464,13 +456,12 @@ namespace Ogre {
         {
             if (mCameraRelativeRendering)
             {
-                mCameraPositionObjectSpace = 
-                    getInverseWorldMatrix().transformAffine(Vector3::ZERO);
+                mCameraPositionObjectSpace = Vector4(getInverseWorldMatrix() * Vector3::ZERO);
             }
             else
             {
-                mCameraPositionObjectSpace = 
-                    getInverseWorldMatrix().transformAffine(mCurrentCamera->getDerivedPosition());
+                mCameraPositionObjectSpace =
+                    Vector4(getInverseWorldMatrix() * mCurrentCamera->getDerivedPosition());
             }
             mCameraPositionObjectSpaceDirty = false;
         }
@@ -501,14 +492,16 @@ namespace Ogre {
         {
             if (mCameraRelativeRendering)
             {
-                mLodCameraPositionObjectSpace = 
-                    getInverseWorldMatrix().transformAffine(mCurrentCamera->getLodCamera()->getDerivedPosition()
-                        - mCameraRelativePosition);
+                mLodCameraPositionObjectSpace =
+                    Vector4(getInverseWorldMatrix() *
+                            (mCurrentCamera->getLodCamera()->getDerivedPosition() -
+                             mCameraRelativePosition));
             }
             else
             {
-                mLodCameraPositionObjectSpace = 
-                    getInverseWorldMatrix().transformAffine(mCurrentCamera->getLodCamera()->getDerivedPosition());
+                mLodCameraPositionObjectSpace =
+                    Vector4(getInverseWorldMatrix() *
+                            (mCurrentCamera->getLodCamera()->getDerivedPosition()));
             }
             mLodCameraPositionObjectSpaceDirty = false;
         }
@@ -843,7 +836,7 @@ namespace Ogre {
         {
             // Calculate based on object space light distance
             // compared to light attenuation range
-            Vector3 objPos = getInverseWorldMatrix().transformAffine(l.getDerivedPosition(true));
+            Vector3 objPos = getInverseWorldMatrix() * l.getDerivedPosition(true);
             return l.getAttenuationRange() - objPos.length();
         }
     }

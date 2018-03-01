@@ -1,6 +1,6 @@
 project(OgreJava)
 
-find_package(SWIG)
+find_package(SWIG 3.0.8)
 
 if(ANDROID)
 	set(JNI_FOUND TRUE)
@@ -17,6 +17,7 @@ if(NOT JNI_FOUND OR NOT SWIG_FOUND)
 endif()
 
 include_directories(${JNI_INCLUDE_DIRS})
+include_directories("${OGRE_BINARY_DIR}/include" "${OGRE_SOURCE_DIR}/OgreMain/include")
 include(${SWIG_USE_FILE})
 
 if(MSVC)
@@ -59,7 +60,6 @@ endif()
 if(OGRE_BUILD_COMPONENT_BITES)
 	if(SDL2_FOUND)
 		include_directories(${SDL2_INCLUDE_DIR})
-		list(APPEND CMAKE_SWIG_FLAGS -DOGRE_BITES_HAVE_SDL=1)
 	endif()
 
 	ogre_add_component_include_dir(Bites)

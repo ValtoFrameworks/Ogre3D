@@ -28,13 +28,8 @@ THE SOFTWARE.
 
 #include "OgreStableHeaders.h"
 
-#include "OgreRoot.h"
-#include "OgreRenderSystem.h"
 #include "OgreDDSCodec.h"
 #include "OgreImage.h"
-#include "OgreException.h"
-#include "OgreLogManager.h"
-#include "OgreBitwise.h"
 
 namespace Ogre {
     // Internal DDS structure definitions
@@ -298,12 +293,14 @@ namespace Ogre {
             {
             case PF_A8B8G8R8:
                 flipRgbMasks = true;
+                OGRE_FALLTHROUGH;
             case PF_A8R8G8B8:
                 ddsHeaderRgbBits = 8 * 4;
                 hasAlpha = true;
                 break;
             case PF_X8B8G8R8:
                 flipRgbMasks = true;
+                OGRE_FALLTHROUGH;
             case PF_X8R8G8B8:
                 ddsHeaderRgbBits = 8 * 4;
                 break;
@@ -535,9 +532,8 @@ namespace Ogre {
             case 96: // DXGI_FORMAT_BC6H_SF16
                 return PF_BC6H_SF16;
             case 98: // DXGI_FORMAT_BC7_UNORM
-                return PF_BC7_UNORM;
             case 99: // DXGI_FORMAT_BC7_UNORM_SRGB
-                return PF_BC7_UNORM_SRGB;
+                return PF_BC7_UNORM;
             case 20: // DXGI_FORMAT_D32_FLOAT_S8X24_UINT
             case 22: // DXGI_FORMAT_X32_TYPELESS_G8X24_UINT
             case 40: // DXGI_FORMAT_D32_FLOAT

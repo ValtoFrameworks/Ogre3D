@@ -32,9 +32,6 @@ THE SOFTWARE.
 #include "OgreCompositionPass.h"
 #include "OgreCompositionTargetPass.h"
 #include "OgreCompositionTechnique.h"
-#include "OgreRoot.h"
-#include "OgreScriptCompiler.h"
-#include "OgreTextureManager.h"
 #include "OgreRectangle2D.h"
 #include "OgreRenderTarget.h"
 

@@ -57,7 +57,6 @@ endif()
 
 include(CMakeDependentOption)
 include(MacroLogFeature)
-include(OgreAddTargets)
 include(OgreConfigTargets)
 include(PreprocessorUtils)
 set(OGRE_TEMPLATES_DIR "${OGRE_SOURCE_DIR}/CMake/Templates")
@@ -137,10 +136,6 @@ if (MSVC)
     set_property(GLOBAL PROPERTY USE_FOLDERS ON)
   endif()
 
-  if (OGRE_UNITY_BUILD)
-    # object files can get large with Unity builds
-    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} /bigobj")
-  endif ()
   if (MSVC_VERSION GREATER 1500 OR MSVC_VERSION EQUAL 1500)
     option(OGRE_BUILD_MSVC_MP "Enable build with multiple processes in Visual Studio" TRUE)
   else()
@@ -176,14 +171,10 @@ endif ()
 include(GenerateExportHeader)
 set(CMAKE_CXX_VISIBILITY_PRESET hidden)
 set(CMAKE_VISIBILITY_INLINES_HIDDEN TRUE)
-set(OGRE_VISIBILITY_FLAGS "-DOGRE_GCC_VISIBILITY") # for legacy headers
 
-if ((CMAKE_COMPILER_IS_GNUCXX OR CMAKE_COMPILER_IS_CLANGXX) AND NOT MINGW)
-  # Fix x64 issues on Linux
-  if(OGRE_PLATFORM_X64 AND NOT APPLE)
-    add_definitions(-fPIC)
-  endif()
-endif ((CMAKE_COMPILER_IS_GNUCXX OR CMAKE_COMPILER_IS_CLANGXX) AND NOT MINGW)
+if((CMAKE_CXX_COMPILER_ID MATCHES "Clang|GNU") AND NOT OGRE_STATIC)
+  set(OGRE_VISIBILITY_FLAGS "-DOGRE_GCC_VISIBILITY") # for legacy headers
+endif()
 
 # determine system endianess
 if (MSVC OR ANDROID OR EMSCRIPTEN OR APPLE_IOS)
@@ -197,18 +188,10 @@ else()
 endif()
 
 # Add OgreMain include path
-include_directories("${OGRE_SOURCE_DIR}/OgreMain/include")
-include_directories("${OGRE_BINARY_DIR}/include")
-if (APPLE)
-  if (APPLE_IOS)
-    include_directories("${OGRE_SOURCE_DIR}/OgreMain/include/iOS")
-
-    # Set static early for proper dependency detection
-    set(OGRE_STATIC TRUE)
-  else ()
-    include_directories("${OGRE_SOURCE_DIR}/OgreMain/include/OSX")
-  endif ()
-endif (APPLE)
+if (APPLE_IOS)
+  # Set static early for proper dependency detection
+  set(OGRE_STATIC TRUE)
+endif()
 
 # definitions for samples
 set(OGRE_LIBRARIES OgreMain)
@@ -234,8 +217,6 @@ endif(WIN32 OR APPLE)
 
 # Set up iOS overrides.
 if (APPLE_IOS)
-  include_directories("${OGRE_SOURCE_DIR}/OgreMain/include/iOS")
-
   set(CMAKE_EXE_LINKER_FLAGS "-framework OpenGLES -framework Foundation -framework CoreGraphics -framework QuartzCore -framework UIKit")
   set(XCODE_ATTRIBUTE_GCC_UNROLL_LOOPS "YES")
   set(XCODE_ATTRIBUTE_LLVM_VECTORIZE_LOOPS "YES")
@@ -267,8 +248,8 @@ elseif(EMSCRIPTEN)
   set(OGRE_BUILD_RENDERSYSTEM_GLES2 TRUE CACHE BOOL "Forcing OpenGL ES 2 RenderSystem for Emscripten" FORCE)
   set(OGRE_BUILD_RENDERSYSTEM_GL FALSE CACHE BOOL "Disable OpenGL RenderSystem for Emscripten" FORCE)
 
-  set(OGRE_CONFIG_ENABLE_STBI TRUE CACHE BOOL "Enable STBIImageCodec on Emscripten (Smaller Footprint)" FORCE)
-  set(OGRE_CONFIG_ENABLE_FREEIMAGE FALSE CACHE BOOL "Disable Freeimage on Emscripten (Smaller Footprint)" FORCE)
+  set(OGRE_BUILD_PLUGIN_STBI TRUE CACHE BOOL "Enable STBIImageCodec on Emscripten (Smaller Footprint)" FORCE)
+  set(OGRE_BUILD_PLUGIN_FREEIMAGE FALSE CACHE BOOL "Disable Freeimage on Emscripten (Smaller Footprint)" FORCE)
   set(OGRE_BUILD_PLUGIN_PCZ FALSE CACHE BOOL "Disable pcz on Emscripten" FORCE)
   set(OGRE_BUILD_PLUGIN_BSP FALSE CACHE BOOL "Disable pcz on Emscripten" FORCE)
   set(OGRE_BUILD_TOOLS FALSE CACHE BOOL "Disable tools on Emscripten" FORCE)
@@ -303,9 +284,6 @@ elseif (APPLE AND NOT APPLE_IOS)
     endif()
   endif()
 
-  # 10.7 is the minimum for libc++ support
-  set(CMAKE_OSX_DEPLOYMENT_TARGET 10.7)
-
   # Make sure that the OpenGL render system is selected for non-iOS Apple builds
   set(OGRE_BUILD_RENDERSYSTEM_GLES2 FALSE)
 endif ()
@@ -334,6 +312,7 @@ include(Dependencies)
 
 # Customise what to build
 option(OGRE_STATIC "Static build" FALSE)
+option(OGRE_ENABLE_PRECOMPILED_HEADERS "Use precompiled headers to speed up build" TRUE)
 option(OGRE_RESOURCEMANAGER_STRICT "Make ResourceManager strict for faster operation. (case sensitive, indexing required etc.)" FALSE)
 cmake_dependent_option(OGRE_BUILD_RENDERSYSTEM_D3D9 "Build Direct3D9 RenderSystem" TRUE "WIN32;DirectX9_FOUND;NOT WINDOWS_STORE;NOT WINDOWS_PHONE" FALSE)
 cmake_dependent_option(OGRE_BUILD_RENDERSYSTEM_D3D11 "Build Direct3D11 RenderSystem" TRUE "WIN32;DirectX11_FOUND OR WINDOWS_STORE OR WINDOWS_PHONE" FALSE)
@@ -366,12 +345,25 @@ cmake_dependent_option(OGRE_BUILD_LIBS_AS_FRAMEWORKS "Build frameworks for libra
 option(OGRE_BUILD_TESTS "Build the unit tests & PlayPen" FALSE)
 option(OGRE_CONFIG_DOUBLE "Use doubles instead of floats in Ogre" FALSE)
 option(OGRE_CONFIG_NODE_INHERIT_TRANSFORM "Tells the node whether it should inherit full transform from it's parent node or derived position, orientation and scale" FALSE)
-
-# determine threading options
-include(PrepareThreadingOptions)
-cmake_dependent_option(OGRE_CONFIG_ENABLE_FREEIMAGE "Build FreeImage codec." FALSE "FreeImage_FOUND" FALSE)
-cmake_dependent_option(OGRE_BUILD_PLUGIN_EXRCODEC "Build EXR Codec plugin" TRUE "OPENEXR_FOUND;NOT OGRE_CONFIG_ENABLE_FREEIMAGE" FALSE)
-cmake_dependent_option(OGRE_CONFIG_ENABLE_STBI "Enable STBI image codec." TRUE "NOT OGRE_CONFIG_ENABLE_FREEIMAGE" FALSE)
+set(OGRE_CONFIG_THREADS "3" CACHE STRING 
+	"Enable Ogre thread safety support for multithreading. Possible values:
+	0 - no thread safety. DefaultWorkQueue is not threaded.
+	1 - background resource preparation and loading is thread safe. Threaded DefaultWorkQueue. [DEPRECATED]
+	2 - only background resource preparation is thread safe. Threaded DefaultWorkQueue. [DEPRECATED]
+	3 - no thread safety. Threaded DefaultWorkQueue."
+)
+set_property(CACHE OGRE_CONFIG_THREADS PROPERTY STRINGS 0 1 2 3)
+set(OGRE_CONFIG_THREAD_PROVIDER "std" CACHE STRING
+	"Select the library to use for thread support. Possible values:
+	boost - Boost thread library. [DEPRECATED]
+	poco  - Poco thread library. [DEPRECATED]
+	tbb   - ThreadingBuildingBlocks library. [DEPRECATED]
+	std   - STL thread library (requires compiler support)."
+)
+set_property(CACHE OGRE_CONFIG_THREAD_PROVIDER PROPERTY STRINGS boost poco tbb std)
+cmake_dependent_option(OGRE_BUILD_PLUGIN_FREEIMAGE "Build FreeImage codec." TRUE "FreeImage_FOUND" FALSE)
+cmake_dependent_option(OGRE_BUILD_PLUGIN_EXRCODEC "Build EXR Codec plugin" TRUE "OPENEXR_FOUND;" FALSE)
+option(OGRE_BUILD_PLUGIN_STBI "Enable STBI image codec." TRUE)
 option(OGRE_CONFIG_ENABLE_MESHLOD "Enable Mesh Lod." TRUE)
 option(OGRE_CONFIG_ENABLE_DDS "Build DDS codec." TRUE)
 option(OGRE_CONFIG_ENABLE_PVRTC "Build PVRTC codec." FALSE)
@@ -404,17 +396,14 @@ if (WIN32)
 	endif ()
 endif ()
 
+# determine threading options
+include(PrepareThreadingOptions)
+
 # For Visual studio enable project folders by default.
 # Hide option from other compilers.
 if (MSVC)
 	option(OGRE_PROJECT_FOLDERS "Organize project into project folders." TRUE)
 endif ()
-
-# Unity build options
-# A Unity build includes all sources files in just a few actual compilation units
-# to potentially speed up the compilation.
-option(OGRE_UNITY_BUILD "Enable unity build for Ogre." FALSE)
-set(OGRE_UNITY_FILES_PER_UNIT "50" CACHE STRING "Number of files per compilation unit in Unity build.")
 
 # hide advanced options
 mark_as_advanced(
@@ -424,10 +413,8 @@ mark_as_advanced(
   OGRE_CONFIG_NODE_INHERIT_TRANSFORM
   OGRE_CONFIG_ENABLE_MESHLOD
   OGRE_CONFIG_ENABLE_DDS
-  OGRE_CONFIG_ENABLE_FREEIMAGE
   OGRE_CONFIG_ENABLE_PVRTC
   OGRE_CONFIG_ENABLE_ETC
-  OGRE_CONFIG_ENABLE_STBI
   OGRE_CONFIG_ENABLE_ASTC
   OGRE_CONFIG_ENABLE_VIEWPORT_ORIENTATIONMODE
   OGRE_CONFIG_ENABLE_ZIP
@@ -461,6 +448,9 @@ endif()
 
 # install resource files
 include(InstallResources)
+
+# enable PCH support
+include(PrecompiledHeader)
 
 # Setup OgreMain project
 add_subdirectory(OgreMain)

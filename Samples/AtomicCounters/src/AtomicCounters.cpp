@@ -112,7 +112,7 @@ class _OgreSampleClassExport Sample_AtomicCounters : public SdkSample
         // Update the contents of pb here
         // Image data starts at pb.data and has format pb.format
         // Here we assume data.format is PF_X8R8G8B8 so we can address pixels as uint32.
-        uint *data = static_cast<uint*>(pb.data);
+        uint *data = reinterpret_cast<uint*>(pb.data);
         size_t height = pb.getHeight();
         size_t width = pb.getWidth();
         size_t pitch = pb.rowPitch; // Skip between rows of image
@@ -192,22 +192,3 @@ class _OgreSampleClassExport Sample_AtomicCounters : public SdkSample
         return SdkSample::frameRenderingQueued(evt);
     }
 };
-
-#ifndef OGRE_STATIC_LIB
-
-extern "C" _OgreSampleExport void dllStartPlugin()
-{
-    s = new Sample_AtomicCounters;
-    sp = OGRE_NEW SamplePlugin(s->getInfo()["Title"] + " Sample");
-    sp->addSample(s);
-    Root::getSingleton().installPlugin(sp);
-}
-
-extern "C" _OgreSampleExport void dllStopPlugin()
-{
-    Root::getSingleton().uninstallPlugin(sp);
-    OGRE_DELETE sp;
-    delete s;
-}
-
-#endif

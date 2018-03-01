@@ -114,7 +114,7 @@ namespace Ogre
         @remarks
             Internal use only.
         */
-        void _getOffsetTransform(Matrix4& m) const;
+        void _getOffsetTransform(Affine3& m) const;
 
         /** Gets the inverted binding pose scale. */
         const Vector3& _getBindingPoseInverseScale(void) const { return mBindDerivedInverseScale; }
@@ -128,12 +128,6 @@ namespace Ogre
 
 
     protected:
-        /// The numeric handle of this bone
-        unsigned short mHandle;
-
-        /** Bones set as manuallyControlled are not reseted in Skeleton::reset() */
-        bool mManuallyControlled;
-
         /** See Node. */
         Node* createChildImpl(void);
         /** See Node. */
@@ -148,6 +142,10 @@ namespace Ogre
         Quaternion mBindDerivedInverseOrientation;
         /// The inversed derived position of the bone in the binding pose
         Vector3 mBindDerivedInversePosition;
+        /// The numeric handle of this bone
+        unsigned short mHandle;
+        /** Bones set as manuallyControlled are not reseted in Skeleton::reset() */
+        bool mManuallyControlled;
     };
 
     /** @} */

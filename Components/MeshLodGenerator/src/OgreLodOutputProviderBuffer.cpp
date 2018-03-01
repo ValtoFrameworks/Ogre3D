@@ -26,10 +26,7 @@
  * -----------------------------------------------------------------------------
  */
 
-#include "OgreLodOutputProviderBuffer.h"
-#include "OgreMesh.h"
-#include "OgreSubMesh.h"
-#include "OgreHardwareBufferManager.h"
+#include "OgreMeshLodPrecompiledHeaders.h"
 
 namespace Ogre
 {

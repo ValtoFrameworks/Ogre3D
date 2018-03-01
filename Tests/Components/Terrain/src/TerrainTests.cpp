@@ -31,10 +31,6 @@ THE SOFTWARE.
 #include "OgreResourceGroupManager.h"
 #include "OgreLogManager.h"
 
-#if OGRE_PLATFORM == OGRE_PLATFORM_APPLE
-#include "macUtils.h"
-#endif
-
 //--------------------------------------------------------------------------
 void TerrainTests::SetUp()
 {
@@ -94,12 +90,11 @@ TEST_F(TerrainTests, create)
     imp.worldSize = 1000;
     imp.minBatchSize = 33;
     imp.maxBatchSize = 65;
-    t->prepare(imp);
+    ASSERT_TRUE(t->prepare(imp));
     
     // Note: Do not load as this would require GPU access!
     //t->load();
 
     OGRE_DELETE t;
-    ASSERT_TRUE(1);
 }
 //--------------------------------------------------------------------------

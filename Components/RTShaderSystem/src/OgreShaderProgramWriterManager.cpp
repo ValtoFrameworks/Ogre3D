@@ -26,8 +26,7 @@ THE SOFTWARE.
 -----------------------------------------------------------------------------
 */
 
-#include "OgreShaderProgramWriterManager.h"
-#include "OgreException.h"
+#include "OgreShaderPrecompiledHeaders.h"
 
 namespace Ogre {
 

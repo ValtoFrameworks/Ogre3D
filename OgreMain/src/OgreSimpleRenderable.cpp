@@ -26,10 +26,7 @@ THE SOFTWARE.
 -----------------------------------------------------------------------------
 */
 #include "OgreStableHeaders.h"
-#include "OgreSimpleRenderable.h"
-#include "OgreException.h"
 #include "OgreRenderQueue.h"
-#include "OgreMaterialManager.h"
 
 namespace Ogre {
 
@@ -37,7 +34,7 @@ namespace Ogre {
 
     SimpleRenderable::SimpleRenderable()
     : MovableObject()
-    , mTransform(Matrix4::IDENTITY)
+    , mTransform(Affine3::IDENTITY)
     , mMaterial(MaterialManager::getSingleton().getDefaultMaterial())
     , mParentSceneManager(NULL)
     , mCamera(NULL)
@@ -51,22 +48,11 @@ namespace Ogre {
 
     SimpleRenderable::SimpleRenderable(const String& name)
     : MovableObject(name)
-    , mTransform(Matrix4::IDENTITY)
+    , mTransform(Affine3::IDENTITY)
     , mMaterial(MaterialManager::getSingleton().getDefaultMaterial())
     , mParentSceneManager(NULL)
     , mCamera(NULL)
     {
-    }
-
-    void SimpleRenderable::setMaterial( const String& matName )
-    {
-        mMaterial = MaterialManager::getSingleton().getByName(matName);
-        if (!mMaterial)
-            OGRE_EXCEPT( Exception::ERR_ITEM_NOT_FOUND, "Could not find material " + matName,
-                "SimpleRenderable::setMaterial" );
-    
-        // Won't load twice anyway
-        mMaterial->load();
     }
 
     void SimpleRenderable::setMaterial( const MaterialPtr& mat )
@@ -91,7 +77,7 @@ namespace Ogre {
         mRenderOp = rend;
     }
 
-    void SimpleRenderable::setTransform( const Matrix4& xform )
+    void SimpleRenderable::setTransform( const Affine3& xform )
     {
         mTransform = xform;
     }

@@ -471,7 +471,7 @@ namespace Ogre {
         uint8 mWorldGeometryRenderQueue;
         
         unsigned long mLastFrameNumber;
-        Matrix4 mTempXform[256];
+        Affine3 mTempXform[256];
         bool mResetIdentityView;
         bool mResetIdentityProj;
 
@@ -638,6 +638,14 @@ namespace Ogre {
             which override the camera's own view / projection materices. */
         void useRenderableViewProjMode(const Renderable* pRend, bool fixedFunction);
         
+        /** Internal method used by _renderSingleObject to set the world transform */
+        void setWorldTransform(Renderable* rend, bool fixedFunction);
+
+        /** Internal method used by _renderSingleObject to render a single light pass */
+        void issueRenderWithLights(Renderable* rend, const Pass* pass,
+                                   const LightList* pLightListToUse, bool fixedFunction,
+                                   bool lightScissoringClipping);
+
         /** Internal method used by _renderSingleObject to deal with renderables
             which override the camera's own view / projection matrices. */
         void resetViewProjMode(bool fixedFunction);
@@ -984,19 +992,17 @@ namespace Ogre {
 
         /// Whether to use camera-relative rendering
         bool mCameraRelativeRendering;
-        Matrix4 mCachedViewMatrix;
+        Affine3 mCachedViewMatrix;
         Vector3 mCameraRelativePosition;
 
         /// Last light sets
         uint32 mLastLightHash;
         unsigned short mLastLightLimit;
-        uint32 mLastLightHashGpuProgram;
         /// Gpu params that need rebinding (mask of GpuParamVariability)
         uint16 mGpuParamsDirty;
 
-        void useLights(const LightList& lights, unsigned short limit);
-        void setViewMatrix(const Matrix4& m);
-        void useLightsGpuProgram(const Pass* pass, const LightList* lights);
+        void useLights(const LightList& lights, ushort limit, bool fixedFunction);
+        void setViewMatrix(const Affine3& m);
         void bindGpuProgram(GpuProgram* prog);
         void updateGpuProgramParameters(const Pass* p);
 
@@ -2299,7 +2305,7 @@ namespace Ogre {
             this within the main render loop.
         */
         void manualRender(RenderOperation* rend, Pass* pass, Viewport* vp,
-            const Matrix4& worldMatrix, const Matrix4& viewMatrix, const Matrix4& projMatrix, 
+            const Affine3& worldMatrix, const Affine3& viewMatrix, const Matrix4& projMatrix,
             bool doBeginEndFrame = false) ;
 
         /** Manual rendering method for rendering a single object. 
@@ -2322,7 +2328,7 @@ namespace Ogre {
         which will be used for a single render of this object.
         */
         void manualRender(Renderable* rend, const Pass* pass, Viewport* vp,
-            const Matrix4& viewMatrix, const Matrix4& projMatrix, bool doBeginEndFrame = false, bool lightScissoringClipping = true, 
+            const Affine3& viewMatrix, const Matrix4& projMatrix, bool doBeginEndFrame = false, bool lightScissoringClipping = true,
             bool doLightIteration = true, const LightList* manualLightList = 0);
 
         /** Retrieves the internal render queue, for advanced users only.
@@ -2834,9 +2840,6 @@ namespace Ogre {
         */
         void setShadowTextureCasterMaterial(const MaterialPtr& mat);
 
-        /// @overload
-        /// @deprecated use setShadowTextureCasterMaterial(const MaterialPtr&)
-        OGRE_DEPRECATED void setShadowTextureCasterMaterial(const String& name);
         /** Sets the default material to use for rendering shadow receivers.
         @remarks
             By default shadow receivers are rendered as a post-pass using basic
@@ -2859,10 +2862,6 @@ namespace Ogre {
             techniques may be used for hardware fallback.
         */
         void setShadowTextureReceiverMaterial(const MaterialPtr& mat);
-
-        /// @overload
-        /// @deprecated use setShadowTextureReceiverMaterial(const MaterialPtr&)
-        OGRE_DEPRECATED void setShadowTextureReceiverMaterial(const String& name);
 
         /** Sets whether or not shadow casters should be rendered into shadow
             textures using their back faces rather than their front faces. 
@@ -3487,11 +3486,6 @@ namespace Ogre {
     {
         /// A globally unique string identifying the scene manager type
         String typeName;
-        /// A text description of the scene manager.
-        /// @deprecated use manual instead
-        String description;
-        /// A mask describing which sorts of scenes this manager can handle
-        SceneTypeMask sceneTypeMask;
         /// Flag indicating whether world geometry is supported
         bool worldGeometrySupported;
     };

@@ -69,12 +69,10 @@ namespace Ogre {
     typedef unsigned int uint;
     typedef unsigned long ulong;
 
-    #if __cplusplus >= 201103L
-    #define register
-    #endif
 // Pre-declare classes
 // Allows use of pointers in header files without including individual .h
 // so decreases dependencies between files
+    class Affine3;
     class Angle;
     class AnimableValue;
     class Animation;
@@ -335,6 +333,14 @@ namespace Ogre
         typedef typename std::vector<T> type;
         typedef typename std::vector<T>::iterator iterator;
         typedef typename std::vector<T>::const_iterator const_iterator;
+    };
+
+    template <typename T, size_t Alignment>
+    struct aligned_vector 
+    { 
+        typedef typename std::vector<T, AlignedAllocator<T, Alignment> > type;
+        typedef typename std::vector<T, AlignedAllocator<T, Alignment> >::iterator iterator;
+        typedef typename std::vector<T, AlignedAllocator<T, Alignment> >::const_iterator const_iterator;
     };
 
     template <typename T>

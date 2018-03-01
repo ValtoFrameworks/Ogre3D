@@ -28,10 +28,6 @@ THE SOFTWARE.
 #include "OgreStableHeaders.h"
 #include "OgreLight.h"
 
-#include "OgreException.h"
-#include "OgreCamera.h"
-#include "OgreSceneManager.h"
-
 namespace Ogre {
     //-----------------------------------------------------------------------
     Light::Light()
@@ -39,7 +35,7 @@ namespace Ogre {
           mPosition(Vector3::ZERO),
           mDiffuse(ColourValue::White),
           mSpecular(ColourValue::Black),
-          mDirection(Vector3::UNIT_Z),
+          mDirection(Vector3::NEGATIVE_UNIT_Z),
           mSpotOuter(Degree(40.0f)),
           mSpotInner(Degree(30.0f)),
           mSpotFalloff(1.0f),
@@ -56,7 +52,7 @@ namespace Ogre {
           mShadowNearClipDist(-1),
           mShadowFarClipDist(-1),
           mDerivedPosition(Vector3::ZERO),
-          mDerivedDirection(Vector3::UNIT_Z),
+          mDerivedDirection(Vector3::NEGATIVE_UNIT_Z),
           mDerivedCamRelativePosition(Vector3::ZERO),
           mDerivedCamRelativeDirty(false),
           mCameraToBeRelativeTo(0),
@@ -72,7 +68,7 @@ namespace Ogre {
         mPosition(Vector3::ZERO),
         mDiffuse(ColourValue::White),
         mSpecular(ColourValue::Black),
-        mDirection(Vector3::UNIT_Z),
+        mDirection(Vector3::NEGATIVE_UNIT_Z),
         mSpotOuter(Degree(40.0f)),
         mSpotInner(Degree(30.0f)),
         mSpotFalloff(1.0f),
@@ -89,7 +85,7 @@ namespace Ogre {
         mShadowNearClipDist(-1),
         mShadowFarClipDist(-1),
         mDerivedPosition(Vector3::ZERO),
-        mDerivedDirection(Vector3::UNIT_Z),
+        mDerivedDirection(Vector3::NEGATIVE_UNIT_Z),
         mDerivedCamRelativeDirty(false),
         mCameraToBeRelativeTo(0),
         mDerivedTransformDirty(false),
@@ -346,18 +342,15 @@ namespace Ogre {
     //-----------------------------------------------------------------------
     Vector4 Light::getAs4DVector(bool cameraRelativeIfSet) const
     {
-        Vector4 ret;
         if (mLightType == Light::LT_DIRECTIONAL)
         {
-            ret = -(getDerivedDirection()); // negate direction as 'position'
-            ret.w = 0.0; // infinite distance
+            return Vector4(-getDerivedDirection(), // negate direction as 'position'
+                           0.0);                   // infinite distance
         }   
         else
         {
-            ret = getDerivedPosition(cameraRelativeIfSet);
-            ret.w = 1.0;
+            return Vector4(getDerivedPosition(cameraRelativeIfSet), 1.0);
         }
-        return ret;
     }
     //-----------------------------------------------------------------------
     const PlaneBoundedVolume& Light::_getNearClipVolume(const Camera* const cam) const
@@ -944,11 +937,11 @@ namespace Ogre {
             }
 
             // Common properties
-            if ((ni = params->find("position")) != params->end())
-                light->setPosition(StringConverter::parseVector3(ni->second));
+            //if ((ni = params->find("position")) != params->end())
+            //    light->setPosition(StringConverter::parseVector3(ni->second));
 
-            if ((ni = params->find("direction")) != params->end())
-                light->setDirection(StringConverter::parseVector3(ni->second));
+            //if ((ni = params->find("direction")) != params->end())
+            //    light->setDirection(StringConverter::parseVector3(ni->second));
 
             if ((ni = params->find("diffuseColour")) != params->end())
                 light->setDiffuseColour(StringConverter::parseColourValue(ni->second));

@@ -32,30 +32,6 @@ SceneNode *snode,*fnode;
 AnimationState* mOgreAnimState = 0;
 }
 
-#ifndef OGRE_STATIC_LIB
-
-static SamplePlugin* sp;
-static Sample* s;
-
-extern "C" void _OgreSampleExport dllStartPlugin(void);
-extern "C" void _OgreSampleExport dllStopPlugin(void);
-
-extern "C" _OgreSampleExport void dllStartPlugin()
-{
-    s = new Sample_VolumeTex;
-    sp = OGRE_NEW SamplePlugin(s->getInfo()["Title"] + " Sample");
-    sp->addSample(s);
-    Root::getSingleton().installPlugin(sp);
-}
-
-extern "C" _OgreSampleExport void dllStopPlugin()
-{
-    Root::getSingleton().uninstallPlugin(sp);
-    OGRE_DELETE sp;
-    delete s;
-}
-#endif
-
 void Sample_VolumeTex::setupContent()
 {
     if (!ResourceGroupManager::getSingleton().resourceGroupExists("VolumeRenderable"))
@@ -163,7 +139,7 @@ void Sample_VolumeTex::generate()
     d << "PixelBox " << pb.getWidth() << " " << pb.getHeight() << " " << pb.getDepth() << " " << pb.rowPitch << " " << pb.slicePitch << " " << pb.data << " " << PixelUtil::getFormatName(pb.format);
     LogManager::getSingleton().logMessage(d.str());
 
-    Ogre::uint32 *pbptr = static_cast<Ogre::uint32*>(pb.data);
+    Ogre::uint32 *pbptr = reinterpret_cast<Ogre::uint32*>(pb.data);
     for(size_t z=pb.front; z<pb.back; z++)
     {
         for(size_t y=pb.top; y<pb.bottom; y++)

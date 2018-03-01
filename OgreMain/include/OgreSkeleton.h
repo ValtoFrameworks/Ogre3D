@@ -160,13 +160,6 @@ namespace Ogre {
         /** Returns the number of bones in this skeleton. */
         virtual unsigned short getNumBones(void) const;
 
-        /** Gets the root bone of the skeleton
-        @deprecated use Skeleton::getRootBones
-        */
-        OGRE_DEPRECATED virtual Bone* getRootBone(void) const {
-            return getRootBones()[0];
-        }
-
         typedef vector<Bone*>::type BoneList;
         typedef VectorIterator<BoneList> BoneIterator;
         /// Get an iterator over the root bones in the skeleton, ie those with no parents
@@ -286,7 +279,7 @@ namespace Ogre {
             be at least as large as the number of bones.
             Assumes animation has already been updated.
         */
-        virtual void _getBoneMatrices(Matrix4* pMatrices);
+        virtual void _getBoneMatrices(Affine3* pMatrices);
 
         /** Gets the number of animations on this skeleton. */
         virtual unsigned short getNumAnimations(void) const;

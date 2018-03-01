@@ -81,20 +81,7 @@ namespace Ogre {
         class Listener
         {
         public:
-            Listener() {}
             virtual ~Listener() {}
-
-            /** Callback to indicate that background loading has completed.
-            @deprecated
-                Use Listener::loadingComplete instead.
-            */
-            OGRE_DEPRECATED virtual void backgroundLoadingComplete(Resource*) {}
-
-            /** Callback to indicate that background preparing has completed.
-            @deprecated
-                Use Listener::preparingComplete instead.
-            */
-            OGRE_DEPRECATED virtual void backgroundPreparingComplete(Resource*) {}
 
             /** Called whenever the resource finishes loading. 
             @remarks
@@ -166,10 +153,10 @@ namespace Ogre {
         AtomicScalar<LoadingState> mLoadingState;
         /// Is this resource going to be background loaded? Only applicable for multithreaded
         volatile bool mIsBackgroundLoaded;
-        /// The size of the resource in bytes
-        size_t mSize;
         /// Is this file manually loaded?
         bool mIsManual;
+        /// The size of the resource in bytes
+        size_t mSize;
         /// Origin of this resource (e.g. script name) - optional
         String mOrigin;
         /// Optional manual loader; if provided, data is loaded from here instead of a file
@@ -185,7 +172,7 @@ namespace Ogre {
         */
         Resource() 
             : mCreator(0), mHandle(0), mLoadingState(LOADSTATE_UNLOADED), 
-            mIsBackgroundLoaded(false), mSize(0), mIsManual(0), mLoader(0), mStateCount(0)
+              mIsBackgroundLoaded(0), mIsManual(0), mSize(0), mLoader(0), mStateCount(0)
         { 
         }
 
@@ -305,15 +292,6 @@ namespace Ogre {
             return mIsManual;
         }
 
-        /** Set "Is this resource manually loaded?"
-        @deprecated do not use
-        */
-        OGRE_DEPRECATED virtual void setManuallyLoaded(bool isManual)
-        {
-            mIsManual = isManual;
-        }
-
-
         /** Unloads the resource; this is not permanent, the resource can be
             reloaded later if required.
         */
@@ -356,15 +334,6 @@ namespace Ogre {
         { 
             // No lock required to read this state since no modify
             return (mLoadingState.load() == LOADSTATE_LOADED);
-        }
-
-        /** Change the Resource loading state to loaded.
-        @deprecated do not use
-        */
-        OGRE_DEPRECATED virtual void setToLoaded(void)
-        { 
-            // No lock required to read this state since no modify
-            mLoadingState.store(LOADSTATE_LOADED);
         }
 
         /** Returns whether the resource is currently in the process of

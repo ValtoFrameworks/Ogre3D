@@ -382,9 +382,7 @@ void copyToSubMesh(SubMesh *sub, const TriVec &triangles, const VertVec &vertice
     sub->indexData->indexStart = 0;
     sub->indexData->indexCount = nfaces*3;
 
-    Matrix3 normMat;
-    mat.extract3x3Matrix(normMat);
-    normMat = normMat.Inverse().Transpose();
+    Matrix3 normMat = mat.linear().inverse().transpose();
 
     uchar* vattrs = (uchar*)vbuf->lock(HardwareBuffer::HBL_DISCARD);
     // populate vertex arrays
@@ -580,17 +578,17 @@ Ogre::MaterialPtr parseMaterial(const Appearance *app, const String &name)
 Matrix4 transMat(vrmllib::vec3 v, bool inverse)
 {
     if (inverse)
-        return Matrix4::getTrans(-v.x, -v.y, -v.z);
+        return Affine3::getTrans(-v.x, -v.y, -v.z);
     else
-        return Matrix4::getTrans(v.x, v.y, v.z);
+        return Affine3::getTrans(v.x, v.y, v.z);
 }
 
 Matrix4 scaleMat(vrmllib::vec3 v, bool inverse)
 {
     if (inverse)
-        return Matrix4::getScale(1/v.x, 1/v.y, 1/v.z);
+        return Affine3::getScale(1/v.x, 1/v.y, 1/v.z);
     else
-        return Matrix4::getScale(v.x, v.y, v.z);
+        return Affine3::getScale(v.x, v.y, v.z);
 }
 
 Matrix4 rotMat(vrmllib::rot r, bool inverse)

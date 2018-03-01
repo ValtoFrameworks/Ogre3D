@@ -15,18 +15,22 @@
 #include "OgreOverlaySystem.h"
 #include "OgreDataStream.h"
 #include "OgreBitesConfigDialog.h"
+#include "OgreWindowEventUtilities.h"
 
 #include "OgreConfigPaths.h"
 
-#if OGRE_BITES_HAVE_SDL
-#include <SDL_video.h>
-#include <SDL_syswm.h>
-#endif
-
 #if OGRE_PLATFORM == OGRE_PLATFORM_ANDROID
 #include "OgreArchiveManager.h"
-#include "Android/OgreAPKFileSystemArchive.h"
-#include "Android/OgreAPKZipArchive.h"
+#include "OgreFileSystem.h"
+#include "OgreZip.h"
+#endif
+
+#if OGRE_BITES_HAVE_SDL
+#include <SDL.h>
+#include <SDL_video.h>
+#include <SDL_syswm.h>
+
+#include "SDLInputMapping.h"
 #endif
 
 namespace OgreBites {
@@ -151,9 +155,9 @@ void ApplicationContext::setRTSSWriteShadersToDisk(bool write)
 
     // Set shader cache path.
 #if OGRE_PLATFORM == OGRE_PLATFORM_APPLE_IOS
-    mShaderGenerator->setShaderCachePath(Ogre::macCachePath());
+    mShaderGenerator->setShaderCachePath(mFSLayer->getWritablePath(""));
 #elif OGRE_PLATFORM == OGRE_PLATFORM_APPLE
-    mShaderGenerator->setShaderCachePath(Ogre::macCachePath() + "/org.ogre3d.RTShaderCache");
+    mShaderGenerator->setShaderCachePath(mFSLayer->getWritablePath("org.ogre3d.RTShaderCache/"));
 #else
     mShaderGenerator->setShaderCachePath(mRTShaderLibPath+"/cache/");
 #endif
@@ -352,13 +356,23 @@ NativeWindowPair ApplicationContext::createWindow(const Ogre::String& name, Ogre
         miscParams["currentGLContext"] = "true";
     }
 
+
+
 #if OGRE_BITES_HAVE_SDL
     if(!SDL_WasInit(SDL_INIT_VIDEO)) {
         SDL_InitSubSystem(SDL_INIT_VIDEO);
     }
 
+    Uint32 flags = SDL_WINDOW_RESIZABLE;
+
+    if(ropts["Full Screen"].currentValue == "Yes"){
+       flags = SDL_WINDOW_FULLSCREEN;
+    } else {
+       flags = SDL_WINDOW_RESIZABLE;
+    }
+
     ret.native = SDL_CreateWindow(name.c_str(),
-                                SDL_WINDOWPOS_UNDEFINED, SDL_WINDOWPOS_UNDEFINED, w, h, SDL_WINDOW_RESIZABLE);
+                                SDL_WINDOWPOS_UNDEFINED, SDL_WINDOWPOS_UNDEFINED, w, h, flags);
 
 #if OGRE_PLATFORM == OGRE_PLATFORM_EMSCRIPTEN
     SDL_GL_CreateContext(ret.native);
@@ -382,8 +396,8 @@ NativeWindowPair ApplicationContext::createWindow(const Ogre::String& name, Ogre
     mWindows.push_back(ret);
 #endif
 
-#if OGRE_PLATFORM != OGRE_PLATFORM_ANDROID && OGRE_BITES_HAVE_SDL == 0
-    Ogre::WindowEventUtilities::addWindowEventListener(ret.render, this);
+#if OGRE_PLATFORM != OGRE_PLATFORM_ANDROID && !OGRE_BITES_HAVE_SDL
+    WindowEventUtilities::_addRenderWindow(ret.render);
 #endif
 
     return ret;
@@ -422,7 +436,7 @@ void ApplicationContext::_fireInputEventAndroid(AInputEvent* event, int wheel) {
     static TouchFingerEvent lastTouch = {0};
 
     if(wheel) {
-        evt.type = SDL_MOUSEWHEEL;
+        evt.type = MOUSEWHEEL;
         evt.wheel.y = wheel;
         _fireInputEvent(evt, 0);
         lastTouch.fingerId = -1; // prevent move-jump after pinch is over
@@ -434,13 +448,13 @@ void ApplicationContext::_fireInputEventAndroid(AInputEvent* event, int wheel) {
 
         switch (action) {
         case AMOTION_EVENT_ACTION_DOWN:
-            evt.type = SDL_FINGERDOWN;
+            evt.type = FINGERDOWN;
             break;
         case AMOTION_EVENT_ACTION_UP:
-            evt.type = SDL_FINGERUP;
+            evt.type = FINGERUP;
             break;
         case AMOTION_EVENT_ACTION_MOVE:
-            evt.type = SDL_FINGERMOTION;
+            evt.type = FINGERMOTION;
             break;
         default:
             return;
@@ -452,7 +466,7 @@ void ApplicationContext::_fireInputEventAndroid(AInputEvent* event, int wheel) {
         evt.tfinger.x = AMotionEvent_getRawX(event, 0) / win->getWidth();
         evt.tfinger.y = AMotionEvent_getRawY(event, 0) / win->getHeight();
 
-        if(evt.type == SDL_FINGERMOTION) {
+        if(evt.type == FINGERMOTION) {
             if(evt.tfinger.fingerId != lastTouch.fingerId)
                 return; // wrong finger
 
@@ -465,7 +479,7 @@ void ApplicationContext::_fireInputEventAndroid(AInputEvent* event, int wheel) {
         if(AKeyEvent_getKeyCode(event) != AKEYCODE_BACK)
             return;
 
-        evt.type = AKeyEvent_getAction(event) == AKEY_EVENT_ACTION_DOWN ? SDL_KEYDOWN : SDL_KEYUP;
+        evt.type = AKeyEvent_getAction(event) == AKEY_EVENT_ACTION_DOWN ? KEYDOWN : KEYUP;
         evt.key.keysym.sym = SDLK_ESCAPE;
     }
 
@@ -484,35 +498,33 @@ void ApplicationContext::_fireInputEvent(const Event& event, uint32_t windowID) 
 
         switch (event.type)
         {
-        case SDL_KEYDOWN:
-            // Ignore repeated signals from key being held down.
-            if (event.key.repeat) break;
+        case KEYDOWN:
             l.keyPressed(event.key);
             break;
-        case SDL_KEYUP:
+        case KEYUP:
             l.keyReleased(event.key);
             break;
-        case SDL_MOUSEBUTTONDOWN:
+        case MOUSEBUTTONDOWN:
             l.mousePressed(event.button);
             break;
-        case SDL_MOUSEBUTTONUP:
+        case MOUSEBUTTONUP:
             l.mouseReleased(event.button);
             break;
-        case SDL_MOUSEWHEEL:
+        case MOUSEWHEEL:
             l.mouseWheelRolled(event.wheel);
             break;
-        case SDL_MOUSEMOTION:
+        case MOUSEMOTION:
             l.mouseMoved(event.motion);
             break;
-        case SDL_FINGERDOWN:
+        case FINGERDOWN:
             // for finger down we have to move the pointer first
             l.touchMoved(event.tfinger);
             l.touchPressed(event.tfinger);
             break;
-        case SDL_FINGERUP:
+        case FINGERUP:
             l.touchReleased(event.tfinger);
             break;
-        case SDL_FINGERMOTION:
+        case FINGERMOTION:
             l.touchMoved(event.tfinger);
             break;
         }
@@ -580,17 +592,17 @@ void ApplicationContext::locateResources()
 
     OgreAssert(!genLocs.empty(), ("Resource Group '"+sec+"' must contain at least one entry").c_str());
 
-    arch = genLocs.front()->archive->getName();
+    arch = genLocs.front().archive->getName();
 
 #if OGRE_PLATFORM == OGRE_PLATFORM_APPLE
-    arch = Ogre::macBundlePath() + "/Contents/Resources/Media";
+    arch = Ogre::FileSystemLayer::resolveBundlePath("Contents/Resources/Media");
 #elif OGRE_PLATFORM == OGRE_PLATFORM_APPLE_IOS
-    arch = Ogre::macBundlePath() + "/Media";
+    arch = Ogre::FileSystemLayer::resolveBundlePath("Media");
 #else
     arch = Ogre::StringUtil::replaceAll(arch, "Media/../../Tests/Media", "");
     arch = Ogre::StringUtil::replaceAll(arch, "media/../../Tests/Media", "");
 #endif
-    type = genLocs.front()->archive->getType();
+    type = genLocs.front().archive->getType();
 
     bool hasCgPlugin = false;
     const Ogre::Root::PluginInstanceList& plugins = getRoot()->getInstalledPlugins();
@@ -726,7 +738,7 @@ void ApplicationContext::shutdown()
     {
 #if !OGRE_BITES_HAVE_SDL
         // remove window event listener before destroying it
-        Ogre::WindowEventUtilities::removeWindowEventListener(it->render, this);
+        WindowEventUtilities::_removeRenderWindow(it->render);
 #endif
         mRoot->destroyRenderTarget(it->render);
     }
@@ -788,7 +800,7 @@ void ApplicationContext::pollEvents()
             }
             break;
         default:
-            _fireInputEvent(event, event.window.windowID);
+            _fireInputEvent(convert(event), event.window.windowID);
             break;
         }
     }
@@ -799,6 +811,9 @@ void ApplicationContext::pollEvents()
         win->windowMovedOrResized();
         windowResized(win);
     }
+#else
+    // just avoid "window not responding"
+    WindowEventUtilities::messagePump();
 #endif
 }
 

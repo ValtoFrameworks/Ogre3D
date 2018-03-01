@@ -26,7 +26,6 @@ THE SOFTWARE.
 -----------------------------------------------------------------------------
 */
 #include "OgreStableHeaders.h"
-#include "OgreException.h"
 #include "OgreScriptLexer.h"
 
 namespace Ogre{
@@ -121,6 +120,7 @@ namespace Ogre{
                 else
                 {
                     state = WORD;
+                    OGRE_FALLTHROUGH;
                 }
             case WORD:
                 if(isNewline(c))

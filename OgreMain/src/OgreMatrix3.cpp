@@ -26,7 +26,6 @@ THE SOFTWARE.
 -----------------------------------------------------------------------------
 */
 #include "OgreStableHeaders.h"
-#include "OgreMatrix3.h"
 
 // Adapted from Matrix math by Wild Magic http://www.geometrictools.com/
 
@@ -118,19 +117,6 @@ namespace Ogre
                     m[iRow][1]*rkMatrix.m[1][iCol] +
                     m[iRow][2]*rkMatrix.m[2][iCol];
             }
-        }
-        return kProd;
-    }
-    //-----------------------------------------------------------------------
-    Vector3 Matrix3::operator* (const Vector3& rkPoint) const
-    {
-        Vector3 kProd;
-        for (size_t iRow = 0; iRow < 3; iRow++)
-        {
-            kProd[iRow] =
-                m[iRow][0]*rkPoint[0] +
-                m[iRow][1]*rkPoint[1] +
-                m[iRow][2]*rkPoint[2];
         }
         return kProd;
     }

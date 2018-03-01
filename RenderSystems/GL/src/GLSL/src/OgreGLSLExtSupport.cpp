@@ -44,11 +44,7 @@ namespace Ogre
         // get all the GL errors
         while (glErr != GL_NO_ERROR)
         {
-            const char* glerrStr = (const char*)gluErrorString(glErr);
-            if (glerrStr)
-            {
-                msg += String(glerrStr);
-            }
+            msg += glErrorToString(glErr);
             glErr = glGetError();
             errorsFound = true;
         }
@@ -89,7 +85,7 @@ namespace Ogre
 
                 glGetInfoLogARB(obj, infologLength, &charsWritten, infoLog);
                 logMessage += String(infoLog);
-                LogManager::getSingleton().logMessage(logMessage);
+                LogManager::getSingleton().logMessage(LML_CRITICAL, logMessage);
 
                 delete [] infoLog;
             }

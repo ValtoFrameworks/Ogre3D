@@ -54,17 +54,14 @@ namespace Ogre {
     
     void GLES2FBORenderTexture::getCustomAttribute(const String& name, void* pData)
     {
-        if(name=="FBO")
+        if(name == GLRenderTexture::CustomAttributeString_FBO)
         {
             *static_cast<GLES2FrameBufferObject **>(pData) = &mFB;
         }
-        
-        if( name == "GLCONTEXT" )
+        else if(name == GLRenderTexture::CustomAttributeString_GLCONTEXT)
         {
             *static_cast<GLContext**>(pData) = mFB.getContext();
-            return;
         }
-
     }
 
     void GLES2FBORenderTexture::swapBuffers()
@@ -512,7 +509,7 @@ namespace Ogre {
         GLES2FrameBufferObject *fbo = 0;
         target->getCustomAttribute("FBO", &fbo);
         if(fbo)
-            fbo->bind();
+            fbo->bind(true);
             // Old style context (window/pbuffer) or copying render texture
 #if OGRE_PLATFORM == OGRE_PLATFORM_APPLE_IOS
         else

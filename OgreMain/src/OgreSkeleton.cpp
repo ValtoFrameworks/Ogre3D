@@ -26,11 +26,7 @@ THE SOFTWARE.
 -----------------------------------------------------------------------------
 */
 #include "OgreStableHeaders.h"
-#include "OgreSkeleton.h"
-#include "OgreBone.h"
 #include "OgreAnimationState.h"
-#include "OgreException.h"
-#include "OgreLogManager.h"
 #include "OgreSkeletonManager.h"
 #include "OgreSkeletonSerializer.h"
 // Just for logging
@@ -455,7 +451,7 @@ namespace Ogre {
         return (unsigned short)mBoneList.size();
     }
     //-----------------------------------------------------------------------
-    void Skeleton::_getBoneMatrices(Matrix4* pMatrices)
+    void Skeleton::_getBoneMatrices(Affine3* pMatrices)
     {
         // Update derived transforms
         _updateTransforms();

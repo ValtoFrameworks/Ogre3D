@@ -26,7 +26,7 @@
  * -----------------------------------------------------------------------------
  */
 
-#include "OgreLodConfig.h"
+#include "OgreMeshLodPrecompiledHeaders.h"
 
 namespace Ogre
 {

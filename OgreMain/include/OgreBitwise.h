@@ -123,11 +123,14 @@ namespace Ogre {
         */
         static OGRE_FORCE_INLINE unsigned int mostSignificantBitSet(unsigned int value)
         {
+            //                                     0, 1, 2, 3, 4, 5, 6, 7, 8, 9, A, B, C, D, E, F
+            static const unsigned char msb[16] = { 0, 1, 2, 2, 3, 3, 3, 3, 4, 4, 4, 4, 4, 4, 4, 4 };
+
             unsigned int result = 0;
-            while (value != 0) {
-                ++result;
-                value >>= 1;
-            }
+            if(value & 0xFFFF0000) { result += 16;value >>= 16; }
+            if(value & 0x0000FF00) { result += 8; value >>= 8; }
+            if(value & 0x000000F0) { result += 4; value >>= 4; }
+            result += msb[value];
             return result-1;
         }
         /** Returns the closest power-of-two number greater or equal to value.
@@ -306,9 +309,9 @@ namespace Ogre {
         */
         static inline uint16 floatToHalfI(uint32 i)
         {
-            register int s =  (i >> 16) & 0x00008000;
-            register int e = ((i >> 23) & 0x000000ff) - (127 - 15);
-            register int m =   i        & 0x007fffff;
+            int s =  (i >> 16) & 0x00008000;
+            int e = ((i >> 23) & 0x000000ff) - (127 - 15);
+            int m =   i        & 0x007fffff;
         
             if (e <= 0)
             {
@@ -358,9 +361,9 @@ namespace Ogre {
          */
         static inline uint32 halfToFloatI(uint16 y)
         {
-            register int s = (y >> 15) & 0x00000001;
-            register int e = (y >> 10) & 0x0000001f;
-            register int m =  y        & 0x000003ff;
+            int s = (y >> 15) & 0x00000001;
+            int e = (y >> 10) & 0x0000001f;
+            int m =  y        & 0x000003ff;
         
             if (e == 0)
             {

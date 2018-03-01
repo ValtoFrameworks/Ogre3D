@@ -424,8 +424,7 @@ namespace Volume {
         void setMaterial(const MaterialPtr& mat);
 
         /// @overload
-        /// @deprecated use setMaterial(const MaterialPtr& mat)
-        OGRE_DEPRECATED void setMaterial(const String& matName);
+        using Ogre::SimpleRenderable::setMaterial;
 
         /** Sets the material of all chunks of a specific level in the tree.
         This allows LODs where the lower levels (== less detail and more far away)
@@ -436,10 +435,6 @@ namespace Volume {
             The material name to set.
         */
         void setMaterialOfLevel(size_t level, const MaterialPtr& mat);
-
-        /// @overload
-        /// @deprecated use setMaterialOfLevel(size_t level, const MaterialPtr& mat)
-        OGRE_DEPRECATED void setMaterialOfLevel(size_t level, const String& matName);
 
         /** A list of Chunks.
         */

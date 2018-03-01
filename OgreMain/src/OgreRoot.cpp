@@ -28,27 +28,15 @@ THE SOFTWARE.
 // Ogre includes
 #include "OgreStableHeaders.h"
 
-#include "OgreRoot.h"
-
-#include "OgreRenderSystem.h"
 #include "OgreRenderWindow.h"
-#include "OgreException.h"
 #include "OgreControllerManager.h"
-#include "OgreLogManager.h"
 #include "OgreDynLibManager.h"
 #include "OgreDynLib.h"
 #include "OgreConfigFile.h"
-#include "OgreMaterialManager.h"
 #include "OgreRenderSystemCapabilitiesManager.h"
-#include "OgreMeshManager.h"
-#include "OgreTextureManager.h"
-#include "OgreParticleSystemManager.h"
 #include "OgreSkeletonManager.h"
-#include "OgreProfiler.h"
 #include "OgreConfigDialog.h"
-#include "OgreArchiveManager.h"
 #include "OgrePlugin.h"
-#include "OgreFileSystem.h"
 #include "OgreShadowVolumeExtrudeProgram.h"
 #include "OgreResourceBackgroundQueue.h"
 #include "OgreEntity.h"
@@ -58,33 +46,20 @@ THE SOFTWARE.
 #include "OgreLight.h"
 #include "OgreManualObject.h"
 #include "OgreRenderQueueInvocation.h"
-#include "OgrePlatformInformation.h"
 #include "OgreConvexBody.h"
 #include "OgreTimer.h"
 #include "OgreFrameListener.h"
 #include "OgreLodStrategyManager.h"
-#include "Threading/OgreDefaultWorkQueue.h"
 #include "OgreFileSystemLayer.h"
 
-#if OGRE_NO_FREEIMAGE == 0
-#include "OgreFreeImageCodec.h"
-#endif
 #if OGRE_NO_DDS_CODEC == 0
 #include "OgreDDSCodec.h"
-#endif
-#if OGRE_NO_STBI_CODEC == 0
-#include "OgreSTBICodec.h"
-#endif
-#if OGRE_NO_ZIP_ARCHIVE == 0
-#include "OgreZip.h"
 #endif
 
 #include "OgreHardwareBufferManager.h"
 #include "OgreHighLevelGpuProgramManager.h"
 #include "OgreExternalTextureSourceManager.h"
 #include "OgreCompositorManager.h"
-#include "OgreScriptCompiler.h"
-#include "OgreWindowEventUtilities.h"
 
 #if OGRE_NO_PVRTC_CODEC == 0
 #  include "OgrePVRTCCodec.h"
@@ -94,6 +69,14 @@ THE SOFTWARE.
 #endif
 #if OGRE_NO_ASTC_CODEC == 0
 #  include "OgreASTCCodec.h"
+#endif
+
+#if OGRE_PLATFORM == OGRE_PLATFORM_APPLE || OGRE_PLATFORM == OGRE_PLATFORM_APPLE_IOS
+#include "macUtils.h"
+#endif
+
+#if OGRE_PLATFORM == OGRE_PLATFORM_ANDROID
+#include "Android/OgreAndroidLogListener.h"
 #endif
 
 namespace Ogre {
@@ -121,7 +104,6 @@ namespace Ogre {
       , mFrameSmoothingTime(0.0f)
       , mRemoveQueueStructuresOnClear(false)
       , mDefaultMinPixelSize(0)
-      , mFreqUpdatedBuffersUploadOption(HardwareBuffer::HBU_DEFAULT)
       , mNextMovableObjectTypeFlag(1)
       , mIsInitialised(false)
       , mIsBlendIndicesGpuRedundant(true)
@@ -229,18 +211,11 @@ namespace Ogre {
         // Register image codecs
         DDSCodec::startup();
 #endif
-#if OGRE_NO_FREEIMAGE == 0
-        // Register image codecs
-        FreeImageCodec::startup();
-#endif
 #if OGRE_NO_PVRTC_CODEC == 0
         PVRTCCodec::startup();
 #endif
 #if OGRE_NO_ETC_CODEC == 0
         ETCCodec::startup();
-#endif
-#if OGRE_NO_STBI_CODEC == 0
-        STBIImageCodec::startup();
 #endif
 #if OGRE_NO_ASTC_CODEC == 0
         ASTCCodec::startup();
@@ -294,9 +269,6 @@ namespace Ogre {
         destroyAllRenderQueueInvocationSequences();
         OGRE_DELETE mCompositorManager;
         OGRE_DELETE mExternalTextureSourceManager;
-#if OGRE_NO_FREEIMAGE == 0
-        FreeImageCodec::shutdown();
-#endif
 #if OGRE_NO_DDS_CODEC == 0
         DDSCodec::shutdown();
 #endif
@@ -305,9 +277,6 @@ namespace Ogre {
 #endif
 #if OGRE_NO_ETC_CODEC == 0
         ETCCodec::shutdown();
-#endif
-#if OGRE_NO_STBI_CODEC == 0
-        STBIImageCodec::shutdown();
 #endif
 #if OGRE_NO_ASTC_CODEC == 0
         ASTCCodec::shutdown();
@@ -718,17 +687,6 @@ namespace Ogre {
         mActiveRenderer->useCustomRenderSystemCapabilities(capabilities);
     }
     //-----------------------------------------------------------------------
-    String Root::getErrorDescription(long errorNumber)
-    {
-
-        // Pass to render system
-        if (mActiveRenderer)
-            return mActiveRenderer->getErrorDescription(errorNumber);
-        else
-            return "";
-
-    }
-    //-----------------------------------------------------------------------
     void Root::addSceneManagerFactory(SceneManagerFactory* fact)
     {
         mSceneManagerEnum->addFactory(fact);
@@ -760,12 +718,6 @@ namespace Ogre {
         const String& instanceName)
     {
         return mSceneManagerEnum->createSceneManager(typeName, instanceName);
-    }
-    //-----------------------------------------------------------------------
-    SceneManager* Root::createSceneManager(SceneTypeMask typeMask,
-        const String& instanceName)
-    {
-        return mSceneManagerEnum->createSceneManager(typeMask, instanceName);
     }
     //-----------------------------------------------------------------------
     void Root::destroySceneManager(SceneManager* sm)
@@ -971,9 +923,6 @@ namespace Ogre {
 
         while( !mQueuedEnd )
         {
-            //Pump messages in all registered RenderWindow windows
-            WindowEventUtilities::messagePump();
-
             if (!renderOneFrame())
                 break;
         }
@@ -1123,19 +1072,6 @@ namespace Ogre {
         }
         mPlugins.clear();
 #endif
-    }
-    //-----------------------------------------------------------------------
-    void Root::addResourceLocation(const String& name, const String& locType,
-        const String& groupName, bool recursive)
-    {
-        ResourceGroupManager::getSingleton().addResourceLocation(
-            name, locType, groupName, recursive);
-    }
-    //-----------------------------------------------------------------------
-    void Root::removeResourceLocation(const String& name, const String& groupName)
-    {
-        ResourceGroupManager::getSingleton().removeResourceLocation(
-            name, groupName);
     }
     //---------------------------------------------------------------------
     DataStreamPtr Root::createFileStream(const String& filename, const String& groupName,

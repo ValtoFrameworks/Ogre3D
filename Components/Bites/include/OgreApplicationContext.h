@@ -47,15 +47,6 @@ namespace Ogre {
     class OverlaySystem;
 }
 
-#if OGRE_PLATFORM == OGRE_PLATFORM_APPLE |OGRE_PLATFORM == OGRE_PLATFORM_APPLE_IOS
-#include "macUtils.h"
-#if OGRE_PLATFORM == OGRE_PLATFORM_APPLE_IOS
-#   ifdef __OBJC__
-#       import <UIKit/UIKit.h>
-#   endif
-#endif
-#endif
-
 #if OGRE_PLATFORM == OGRE_PLATFORM_ANDROID
 #include <android/configuration.h>
 #include <android/asset_manager.h>
@@ -64,7 +55,6 @@ namespace Ogre {
 #endif
 
 #include "OgreInput.h"
-#include "OgreWindowEventUtilities.h"
 
 /** \addtogroup Optional Optional Components
 *  @{
@@ -94,9 +84,7 @@ namespace OgreBites
     Base class responsible for setting up a common context for applications.
     Subclass to implement specific event callbacks.
     */
-    class _OgreBitesExport ApplicationContext :
-            public Ogre::FrameListener,
-            public Ogre::WindowEventListener
+    class _OgreBitesExport ApplicationContext : public Ogre::FrameListener
     {
     public:
         explicit ApplicationContext(const Ogre::String& appName = OGRE_VERSION_NAME, bool unused = true);

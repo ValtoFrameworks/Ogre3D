@@ -27,12 +27,6 @@ THE SOFTWARE.
 */
 #include "OgreStableHeaders.h"
 
-#include "OgreMeshSerializer.h"
-#include "OgreMesh.h"
-#include "OgreException.h"
-#include "OgreLogManager.h"
-
-
 namespace Ogre {
 
     const unsigned short HEADER_CHUNK_ID = 0x1000;

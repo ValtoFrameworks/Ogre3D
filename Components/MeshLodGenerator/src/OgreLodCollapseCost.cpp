@@ -26,9 +26,7 @@
  * -----------------------------------------------------------------------------
  */
 
-#include "OgreLodCollapseCost.h"
-
-#include "OgreLogManager.h"
+#include "OgreMeshLodPrecompiledHeaders.h"
 
 namespace Ogre
 {

@@ -28,21 +28,10 @@ THE SOFTWARE.
 #include "OgreStableHeaders.h"
 #include "OgreStaticGeometry.h"
 #include "OgreEntity.h"
-#include "OgreSubEntity.h"
-#include "OgreSceneNode.h"
-#include "OgreException.h"
-#include "OgreMesh.h"
-#include "OgreSubMesh.h"
-#include "OgreLogManager.h"
-#include "OgreSceneManager.h"
-#include "OgreCamera.h"
-#include "OgreMaterialManager.h"
-#include "OgreRoot.h"
-#include "OgreRenderSystem.h"
 #include "OgreEdgeListBuilder.h"
-#include "OgreTechnique.h"
 #include "OgreLodStrategy.h"
 #include "OgreIteratorWrappers.h"
+#include "OgreSubEntity.h"
 
 namespace Ogre {
 
@@ -917,10 +906,9 @@ namespace Ogre {
     {
         // Calculate the object space light details
         Vector4 lightPos = light->getAs4DVector();
-        Matrix4 world2Obj = mParentNode->_getFullTransform().inverseAffine();
-        lightPos = world2Obj.transformAffine(lightPos);
-        Matrix3 world2Obj3x3;
-        world2Obj.extract3x3Matrix(world2Obj3x3);
+        Affine3 world2Obj = mParentNode->_getFullTransform().inverse();
+        lightPos = world2Obj * lightPos;
+        Matrix3 world2Obj3x3 = world2Obj.linear();
         extrusionDistance *= Math::Sqrt(std::min(std::min(world2Obj3x3.GetColumn(0).squaredLength(), world2Obj3x3.GetColumn(1).squaredLength()), world2Obj3x3.GetColumn(2).squaredLength()));
 
         // per-LOD shadow lists & edge data

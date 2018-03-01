@@ -26,23 +26,14 @@ THE SOFTWARE.
 -----------------------------------------------------------------------------
 */
 #include "OgreStableHeaders.h"
-#include "OgreMesh.h"
 
-#include "OgreSubMesh.h"
-#include "OgreLogManager.h"
-#include "OgreMeshSerializer.h"
 #include "OgreSkeletonManager.h"
-#include "OgreHardwareBufferManager.h"
 #include "OgreIteratorWrappers.h"
-#include "OgreException.h"
-#include "OgreMeshManager.h"
 #include "OgreEdgeListBuilder.h"
 #include "OgreAnimation.h"
 #include "OgreAnimationState.h"
 #include "OgreAnimationTrack.h"
-#include "OgreBone.h"
 #include "OgreOptimisedUtil.h"
-#include "OgreSkeleton.h"
 #include "OgreTangentSpaceCalc.h"
 #include "OgreLodStrategyManager.h"
 #include "OgrePixelCountLodStrategy.h"
@@ -1921,8 +1912,8 @@ namespace Ogre {
 #endif
     }
     //---------------------------------------------------------------------
-    void Mesh::prepareMatricesForVertexBlend(const Matrix4** blendMatrices,
-        const Matrix4* boneMatrices, const IndexMap& indexMap)
+    void Mesh::prepareMatricesForVertexBlend(const Affine3** blendMatrices,
+        const Affine3* boneMatrices, const IndexMap& indexMap)
     {
         assert(indexMap.size() <= 256);
         IndexMap::const_iterator it, itend;
@@ -1935,7 +1926,7 @@ namespace Ogre {
     //---------------------------------------------------------------------
     void Mesh::softwareVertexBlend(const VertexData* sourceVertexData,
         const VertexData* targetVertexData,
-        const Matrix4* const* blendMatrices, size_t numMatrices,
+        const Affine3* const* blendMatrices, size_t numMatrices,
         bool blendNormals)
     {
         float *pSrcPos = 0;

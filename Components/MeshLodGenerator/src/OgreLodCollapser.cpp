@@ -25,11 +25,7 @@
  * THE SOFTWARE.
  * -----------------------------------------------------------------------------
  */
-
-#include "OgreLodCollapser.h"
-#include "OgreLodData.h"
-#include "OgreLodCollapseCost.h"
-#include "OgreLodOutputProvider.h"
+#include "OgreMeshLodPrecompiledHeaders.h"
 
 namespace Ogre
 {

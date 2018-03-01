@@ -33,32 +33,6 @@ const String MESH_ARRAY[MESH_ARRAY_SIZE] =
     "knot.mesh"
 };
 
-#ifndef OGRE_STATIC_LIB
-
-static SamplePlugin* sp;
-static Sample* s;
-
-extern "C" void _OgreSampleExport dllStartPlugin(void);
-extern "C" void _OgreSampleExport dllStopPlugin(void);
-
-//-----------------------------------------------------------------------
-extern "C" _OgreSampleExport void dllStartPlugin()
-{
-    s = new Sample_ShaderSystem;
-    sp = OGRE_NEW SamplePlugin(s->getInfo()["Title"] + " Sample");
-    sp->addSample(s);
-    Root::getSingleton().installPlugin(sp);
-}
-//-----------------------------------------------------------------------
-extern "C" _OgreSampleExport void dllStopPlugin()
-{
-    Root::getSingleton().uninstallPlugin(sp); 
-    OGRE_DELETE sp;
-    delete s;
-}
-#endif
-
-
 //-----------------------------------------------------------------------
 Sample_ShaderSystem::Sample_ShaderSystem() :
     mLayeredBlendingEntity(NULL)
@@ -861,16 +835,10 @@ void Sample_ShaderSystem::createDirectionalLight()
 void Sample_ShaderSystem::createPointLight()
 {
     Light*  light;
-    Vector3 dir;
 
     light = mSceneMgr->createLight(POINT_LIGHT_NAME);
     light->setType(Light::LT_POINT);
     light->setCastShadows(false);
-    dir.x = 0.5;
-    dir.y = 0.0;
-    dir.z = 0.0f;
-    dir.normalise();
-    light->setDirection(dir);
     light->setDiffuseColour(0.15, 0.65, 0.15);
     light->setSpecularColour(0.5, 0.5, 0.5);    
     light->setAttenuation(200.0, 1.0, 0.0005, 0.0);
@@ -887,24 +855,19 @@ void Sample_ShaderSystem::createPointLight()
     bbs->setCastShadows(false);
 
     mPointLightNode->attachObject(bbs);
-    mPointLightNode->createChildSceneNode(Vector3(200, 100, 0))->attachObject(light);
+    SceneNode* ln = mPointLightNode->createChildSceneNode(Vector3(200, 100, 0));
+    ln->attachObject(light);
+    ln->setDirection(1, 0, 0);
 }
 
 //-----------------------------------------------------------------------
 void Sample_ShaderSystem::createSpotLight()
 {
     Light*  light;
-    Vector3 dir;
-
     light = mSceneMgr->createLight(SPOT_LIGHT_NAME);
     light->setType(Light::LT_SPOTLIGHT);
     light->setCastShadows(false);
-    dir.x = 0.0;
-    dir.y = 0.0;
-    dir.z = -1.0f;
-    dir.normalise();    
     light->setSpotlightRange(Degree(20.0), Degree(25.0), 0.95);
-    light->setDirection(dir);
     light->setDiffuseColour(0.15, 0.15, 0.65);
     light->setSpecularColour(0.5, 0.5, 0.5);    
     light->setAttenuation(1000.0, 1.0, 0.0005, 0.0);

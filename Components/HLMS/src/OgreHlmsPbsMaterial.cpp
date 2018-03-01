@@ -320,8 +320,8 @@ namespace Ogre
 		unsigned int count = std::min(mDirectionalLightCount + mPointLightCount + mSpotLightCount, maxLightCount);
 		if (count)
 		{
-			Matrix4 viewMatrix = source->getViewMatrix();
-			Quaternion viewMatrixQuat = viewMatrix.extractQuaternion();
+		    Affine3 viewMatrix = source->getViewMatrix();
+			Quaternion viewMatrixQuat = Quaternion(viewMatrix.linear());
 
 			int directionalLightIndex = 0;
 			int pointLightLightIndex = 0;

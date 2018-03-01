@@ -36,7 +36,6 @@ Copyright (c) 2000-2014 Torus Knot Software Ltd
 #include "OgreGL3PlusStateCacheManager.h"
 
 namespace Ogre {
-    static const size_t TEMP_FBOS = 2;
 
     GL3PlusFBORenderTexture::GL3PlusFBORenderTexture(
         GL3PlusFBOManager *manager, const String &name,
@@ -57,6 +56,10 @@ namespace Ogre {
         if(name == GLRenderTexture::CustomAttributeString_FBO)
         {
             *static_cast<GL3PlusFrameBufferObject **>(pData) = &mFB;
+        }
+        else if(name == GLRenderTexture::CustomAttributeString_GLCONTEXT)
+        {
+            *static_cast<GLContext**>(pData) = mFB.getContext();
         }
         else if (name == "GL_FBOID")
         {
@@ -131,13 +134,6 @@ namespace Ogre {
     GL3PlusFBOManager::GL3PlusFBOManager(GL3PlusRenderSystem* renderSystem) : mRenderSystem(renderSystem)
     {
         detectFBOFormats();
-
-        mTempFBO.resize(Ogre::TEMP_FBOS, 0);
-
-        for (size_t i = 0; i < Ogre::TEMP_FBOS; i++)
-        {
-            OGRE_CHECK_GL_ERROR(glGenFramebuffers(1, &mTempFBO[i]));
-        }
     }
 
     GL3PlusFBOManager::~GL3PlusFBOManager()
@@ -145,12 +141,6 @@ namespace Ogre {
         if(!mRenderBufferMap.empty())
         {
             LogManager::getSingleton().logWarning("GL3PlusFBOManager destructor called, but not all renderbuffers were released.");
-        }
-
-        if(GL3PlusStateCacheManager* stateCacheManager = mRenderSystem->_getStateCacheManager())
-        {
-            for (size_t i = 0; i < Ogre::TEMP_FBOS; i++)
-                stateCacheManager->deleteGLFrameBuffer(GL_FRAMEBUFFER,mTempFBO[i]);
         }
     }
 
@@ -497,7 +487,7 @@ namespace Ogre {
         GL3PlusFrameBufferObject *fbo = 0;
         target->getCustomAttribute(GLRenderTexture::CustomAttributeString_FBO, &fbo);
         if(fbo)
-            fbo->bind();
+            fbo->bind(true);
         else
             // Old style context (window/pbuffer) or copying render texture
             mRenderSystem->_getStateCacheManager()->bindGLFrameBuffer( GL_FRAMEBUFFER, 0 );
@@ -533,10 +523,4 @@ namespace Ogre {
         return retval;
     }
 
-    GLuint GL3PlusFBOManager::getTemporaryFBO(size_t i)
-    {
-        assert(i < mTempFBO.size());
-
-        return mTempFBO[i];
-    }
 }

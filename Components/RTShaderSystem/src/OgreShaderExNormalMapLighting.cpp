@@ -24,18 +24,8 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 THE SOFTWARE.
 -----------------------------------------------------------------------------
 */
-#include "OgreShaderExNormalMapLighting.h"
+#include "OgreShaderPrecompiledHeaders.h"
 #ifdef RTSHADER_SYSTEM_BUILD_EXT_SHADERS
-#include "OgreShaderFFPRenderState.h"
-#include "OgreShaderProgram.h"
-#include "OgreShaderParameter.h"
-#include "OgreShaderProgramSet.h"
-#include "OgreAutoParamDataSource.h"
-#include "OgreShaderRenderState.h"
-#include "OgrePass.h"
-#include "OgreMaterialSerializer.h"
-#include "OgreShaderGenerator.h"
-#include "OgreShaderFFPTexturing.h"
 
 namespace Ogre {
 namespace RTShader {
@@ -73,7 +63,7 @@ void NormalMapLighting::updateGpuProgramsParams(Renderable* rend, Pass* pass, co
 
     Light::LightTypes curLightType = Light::LT_DIRECTIONAL; 
     unsigned int curSearchLightIndex = 0;
-    const Matrix4& matWorld = source->getWorldMatrix();
+    const Affine3& matWorld = source->getWorldMatrix();
     Matrix3 matWorldInvRotation;
     Vector3 vRow0(matWorld[0][0], matWorld[0][1], matWorld[0][2]); 
     Vector3 vRow1(matWorld[1][0], matWorld[1][1], matWorld[1][2]); 

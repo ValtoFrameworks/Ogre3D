@@ -39,11 +39,7 @@ Ogre-dependent is in the visualization/logging routines and the use of the Timer
 
 */
 
-#include "OgreProfiler.h"
 #include "OgreTimer.h"
-#include "OgreLogManager.h"
-#include "OgreRoot.h"
-#include "OgreRenderSystem.h"
 
 namespace Ogre {
     //-----------------------------------------------------------------------

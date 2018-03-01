@@ -27,19 +27,16 @@ THE SOFTWARE.
 */
 #include "OgreStableHeaders.h"
 
-#include "OgreBone.h"
-#include "OgreSkeleton.h"
-
 namespace Ogre {
 
     //---------------------------------------------------------------------
     Bone::Bone(unsigned short handle, Skeleton* creator) 
-        : Node(), mHandle(handle), mManuallyControlled(false), mCreator(creator)
+        : Node(), mCreator(creator), mHandle(handle), mManuallyControlled(false)
     {
     }
     //---------------------------------------------------------------------
     Bone::Bone(const String& name, unsigned short handle, Skeleton* creator) 
-        : Node(name), mHandle(handle), mManuallyControlled(false), mCreator(creator)
+        : Node(name), mCreator(creator), mHandle(handle), mManuallyControlled(false)
     {
     }
     //---------------------------------------------------------------------
@@ -92,7 +89,7 @@ namespace Ogre {
         return mManuallyControlled;
     }
     //---------------------------------------------------------------------
-    void Bone::_getOffsetTransform(Matrix4& m) const
+    void Bone::_getOffsetTransform(Affine3& m) const
     {
         // Combine scale with binding pose inverse scale,
         // NB just combine as equivalent axes, no shearing

@@ -314,6 +314,7 @@ namespace Ogre
         | externalWindowHandle | <ul><li>Win32: HWND as integer<li>GLX: poslong:posint:poslong (display*:screen:windowHandle) or poslong:posint:poslong:poslong (display*:screen:windowHandle:XVisualInfo*)<li>OS X Cocoa: OgreGLView address as an integer. You can pass NSView or NSWindow too, but should perform OgreGLView callbacks into the Ogre manually.<li>OS X Carbon: WindowRef as an integer<li>iOS: UIWindow address as an integer</ul> | 0 (none) | External window handle, for embedding the OGRE render in an existing window |  |
         | externalGLControl | true, false | false | Let the external window control OpenGL i.e. don't select a pixel format for the window, do not change v-sync and do not swap buffer. When set to true, the calling application is responsible of OpenGL initialization and buffer swapping. It should also create an OpenGL context for its own rendering, Ogre will create one for its use. Then the calling application must also enable Ogre OpenGL context before calling any Ogre function and restore its OpenGL context after these calls. | OpenGL Specific |
         | currentGLContext | true, false | false | Use an externally created GL context. (Must be current) | OpenGL Specific |
+        | minColourBufferSize | Positive integer (usually 16, 32) | 16 | Min total colour buffer size. See EGL_BUFFER_SIZE | OpenGL Specific |
         | colourDepth | 16, 32 | Desktop depth | Colour depth of the resulting rendering window; only applies if fullScreen | Win32 Specific |
         | FSAAHint | Depends on RenderSystem and hardware. Currently supports:"Quality": on systems that have an option to prefer higher AA quality over speed, use it | Blank | Full screen antialiasing hint | Win32 Specific |
         | outerDimensions | true, false | false | Whether the width/height is expressed as the size of the outer window, rather than the content area | Win32 Specific  |
@@ -330,7 +331,6 @@ namespace Ogre
         | MSAA | Positive integer (usually 0, 2, 4, 8, 16) | 0 | Full screen antialiasing factor | Android Specific |
         | CSAA | Positive integer (usually 0, 2, 4, 8, 16) | 0 | [Coverage sampling factor](https://www.khronos.org/registry/egl/extensions/NV/EGL_NV_coverage_sample.txt) | Android Specific |
         | maxColourBufferSize | Positive integer (usually 16, 32) | 32 | Max EGL_BUFFER_SIZE | Android Specific |
-        | minColourBufferSize | Positive integer (usually 16, 32) | 16 | Min EGL_BUFFER_SIZE | Android Specific |
         | maxStencilBufferSize | Positive integer (usually 0, 8) | 0 | EGL_STENCIL_SIZE | Android Specific |
         | maxDepthBufferSize | Positive integer (usually 0, 16, 24) | 16 | EGL_DEPTH_SIZE | Android Specific |
         */
@@ -390,13 +390,6 @@ namespace Ogre
         RenderTargetIterator getRenderTargetIterator(void) {
             return RenderTargetIterator( mRenderTargets.begin(), mRenderTargets.end() );
         }
-        /** Returns a description of an error code.
-            @deprecated obsolete API
-        */
-        virtual String getErrorDescription(long errorNumber) const {
-            return BLANKSTRING;
-        }
-
         /** Returns the global instance vertex buffer.
         */
         HardwareVertexBufferSharedPtr getGlobalInstanceVertexBuffer() const;
@@ -415,16 +408,6 @@ namespace Ogre
         /** Sets the global number of instances.
         */
         void setGlobalNumberOfInstances(const size_t val);
-
-        /** Sets if fixed pipeline rendering is enabled on the system.
-        @deprecated use getMutableCapabilites()
-        */
-        OGRE_DEPRECATED void setFixedPipelineEnabled(bool enabled);
-
-        /** Returns true if fixed pipeline rendering is enabled on the system.
-        @deprecated use getCapabilites()
-        */
-        OGRE_DEPRECATED bool getFixedPipelineEnabled(void) const;
 
         /** Retrieves an existing DepthBuffer or creates a new one suited for the given RenderTarget
             and sets it.
@@ -452,9 +435,6 @@ namespace Ogre
         /** Sets the world transform matrix.
          * @deprecated only needed for fixed function APIs */
         virtual void _setWorldMatrix(const Matrix4 &m) {}
-        /** Sets multiple world matrices (vertex blending).
-         * @deprecated unused. for FFP vertex blending, which never existed. */
-        virtual void _setWorldMatrices(const Matrix4* m, unsigned short count);
         /** Sets the view transform matrix
          * @deprecated only needed for fixed function APIs */
         virtual void _setViewMatrix(const Matrix4 &m) {}
@@ -549,10 +529,6 @@ namespace Ogre
         */
         virtual void _setTexture(size_t unit, bool enabled, 
             const TexturePtr &texPtr) = 0;
-        /**
-        @deprecated do not use
-        */
-        OGRE_DEPRECATED virtual void _setTexture(size_t unit, bool enabled, const String &texname);
 
         /** Binds a texture to a vertex, geometry, compute, tesselation hull
         or tessellation domain sampler.
@@ -1011,15 +987,6 @@ namespace Ogre
             bool twoSidedOperation = false,
             bool readBackAsTexture = false) = 0;
 
-
-
-        /** Sets the current vertex declaration, ie the source of vertex data.
-         @deprecated use RenderOperation */
-        OGRE_DEPRECATED virtual void setVertexDeclaration(VertexDeclaration* decl) {}
-        /** Sets the current vertex buffer binding state.
-         @deprecated use RenderOperation */
-        virtual void setVertexBufferBinding(VertexBufferBinding* binding) {}
-
         /** Sets whether or not normals are to be automatically normalised.
         @remarks
         This is useful when, for example, you are scaling SceneNodes such that
@@ -1107,9 +1074,6 @@ namespace Ogre
 
         /** Add a user clipping plane. */
         void addClipPlane (const Plane &p);
-        /** Add a user clipping plane.
-         @deprecated use addClipPlane(const Plane &p) */
-        OGRE_DEPRECATED void addClipPlane (Real A, Real B, Real C, Real D);
 
         /** Clears the user clipping region.
         */
@@ -1431,9 +1395,6 @@ namespace Ogre
         VertexDeclaration* mGlobalInstanceVertexBufferVertexDeclaration;
         /// the number of global instances (this number will be multiply by the render op instance number) 
         size_t mGlobalNumberOfInstances;
-
-        /// is fixed pipeline enabled
-        bool mEnableFixedPipeline;
 
         /** updates pass iteration rendering state including bound gpu program parameter
         pass iteration auto constant entry

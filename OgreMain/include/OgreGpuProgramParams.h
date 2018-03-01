@@ -38,6 +38,7 @@ Copyright (c) 2000-2014 Torus Knot Software Ltd
 #include "OgreHeaderPrefix.h"
 
 namespace Ogre {
+    class TransformBase;
 
     /** \addtogroup Core
      *  @{
@@ -884,6 +885,9 @@ namespace Ogre {
     public:
         /** Defines the types of automatically updated values that may be bound to GpuProgram
             parameters, or used to modify parameters on a per-object basis.
+
+            For use in @ref Program-Parameter-Specification, drop the `ACT_` prefix. 
+            E.g. `ACT_WORLD_MATRIX` becomes `world_matrix`.
         */
         enum AutoConstantType
         {
@@ -1501,8 +1505,8 @@ namespace Ogre {
         typedef vector<GpuSharedParametersUsage>::type GpuSharedParamUsageList;
 
         // Map that store subroutines associated with slots
-        typedef OGRE_HashMap<unsigned int, String> SubroutineMap;
-        typedef OGRE_HashMap<unsigned int, String>::const_iterator SubroutineIterator;
+        typedef OGRE_HashMap<size_t, String> SubroutineMap;
+        typedef OGRE_HashMap<size_t, String>::const_iterator SubroutineIterator;
 
     protected:
         SubroutineMap mSubroutineMap;
@@ -1847,7 +1851,7 @@ namespace Ogre {
             @param m The value to set
             @param numEntries Number of Matrix4 entries
         */
-        void _writeRawConstant(size_t physicalIndex, const Matrix4* m, size_t numEntries);
+        void _writeRawConstant(size_t physicalIndex, const TransformBase* m, size_t numEntries);
         /** Write a ColourValue parameter to the program.
             @note You can use these methods if you have already derived the physical
             constant buffer location, for a slight speed improvement over using

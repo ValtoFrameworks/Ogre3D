@@ -101,7 +101,7 @@ namespace Ogre {
             const NameValuePairList* params,
             HardwareBuffer::Usage vertexBufferUsage = HardwareBuffer::HBU_STATIC_WRITE_ONLY, 
             HardwareBuffer::Usage indexBufferUsage = HardwareBuffer::HBU_STATIC_WRITE_ONLY, 
-            bool vertexBufferShadowed = true, bool indexBufferShadowed = true);
+            bool vertexBufferShadowed = false, bool indexBufferShadowed = false);
 
         /** Prepares a mesh for loading from a file.  This does the IO in advance of the call to load().
             @note
@@ -127,7 +127,7 @@ namespace Ogre {
         MeshPtr prepare( const String& filename, const String& groupName,
             HardwareBuffer::Usage vertexBufferUsage = HardwareBuffer::HBU_STATIC_WRITE_ONLY, 
             HardwareBuffer::Usage indexBufferUsage = HardwareBuffer::HBU_STATIC_WRITE_ONLY, 
-            bool vertexBufferShadowed = true, bool indexBufferShadowed = true);
+            bool vertexBufferShadowed = false, bool indexBufferShadowed = false);
 
         /** Loads a mesh from a file, making it immediately available for use.
             @note
@@ -153,7 +153,7 @@ namespace Ogre {
         MeshPtr load( const String& filename, const String& groupName,
             HardwareBuffer::Usage vertexBufferUsage = HardwareBuffer::HBU_STATIC_WRITE_ONLY, 
             HardwareBuffer::Usage indexBufferUsage = HardwareBuffer::HBU_STATIC_WRITE_ONLY, 
-            bool vertexBufferShadowed = true, bool indexBufferShadowed = true);
+            bool vertexBufferShadowed = false, bool indexBufferShadowed = false);
 
 
         /** Creates a new Mesh specifically for manual definition rather
@@ -219,7 +219,7 @@ namespace Ogre {
             Real uTile = 1.0f, Real vTile = 1.0f, const Vector3& upVector = Vector3::UNIT_Y,
             HardwareBuffer::Usage vertexBufferUsage = HardwareBuffer::HBU_STATIC_WRITE_ONLY, 
             HardwareBuffer::Usage indexBufferUsage = HardwareBuffer::HBU_STATIC_WRITE_ONLY,
-            bool vertexShadowBuffer = true, bool indexShadowBuffer = true);
+            bool vertexShadowBuffer = false, bool indexShadowBuffer = false);
 
         
         /** Creates a plane, which because of it's texture coordinates looks like a curved
@@ -281,7 +281,7 @@ namespace Ogre {
             const Quaternion& orientation = Quaternion::IDENTITY,
             HardwareBuffer::Usage vertexBufferUsage = HardwareBuffer::HBU_STATIC_WRITE_ONLY, 
             HardwareBuffer::Usage indexBufferUsage = HardwareBuffer::HBU_STATIC_WRITE_ONLY,
-            bool vertexShadowBuffer = true, bool indexShadowBuffer = true, 
+            bool vertexShadowBuffer = false, bool indexShadowBuffer = false, 
             int ySegmentsToKeep = -1);
 
         /** Creates a genuinely curved plane, by default majoring on the x/y axes facing positive Z.
@@ -333,7 +333,7 @@ namespace Ogre {
             Real uTile = 1.0f, Real vTile = 1.0f, const Vector3& upVector = Vector3::UNIT_Y,
             HardwareBuffer::Usage vertexBufferUsage = HardwareBuffer::HBU_STATIC_WRITE_ONLY, 
             HardwareBuffer::Usage indexBufferUsage = HardwareBuffer::HBU_STATIC_WRITE_ONLY,
-            bool vertexShadowBuffer = true, bool indexShadowBuffer = true);
+            bool vertexShadowBuffer = false, bool indexShadowBuffer = false);
 
         /** Creates a Bezier patch based on an array of control vertices.
             @param name

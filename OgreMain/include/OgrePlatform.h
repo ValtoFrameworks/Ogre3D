@@ -100,6 +100,13 @@ namespace Ogre {
         #define OGRE_FORCE_INLINE __inline
 #endif
 
+/* fallthrough attribute */
+#if OGRE_COMPILER_MIN_VERSION(OGRE_COMPILER_GNUC, 700)
+#define OGRE_FALLTHROUGH __attribute__((fallthrough))
+#else
+#define OGRE_FALLTHROUGH
+#endif
+
 /* define OGRE_NORETURN macro */
 #if OGRE_COMPILER == OGRE_COMPILER_MSVC
 #	define OGRE_NORETURN __declspec(noreturn)
@@ -155,6 +162,22 @@ namespace Ogre {
 #else
 #   define OGRE_ARCH_TYPE OGRE_ARCHITECTURE_32
 #endif
+
+/* Find how to declare aligned variable. */
+#if OGRE_COMPILER == OGRE_COMPILER_MSVC
+#   define OGRE_ALIGNED_DECL(type, var, alignment)  __declspec(align(alignment)) type var
+#elif (OGRE_COMPILER == OGRE_COMPILER_GNUC) || (OGRE_COMPILER == OGRE_COMPILER_CLANG)
+#   define OGRE_ALIGNED_DECL(type, var, alignment)  type var __attribute__((__aligned__(alignment)))
+#else
+#   define OGRE_ALIGNED_DECL(type, var, alignment)  type var
+#endif
+
+/** Find perfect alignment (should supports SIMD alignment if SIMD available) */
+#define OGRE_SIMD_ALIGNMENT 16
+
+/* Declare variable aligned to SIMD alignment. */
+#define OGRE_SIMD_ALIGNED_DECL(type, var)   OGRE_ALIGNED_DECL(type, var, OGRE_SIMD_ALIGNMENT)
+
 
 // For generating compiler warnings - should work on any compiler
 // As a side note, if you start your message with 'Warning: ', the MSVC

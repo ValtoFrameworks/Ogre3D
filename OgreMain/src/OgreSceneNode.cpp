@@ -26,39 +26,23 @@ THE SOFTWARE.
 -----------------------------------------------------------------------------
 */
 #include "OgreStableHeaders.h"
-#include "OgreSceneNode.h"
-
-#include "OgreException.h"
-#include "OgreCamera.h"
-#include "OgreMath.h"
-#include "OgreSceneManager.h"
-#include "OgreMovableObject.h"
-#include "OgreWireBoundingBox.h"
 
 namespace Ogre {
     //-----------------------------------------------------------------------
-    SceneNode::SceneNode(SceneManager* creator)
-        : Node()
-        , mWireBoundingBox(0)
-        , mShowBoundingBox(false)
-        , mHideBoundingBox(false)
-        , mCreator(creator)
-        , mYawFixed(false)
-        , mAutoTrackTarget(0)
-        , mIsInSceneGraph(false)
+    SceneNode::SceneNode(SceneManager* creator) : SceneNode(creator, BLANKSTRING)
     {
-        needUpdate();
     }
     //-----------------------------------------------------------------------
     SceneNode::SceneNode(SceneManager* creator, const String& name)
         : Node(name)
+        , mCreator(creator)
+        , mAutoTrackTarget(0)
         , mWireBoundingBox(0)
+        , mYawFixed(false)
+        , mIsInSceneGraph(false)
         , mShowBoundingBox(false)
         , mHideBoundingBox(false)
-        , mCreator(creator)
-        , mYawFixed(false)
-        , mAutoTrackTarget(0)
-        , mIsInSceneGraph(false)
+
     {
         needUpdate();
     }

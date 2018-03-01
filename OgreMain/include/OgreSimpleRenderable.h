@@ -52,7 +52,7 @@ namespace Ogre {
     protected:
         RenderOperation mRenderOp;
 
-        Matrix4 mTransform;
+        Affine3 mTransform;
         AxisAlignedBox mBox;
 
         MaterialPtr mMaterial;
@@ -73,15 +73,13 @@ namespace Ogre {
         /// Named constructor
         SimpleRenderable(const String& name);
 
-        /// @deprecated use setMaterial(const MaterialPtr&)
-        OGRE_DEPRECATED virtual void setMaterial( const String& matName );
         virtual void setMaterial(const MaterialPtr& mat);
         virtual const MaterialPtr& getMaterial(void) const;
 
         virtual void setRenderOperation( const RenderOperation& rend );
         virtual void getRenderOperation(RenderOperation& op);
 
-        void setTransform( const Matrix4& xform );
+        void setTransform( const Affine3& xform );
         virtual void getWorldTransforms( Matrix4* xform ) const;
 
 

@@ -309,10 +309,6 @@ namespace Ogre {
         }
         else
         {
-            if (data.getWidth() != data.rowPitch)
-                OGRE_CHECK_GL_ERROR(glPixelStorei(GL_PACK_ROW_LENGTH, data.rowPitch));
-            if (data.getHeight()*data.getWidth() != data.slicePitch)
-                OGRE_CHECK_GL_ERROR(glPixelStorei(GL_PACK_IMAGE_HEIGHT, (data.slicePitch/data.getWidth())));
             if ((data.getWidth()*PixelUtil::getNumElemBytes(data.format)) & 3) {
                 // Standard alignment of 4 is not right
                 OGRE_CHECK_GL_ERROR(glPixelStorei(GL_PACK_ALIGNMENT, 1));
@@ -324,29 +320,23 @@ namespace Ogre {
                                               0));
 
             // Restore defaults
-            OGRE_CHECK_GL_ERROR(glPixelStorei(GL_PACK_ROW_LENGTH, 0));
-            OGRE_CHECK_GL_ERROR(glPixelStorei(GL_PACK_IMAGE_HEIGHT, 0));
             OGRE_CHECK_GL_ERROR(glPixelStorei(GL_PACK_ALIGNMENT, 4));
         }
 
-        GLint offsetInBytes = 0;
-        uint32 width = mWidth;
-        uint32 height = mHeight;
-        uint32 depth = mDepth;
-        for(GLint i = 0; i < mLevel; i++)
-        {
-            offsetInBytes += PixelUtil::getMemorySize(width, height, depth, data.format);
-
-            if (width > 1)
-                width = width / 2;
-            if (height > 1)
-                height = height / 2;
-            if (depth > 1)
-                depth = depth / 2;
-        }
-
         // Copy to destination buffer
-        buffer.readData(offsetInBytes, mSizeInBytes, data.getTopLeftFrontPixelPtr());
+        if(data.isConsecutive())
+            buffer.readData(0, mSizeInBytes, data.getTopLeftFrontPixelPtr());
+        else
+        {
+            size_t srcOffset = 0, elemSizeInBytes = PixelUtil::getNumElemBytes(data.format);
+            for(size_t z = 0; z < mDepth; ++z)
+                for(size_t y = 0; y < mHeight; ++y)
+                {
+                    buffer.readData(srcOffset, mWidth * elemSizeInBytes,
+                        (uint8*)data.getTopLeftFrontPixelPtr() + (z * data.slicePitch + y * data.rowPitch) * elemSizeInBytes);
+                    srcOffset += mWidth * elemSizeInBytes;
+                }
+        }
     }
 
 
@@ -432,8 +422,11 @@ namespace Ogre {
         OGRE_CHECK_GL_ERROR(glGetIntegerv(GL_FRAMEBUFFER_BINDING, &oldfb));
 
         // Set up temporary FBO
-        mRenderSystem->_getStateCacheManager()->bindGLFrameBuffer( GL_DRAW_FRAMEBUFFER, fboMan->getTemporaryFBO(0) );
-        mRenderSystem->_getStateCacheManager()->bindGLFrameBuffer( GL_READ_FRAMEBUFFER, fboMan->getTemporaryFBO(1) );
+        GLuint tempFBO[2] = { 0, 0 };
+        OGRE_CHECK_GL_ERROR(glGenFramebuffers(1, &tempFBO[0]));
+        OGRE_CHECK_GL_ERROR(glGenFramebuffers(1, &tempFBO[1]));
+        mRenderSystem->_getStateCacheManager()->bindGLFrameBuffer( GL_DRAW_FRAMEBUFFER, tempFBO[0] );
+        mRenderSystem->_getStateCacheManager()->bindGLFrameBuffer( GL_READ_FRAMEBUFFER, tempFBO[1] );
 
         TexturePtr tempTex;
         if (!fboMan->checkFormat(mFormat))
@@ -539,6 +532,10 @@ namespace Ogre {
 
         // Restore old framebuffer
         mRenderSystem->_getStateCacheManager()->bindGLFrameBuffer( GL_DRAW_FRAMEBUFFER, oldfb);
+        
+        mRenderSystem->_getStateCacheManager()->deleteGLFrameBuffer(GL_FRAMEBUFFER, tempFBO[0]);
+        mRenderSystem->_getStateCacheManager()->deleteGLFrameBuffer(GL_FRAMEBUFFER, tempFBO[1]);
+        
         if(tempTex)
             TextureManager::getSingleton().remove(tempTex);
     }

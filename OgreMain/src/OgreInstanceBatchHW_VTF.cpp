@@ -27,12 +27,8 @@ THE SOFTWARE.
 */
 #include "OgreStableHeaders.h"
 #include "OgreInstanceBatchHW_VTF.h"
-#include "OgreSubMesh.h"
-#include "OgreHardwareBufferManager.h"
 #include "OgreHardwarePixelBuffer.h"
 #include "OgreInstancedEntity.h"
-#include "OgreCamera.h"
-#include "OgreRoot.h"
 
 namespace Ogre
 {
@@ -303,7 +299,7 @@ namespace Ogre
 
                     if (useMatrixLookup)
                     {
-                        const Matrix4& mat =  entity->_getParentNodeFullTransform();
+                        const Affine3& mat =  entity->_getParentNodeFullTransform();
                         *(thisVec)     = static_cast<float>( mat[0][0] );
                         *(thisVec + 1) = static_cast<float>( mat[0][1] );
                         *(thisVec + 2) = static_cast<float>( mat[0][2] );
@@ -422,7 +418,7 @@ namespace Ogre
         mMatrixTexture->getBuffer()->lock( HardwareBuffer::HBL_DISCARD );
         const PixelBox &pixelBox = mMatrixTexture->getBuffer()->getCurrentLock();
 
-        float *pSource = static_cast<float*>(pixelBox.data);
+        float *pSource = reinterpret_cast<float*>(pixelBox.data);
         
         InstancedEntityVec::const_iterator itor = mInstancedEntities.begin();
         
