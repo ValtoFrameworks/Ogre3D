@@ -389,7 +389,7 @@ namespace Ogre {
         String mName;
 
         /// Queue of objects for rendering
-        RenderQueue* mRenderQueue;
+        std::unique_ptr<RenderQueue> mRenderQueue;
         bool mLastRenderQueueInvocationCustom;
 
         /// Current ambient light, cached for RenderSystem
@@ -426,7 +426,7 @@ namespace Ogre {
         Viewport* mCurrentViewport;
 
         /// Root scene node
-        SceneNode* mSceneRoot;
+        std::unique_ptr<SceneNode> mSceneRoot;
 
         /// Autotracking scene nodes
         typedef set<SceneNode*>::type AutoTrackingSceneNodes;
@@ -436,7 +436,7 @@ namespace Ogre {
         // Sky plane
         Entity* mSkyPlaneEntity;
         Entity* mSkyDomeEntity[5];
-        ManualObject* mSkyBoxObj;
+        std::unique_ptr<ManualObject> mSkyBoxObj;
 
         SceneNode* mSkyPlaneNode;
         SceneNode* mSkyDomeNode;
@@ -724,7 +724,7 @@ namespace Ogre {
         }
 
         /// Utility class for calculating automatic parameters for gpu programs
-        AutoParamDataSource* mAutoParamDataSource;
+        std::unique_ptr<AutoParamDataSource> mAutoParamDataSource;
 
         CompositorChain* mActiveCompositorChain;
         bool mLateMaterialResolving;
@@ -739,7 +739,7 @@ namespace Ogre {
         HardwareIndexBufferSharedPtr mShadowIndexBuffer;
         size_t mShadowIndexBufferSize;
         size_t mShadowIndexBufferUsedSize;
-        Rectangle2D* mFullScreenQuad;
+        std::unique_ptr<Rectangle2D> mFullScreenQuad;
         Real mShadowDirLightExtrudeDist;
         IlluminationRenderStage mIlluminationStage;
         ShadowTextureConfigList mShadowTextureConfigList;
@@ -857,8 +857,8 @@ namespace Ogre {
 
         typedef vector<ShadowCaster*>::type ShadowCasterList;
         ShadowCasterList mShadowCasterList;
-        SphereSceneQuery* mShadowCasterSphereQuery;
-        AxisAlignedBoxSceneQuery* mShadowCasterAABBQuery;
+        std::unique_ptr<SphereSceneQuery> mShadowCasterSphereQuery;
+        std::unique_ptr<AxisAlignedBoxSceneQuery> mShadowCasterAABBQuery;
         Real mDefaultShadowFarDist;
         Real mDefaultShadowFarDistSquared;
         Real mShadowTextureOffset; /// Proportion of texture offset in view direction e.g. 0.4
@@ -921,7 +921,7 @@ namespace Ogre {
             bool queryResult(SceneQuery::WorldFragment* fragment);
         };
 
-        ShadowCasterSceneQueryListener* mShadowCasterQueryListener;
+        std::unique_ptr<ShadowCasterSceneQueryListener> mShadowCasterQueryListener;
 
         /** Internal method for locating a list of shadow casters which 
             could be affecting the frustum for a given light. 
@@ -3006,26 +3006,6 @@ namespace Ogre {
         void destroyStaticGeometry(const String& name);
         /** Remove & destroy all StaticGeometry instances. */
         void destroyAllStaticGeometry(void);
-
-        /** Creates a InstancedGeometry instance suitable for use with this
-            SceneManager.
-        @remarks
-            InstancedGeometry is a way of batching up geometry into a more 
-            efficient form, and still be able to move it. Please 
-            read the InstancedGeometry class documentation for full information.
-        @param name The name to give the new object
-        @return The new InstancedGeometry instance
-        @deprecated use createInstanceManager() with InstanceManager::ShaderBased instead
-        */
-        InstancedGeometry* createInstancedGeometry(const String& name);
-        /** Retrieve a previously created InstancedGeometry instance. */
-        InstancedGeometry* getInstancedGeometry(const String& name) const;
-        /** Remove & destroy a InstancedGeometry instance. */
-        void destroyInstancedGeometry(InstancedGeometry* geom);
-        /** Remove & destroy a InstancedGeometry instance. */
-        void destroyInstancedGeometry(const String& name);
-        /** Remove & destroy all InstancedGeometry instances. */
-        void destroyAllInstancedGeometry(void);
 
         /** Creates an InstanceManager interface to create & manipulate instanced entities
             You need to call this function at least once before start calling createInstancedEntity

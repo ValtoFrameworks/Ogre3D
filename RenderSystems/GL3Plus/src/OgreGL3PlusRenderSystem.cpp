@@ -383,18 +383,10 @@ namespace Ogre {
 
         // Support for specific shader profiles
         bool limitedOSXCoreProfile = OGRE_PLATFORM == OGRE_PLATFORM_APPLE && hasMinGLVersion(3, 2);
-        if (getNativeShadingLanguageVersion() >= 450)
-            rsc->addShaderProfile("glsl450");
-        if (getNativeShadingLanguageVersion() >= 440)
-            rsc->addShaderProfile("glsl440");
-        if (getNativeShadingLanguageVersion() >= 430)
-            rsc->addShaderProfile("glsl430");
-        if (getNativeShadingLanguageVersion() >= 420)
-            rsc->addShaderProfile("glsl420");
-        if (getNativeShadingLanguageVersion() >= 410)
-            rsc->addShaderProfile("glsl410");
-        if (getNativeShadingLanguageVersion() >= 400)
-            rsc->addShaderProfile("glsl400");
+
+        for (uint16 ver = getNativeShadingLanguageVersion(); ver >= 400; ver -= 10)
+            rsc->addShaderProfile("glsl" + StringConverter::toString(ver));
+
         if (getNativeShadingLanguageVersion() >= 330)
             rsc->addShaderProfile("glsl330");
         if (getNativeShadingLanguageVersion() >= 150)
@@ -1977,6 +1969,11 @@ namespace Ogre {
             OGRE_CHECK_GL_ERROR(glDebugMessageCallbackARB(&GLDebugCallback, NULL));
             OGRE_CHECK_GL_ERROR(glDebugMessageControlARB(GL_DEBUG_SOURCE_THIRD_PARTY, GL_DEBUG_TYPE_OTHER, GL_DONT_CARE, 0, NULL, GL_TRUE));
 #endif
+        }
+
+        if(hasMinGLVersion(4, 3) || checkExtension("GL_ARB_ES3_compatibility"))
+        {
+            OGRE_CHECK_GL_ERROR(glEnable(GL_PRIMITIVE_RESTART_FIXED_INDEX));
         }
 
         glEnable(GL_PROGRAM_POINT_SIZE);
