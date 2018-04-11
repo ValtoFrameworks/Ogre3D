@@ -244,8 +244,6 @@ namespace Ogre {
         // Supports fixed-function
         rsc->setCapability(RSC_FIXED_FUNCTION);
 
-
-        rsc->setCapability(RSC_AUTOMIPMAP);
         rsc->setCapability(RSC_AUTOMIPMAP_COMPRESSED);
 
         // Check for Multitexturing support and set number of texture units
@@ -792,8 +790,6 @@ namespace Ogre {
             // Create FBO manager
             LogManager::getSingleton().logMessage("GL: Using GL_EXT_framebuffer_object for rendering to textures (best)");
             mRTTManager = new GLFBOManager(false);
-            caps->setCapability(RSC_RTT_SEPARATE_DEPTHBUFFER);
-
             //TODO: Check if we're using OpenGL 3.0 and add RSC_RTT_DEPTHBUFFER_RESOLUTION_LESSEQUAL flag
         }
         else
@@ -2612,7 +2608,7 @@ namespace Ogre {
         VertexDeclaration* globalVertexDeclaration = getGlobalInstanceVertexBufferVertexDeclaration();
         bool hasInstanceData = (op.useGlobalInstancingVertexBufferIsAvailable &&
                                 globalInstanceVertexBuffer && globalVertexDeclaration != NULL) ||
-                                op.vertexData->vertexBufferBinding->getHasInstanceData();
+                                op.vertexData->vertexBufferBinding->hasInstanceData();
 
         size_t numberOfInstances = op.numberOfInstances;
 
@@ -2761,13 +2757,13 @@ namespace Ogre {
             glDisableClientState( GL_SECONDARY_COLOR_ARRAY );
         }
         // unbind any custom attributes
-        for (vector<GLuint>::type::iterator ai = mRenderAttribsBound.begin(); ai != mRenderAttribsBound.end(); ++ai)
+        for (std::vector<GLuint>::iterator ai = mRenderAttribsBound.begin(); ai != mRenderAttribsBound.end(); ++ai)
         {
             glDisableVertexAttribArrayARB(*ai);
         }
 
         // unbind any instance attributes
-        for (vector<GLuint>::type::iterator ai = mRenderInstanceAttribsBound.begin(); ai != mRenderInstanceAttribsBound.end(); ++ai)
+        for (std::vector<GLuint>::iterator ai = mRenderInstanceAttribsBound.begin(); ai != mRenderInstanceAttribsBound.end(); ++ai)
         {
             glVertexAttribDivisorARB(*ai, 0);
         }
@@ -3379,7 +3375,7 @@ namespace Ogre {
         {
             isCustomAttrib = mCurrentVertexProgram->isAttributeValid(sem, elem.getIndex());
 
-            if (hwGlBuffer->getIsInstanceData())
+            if (hwGlBuffer->isInstanceData())
             {
                 GLint attrib = GLSLProgramCommon::getFixedAttributeIndex(sem, elem.getIndex());
                 glVertexAttribDivisorARB(attrib, hwGlBuffer->getInstanceDataStepRate() );

@@ -2,10 +2,9 @@
 -----------------------------------------------------------------------------
 This source file is part of OGRE
 (Object-oriented Graphics Rendering Engine)
-For the latest info, see http://www.ogre3d.org/
+For the latest info, see http://www.ogre3d.org
 
 Copyright (c) 2000-2014 Torus Knot Software Ltd
-
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files (the "Software"), to deal
 in the Software without restriction, including without limitation the rights
@@ -25,38 +24,33 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 THE SOFTWARE.
 -----------------------------------------------------------------------------
 */
+#ifndef _OverlayScriptTranslator_
+#define _OverlayScriptTranslator_
 
-#ifndef __PageCoreTests_H__
-#define __PageCoreTests_H__
+#include "OgreOverlay.h"
+#include "OgreScriptTranslator.h"
+#include "OgreFont.h"
 
-#include <gtest/gtest.h>
-
-#include "OgreRoot.h"
-#include "OgrePageManager.h"
-#include "OgreGrid2DPageStrategy.h"
-#include "OgreFileSystemLayer.h"
-#include "OgreBuildSettings.h"
-
-#ifdef OGRE_STATIC_LIB
-#include "OgreStaticPluginLoader.h"
-#endif
-
-using namespace Ogre; 
-
-class PageCoreTests : public ::testing::Test
+namespace Ogre
 {
-public:
-    Root* mRoot;
-    PageManager* mPageManager;
-    SceneManager* mSceneMgr;
-    FileSystemLayer* mFSLayer;
-
-#ifdef OGRE_STATIC_LIB
-    OgreBites::StaticPluginLoader mStaticPluginLoader;
-#endif
-
-    void SetUp();
-    void TearDown();
+//! [font_translator]
+struct FontTranslator : public ScriptTranslator
+{
+    void translate(ScriptCompiler* compiler, const AbstractNodePtr& node);
+    void parseAttribute(ScriptCompiler* compiler, FontPtr& pFont, PropertyAbstractNode* prop);
 };
+//! [font_translator]
+
+class OverlayTranslatorManager : public ScriptTranslatorManager
+{
+    FontTranslator mFontTranslator;
+    uint32 ID_FONT;
+
+public:
+    OverlayTranslatorManager();
+    ~OverlayTranslatorManager();
+    ScriptTranslator* getTranslator(const AbstractNodePtr& node);
+};
+}
 
 #endif

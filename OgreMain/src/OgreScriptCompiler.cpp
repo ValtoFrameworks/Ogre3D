@@ -28,7 +28,7 @@ THE SOFTWARE.
 
 #include "OgreStableHeaders.h"
 #include "OgreScriptParser.h"
-#include "OgreScriptTranslator.h"
+#include "OgreBuiltinScriptTranslators.h"
 
 namespace Ogre
 {
@@ -110,7 +110,7 @@ namespace Ogre
 
     std::pair<bool,String> ObjectAbstractNode::getVariable(const String &inName) const
     {
-        map<String,String>::type::const_iterator i = mEnv.find(inName);
+        std::map<String,String>::const_iterator i = mEnv.find(inName);
         if(i != mEnv.end())
             return std::make_pair(true, i->second);
 
@@ -125,7 +125,7 @@ namespace Ogre
         return std::make_pair(false, "");
     }
 
-    const map<String,String>::type &ObjectAbstractNode::getVariables() const
+    const std::map<String,String> &ObjectAbstractNode::getVariables() const
     {
         return mEnv;
     }
@@ -226,12 +226,11 @@ namespace Ogre
 
     void ScriptCompilerListener::handleError(ScriptCompiler *compiler, uint32 code, const String &file, int line, const String &msg)
     {
-        Ogre::String str = "Compiler error: ";
-        str = str + ScriptCompiler::formatErrorCode(code) + " in " + file + "(" +
-            Ogre::StringConverter::toString(line) + ")";
+        StringStream ss;
+        ss << "ScriptCompiler - " << ScriptCompiler::formatErrorCode(code) << " in " << file << "(" << line << ")";
         if(!msg.empty())
-            str = str + ": " + msg;
-        Ogre::LogManager::getSingleton().logMessage(str, LML_CRITICAL);
+            ss << ": " << msg;
+        LogManager::getSingleton().logError(ss.str());
     }
 
     bool ScriptCompilerListener::handleEvent(ScriptCompiler *compiler, ScriptCompilerEvent *evt, void *retval)
@@ -244,28 +243,30 @@ namespace Ogre
     {
         switch(code)
         {
-        case ScriptCompiler::CE_STRINGEXPECTED:
+        case CE_STRINGEXPECTED:
             return "string expected";
-        case ScriptCompiler::CE_NUMBEREXPECTED:
+        case CE_NUMBEREXPECTED:
             return "number expected";
-        case ScriptCompiler::CE_FEWERPARAMETERSEXPECTED:
+        case CE_FEWERPARAMETERSEXPECTED:
             return "fewer parameters expected";
-        case ScriptCompiler::CE_VARIABLEEXPECTED:
+        case CE_VARIABLEEXPECTED:
             return "variable expected";
-        case ScriptCompiler::CE_UNDEFINEDVARIABLE:
+        case CE_UNDEFINEDVARIABLE:
             return "undefined variable";
-        case ScriptCompiler::CE_OBJECTNAMEEXPECTED:
+        case CE_OBJECTNAMEEXPECTED:
             return "object name expected";
-        case ScriptCompiler::CE_OBJECTALLOCATIONERROR:
+        case CE_OBJECTALLOCATIONERROR:
             return "object allocation error";
-        case ScriptCompiler::CE_INVALIDPARAMETERS:
+        case CE_INVALIDPARAMETERS:
             return "invalid parameters";
-        case ScriptCompiler::CE_DUPLICATEOVERRIDE:
+        case CE_DUPLICATEOVERRIDE:
             return "duplicate object override";
-        case ScriptCompiler::CE_UNSUPPORTEDBYRENDERSYSTEM:
+        case CE_UNSUPPORTEDBYRENDERSYSTEM:
             return "object unsupported by render system";
-        case ScriptCompiler::CE_REFERENCETOANONEXISTINGOBJECT:
+        case CE_REFERENCETOANONEXISTINGOBJECT:
             return "reference to a non existing object";
+        case CE_UNEXPECTEDTOKEN:
+            return "unexpected token";
         default:
             return "unknown error";
         }
@@ -454,12 +455,8 @@ namespace Ogre
         }
         else
         {
-            Ogre::String str = "Compiler error: ";
-            str = str + formatErrorCode(code) + " in " + file + "(" +
-                Ogre::StringConverter::toString(line) + ")";
-            if(!msg.empty())
-                str = str + ": " + msg;
-            Ogre::LogManager::getSingleton().logMessage(str, LML_CRITICAL);
+            static ScriptCompilerListener defaultListener;
+            defaultListener.handleError(this, code, file, line, msg);
         }
 
         mErrors.push_back(err);
@@ -636,7 +633,7 @@ namespace Ogre
                 ObjectAbstractNode *obj = (ObjectAbstractNode*)(*i).get();
 
                 // Overlay base classes in order.
-                for (vector<String>::const_iterator baseIt = obj->bases.begin(), end_it = obj->bases.end(); baseIt != end_it; ++baseIt)
+                for (std::vector<String>::const_iterator baseIt = obj->bases.begin(), end_it = obj->bases.end(); baseIt != end_it; ++baseIt)
                 {
                     const String& base = *baseIt;
                     // Check the top level first, then check the import table
@@ -672,7 +669,7 @@ namespace Ogre
             ObjectAbstractNode *src = static_cast<ObjectAbstractNode*>(source.get());
 
             // Overlay the environment of one on top the other first
-            for(map<String,String>::type::const_iterator i = src->getVariables().begin(); i != src->getVariables().end(); ++i)
+            for(std::map<String,String>::const_iterator i = src->getVariables().begin(); i != src->getVariables().end(); ++i)
             {
                 std::pair<bool,String> var = dest->getVariable(i->first);
                 if(!var.first)
@@ -680,12 +677,12 @@ namespace Ogre
             }
             
             // Create a vector storing each pairing of override between source and destination
-            vector<std::pair<AbstractNodePtr,AbstractNodeList::iterator> >::type overrides; 
+            std::vector<std::pair<AbstractNodePtr,AbstractNodeList::iterator> > overrides; 
             // A list of indices for each destination node tracks the minimum
             // source node they can index-match against
-            map<ObjectAbstractNode*,size_t>::type indices;
+            std::map<ObjectAbstractNode*,size_t> indices;
             // A map storing which nodes have overridden from the destination node
-            map<ObjectAbstractNode*,bool>::type overridden;
+            std::map<ObjectAbstractNode*,bool> overridden;
 
             // Fill the vector with objects from the source node (base)
             // And insert non-objects into the overrides list of the destination
@@ -839,57 +836,49 @@ namespace Ogre
         }
     }
 
-    bool ScriptCompiler::isNameExcluded(const String &cls, AbstractNode *parent)
+    bool ScriptCompiler::isNameExcluded(const ObjectAbstractNode* node, AbstractNode *parent)
     {
         // Run past the listener
         bool excludeName = false;
-        ProcessNameExclusionScriptCompilerEvent evt(cls, parent);
-        bool processed = _fireEvent(&evt, (void*)&excludeName);
-
-        if(!processed)
-        {
-            // Process the built-in name exclusions
-            if(cls == "emitter" || cls == "affector")
-            {
-                // emitters or affectors inside a particle_system are excluded
-                while(parent && parent->type == ANT_OBJECT)
-                {
-                    ObjectAbstractNode *obj = static_cast<ObjectAbstractNode*>(parent);
-                    if(obj->cls == "particle_system")
-                        return true;
-                    parent = obj->parent;
-                }
-                return false;
-            }
-            else if(cls == "pass")
-            {
-                // passes inside compositors are excluded
-                while(parent && parent->type == ANT_OBJECT)
-                {
-                    ObjectAbstractNode *obj = static_cast<ObjectAbstractNode*>(parent);
-                    if(obj->cls == "compositor")
-                        return true;
-                    parent = obj->parent;
-                }
-                return false;
-            }
-            else if(cls == "texture_source")
-            {
-                // Parent must be texture_unit
-                while(parent && parent->type == ANT_OBJECT)
-                {
-                    ObjectAbstractNode *obj = static_cast<ObjectAbstractNode*>(parent);
-                    if(obj->cls == "texture_unit")
-                        return true;
-                    parent = obj->parent;
-                }
-                return false;
-            }
-        }
-        else
-        {
+        ProcessNameExclusionScriptCompilerEvent evt(node->cls, parent);
+        if(_fireEvent(&evt, (void*)&excludeName))
             return excludeName;
+
+        // Process the built-in name exclusions
+        if(node->id == ID_EMITTER || node->id == ID_AFFECTOR)
+        {
+            // emitters or affectors inside a particle_system are excluded
+            while(parent && parent->type == ANT_OBJECT)
+            {
+                ObjectAbstractNode *obj = static_cast<ObjectAbstractNode*>(parent);
+                if(obj->id == ID_PARTICLE_SYSTEM)
+                    return true;
+                parent = obj->parent;
+            }
         }
+        else if(node->id == ID_PASS)
+        {
+            // passes inside compositors are excluded
+            while(parent && parent->type == ANT_OBJECT)
+            {
+                ObjectAbstractNode *obj = static_cast<ObjectAbstractNode*>(parent);
+                if(obj->id == ID_COMPOSITOR)
+                    return true;
+                parent = obj->parent;
+            }
+        }
+        else if(node->id == ID_TEXTURE_SOURCE)
+        {
+            // Parent must be texture_unit
+            while(parent && parent->type == ANT_OBJECT)
+            {
+                ObjectAbstractNode *obj = static_cast<ObjectAbstractNode*>(parent);
+                if(obj->id == ID_TEXTURE_UNIT)
+                    return true;
+                parent = obj->parent;
+            }
+        }
+
         return false;
     }
 
@@ -939,7 +928,7 @@ namespace Ogre
                     varAccess = scope->getVariable(var->name);
                 if(!scope || !varAccess.first)
                 {
-                    map<String,String>::type::iterator k = mEnv.find(var->name);
+                    std::map<String,String>::iterator k = mEnv.find(var->name);
                     varAccess.first = k != mEnv.end();
                     if(varAccess.first)
                         varAccess.second = k->second;
@@ -1414,7 +1403,7 @@ namespace Ogre
                 impl->abstract = false;
 
                 // Create a temporary detail list
-                list<ConcreteNode*>::type temp;
+                std::list<ConcreteNode*> temp;
                 if(node->token == "abstract")
                 {
                     impl->abstract = true;
@@ -1429,14 +1418,26 @@ namespace Ogre
                 }
 
                 // Get the type of object
-                list<ConcreteNode*>::type::const_iterator iter = temp.begin();
+                std::list<ConcreteNode*>::const_iterator iter = temp.begin();
                 impl->cls = (*iter)->token;
                 ++iter;
+
+                // try to map the cls to an id
+                ScriptCompiler::IdMap::const_iterator iter2 = mCompiler->mIds.find(impl->cls);
+                if(iter2 != mCompiler->mIds.end())
+                {
+                    impl->id = iter2->second;
+                }
+                else
+                {
+                    mCompiler->addError(CE_UNEXPECTEDTOKEN, impl->file, impl->line,
+                                        "'" + impl->cls + "'. If this is a legacy script you must prepend the type (e.g. font, overlay).");
+                }
 
                 // Get the name
                 // Unless the type is in the exclusion list
                 if(iter != temp.end() && ((*iter)->type == CNT_WORD || (*iter)->type == CNT_QUOTE) &&
-                    !mCompiler->isNameExcluded(impl->cls, mCurrent))
+                    !mCompiler->isNameExcluded(impl, mCurrent))
                 {
                     impl->name = (*iter)->token;
                     ++iter;
@@ -1473,17 +1474,6 @@ namespace Ogre
                     for(ConcreteNodeList::iterator j = (*iter)->children.begin(); j != (*iter)->children.end(); ++j)
                         impl->bases.push_back((*j)->token);
                     ++iter;
-                }
-
-                // Finally try to map the cls to an id
-                ScriptCompiler::IdMap::const_iterator iter2 = mCompiler->mIds.find(impl->cls);
-                if(iter2 != mCompiler->mIds.end())
-                {
-                    impl->id = iter2->second;
-                }
-                else
-                {
-                    mCompiler->addError(CE_UNEXPECTEDTOKEN, impl->file, impl->line, "token class, " + impl->cls + ", unrecognized.");
                 }
 
                 asn = AbstractNodePtr(impl);
@@ -1619,7 +1609,7 @@ namespace Ogre
     {
             OGRE_LOCK_AUTO_MUTEX;
         
-        for(vector<ScriptTranslatorManager*>::type::iterator i = mManagers.begin(); i != mManagers.end(); ++i)
+        for(std::vector<ScriptTranslatorManager*>::iterator i = mManagers.begin(); i != mManagers.end(); ++i)
         {
             if(*i == man)
             {
@@ -1641,7 +1631,7 @@ namespace Ogre
                     OGRE_LOCK_AUTO_MUTEX;
             
             // Start looking from the back
-            for(vector<ScriptTranslatorManager*>::type::reverse_iterator i = mManagers.rbegin(); i != mManagers.rend(); ++i)
+            for(std::vector<ScriptTranslatorManager*>::reverse_iterator i = mManagers.rbegin(); i != mManagers.rend(); ++i)
             {
                 translator = (*i)->getTranslator(node);
                 if(translator != 0)

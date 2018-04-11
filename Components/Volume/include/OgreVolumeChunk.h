@@ -431,14 +431,14 @@ namespace Volume {
         have simpler materials.
         @param level
             The tree level getting the material, 0 based. 0 means the chunk with the lowest level of detail.
-        @param matName
+        @param mat
             The material name to set.
         */
         void setMaterialOfLevel(size_t level, const MaterialPtr& mat);
 
         /** A list of Chunks.
         */
-        typedef vector<const Chunk*>::type VecChunk;
+        typedef std::vector<const Chunk*> VecChunk;
 
         /** Gathers all visible chunks (containing triangles) of a specific LOD level.
         @param level

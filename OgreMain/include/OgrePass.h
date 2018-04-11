@@ -104,7 +104,7 @@ namespace Ogre {
             virtual ~HashFunc() {}
         };
 
-        typedef vector<TextureUnitState*>::type TextureUnitStates;
+        typedef std::vector<TextureUnitState*> TextureUnitStates;
     protected:
         Technique* mParent;
         String mName; /// Optional name for the pass
@@ -234,7 +234,7 @@ namespace Ogre {
         /// Constant, linear, quadratic coeffs
         Real mPointAttenuationCoeffs[3];
         // TU Content type lookups
-        typedef vector<unsigned short>::type ContentTypeLookup;
+        typedef std::vector<unsigned short> ContentTypeLookup;
         mutable ContentTypeLookup mShadowContentTypeLookup;
 
         /// Illumination stage?
@@ -246,7 +246,7 @@ namespace Ogre {
         void _getBlendFlags(SceneBlendType type, SceneBlendFactor& source, SceneBlendFactor& dest);
 
     public:
-        typedef set<Pass*>::type PassSet;
+        typedef std::set<Pass*> PassSet;
     protected:
         /// List of Passes whose hashes need recalculating
         static PassSet msDirtyHashList;
@@ -1359,9 +1359,6 @@ namespace Ogre {
             Only applicable to programmable passes, this sets the details of
             the program to use in this pass. The program will not be
             loaded until the parent Material is loaded.
-            @param name The name of the program - this must have been
-            created using GpuProgramManager by the time that this Pass
-            is loaded. If this parameter is blank, any program of the type in this pass is disabled.
             @param resetParams
             If true, this will create a fresh set of parameters from the
             new program being linked, so if you had previously set parameters
@@ -1371,7 +1368,11 @@ namespace Ogre {
             not just the names.
         */
         void setGpuProgram(GpuProgramType type, const GpuProgramPtr& prog, bool resetParams = true);
-        /// @overload
+        /** @overload
+            @param name The name of the program - this must have been
+            created using GpuProgramManager by the time that this Pass
+            is loaded. If this parameter is blank, any program of the type in this pass is disabled.
+        */
         void setGpuProgram(GpuProgramType type, const String& name, bool resetParams = true);
         /// @overload
         void setFragmentProgram(const String& name, bool resetParams = true);
@@ -1774,7 +1775,7 @@ namespace Ogre {
         IlluminationPass() {}
     };
 
-    typedef vector<IlluminationPass*>::type IlluminationPassList;
+    typedef std::vector<IlluminationPass*> IlluminationPassList;
 
     /** @} */
     /** @} */

@@ -73,7 +73,7 @@ namespace Ogre {
         : public ResourceManager, public Singleton<HighLevelGpuProgramManager>
     {
     public:
-        typedef map<String, HighLevelGpuProgramFactory*>::type FactoryMap;
+        typedef std::map<String, HighLevelGpuProgramFactory*> FactoryMap;
     protected:
         /// Factories capable of creating HighLevelGpuProgram instances
         FactoryMap mFactories;
@@ -102,12 +102,7 @@ namespace Ogre {
 
         /// Get a resource by name
         /// @see ResourceManager::getResourceByName
-        HighLevelGpuProgramPtr
-#if OGRE_RESOURCEMANAGER_STRICT
-        getByName(const String& name, const String& groupName);
-#else
-        getByName(const String& name, const String& groupName = ResourceGroupManager::AUTODETECT_RESOURCE_GROUP_NAME);
-#endif
+        HighLevelGpuProgramPtr getByName(const String& name, const String& groupName OGRE_RESOURCE_GROUP_INIT);
 
         /** Create a new, unloaded HighLevelGpuProgram. 
         @par

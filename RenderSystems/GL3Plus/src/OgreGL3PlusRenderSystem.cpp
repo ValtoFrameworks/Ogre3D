@@ -250,7 +250,6 @@ namespace Ogre {
         rsc->parseVendorFromString(mGLSupport->getGLVendor());
 
         // Check for hardware mipmapping support.
-        rsc->setCapability(RSC_AUTOMIPMAP);
         rsc->setCapability(RSC_AUTOMIPMAP_COMPRESSED);
 
         // Multitexturing support and set number of texture units
@@ -515,6 +514,9 @@ namespace Ogre {
 
         if (hasMinGLVersion(4, 3) || checkExtension("GL_KHR_debug"))
             rsc->setCapability(RSC_DEBUG);
+
+        if( hasMinGLVersion(4, 3) || checkExtension("GL_ARB_ES3_compatibility"))
+            rsc->setCapability(RSC_PRIMITIVE_RESTART);
 
         return rsc;
     }
@@ -1443,7 +1445,7 @@ namespace Ogre {
         VertexDeclaration* globalVertexDeclaration = getGlobalInstanceVertexBufferVertexDeclaration();
         bool hasInstanceData = (op.useGlobalInstancingVertexBufferIsAvailable &&
                                 globalInstanceVertexBuffer && globalVertexDeclaration) ||
-                               op.vertexData->vertexBufferBinding->getHasInstanceData();
+                               op.vertexData->vertexBufferBinding->hasInstanceData();
 
         size_t numberOfInstances = op.numberOfInstances;
 
@@ -1971,7 +1973,7 @@ namespace Ogre {
 #endif
         }
 
-        if(hasMinGLVersion(4, 3) || checkExtension("GL_ARB_ES3_compatibility"))
+        if(getCapabilities()->hasCapability(RSC_PRIMITIVE_RESTART))
         {
             OGRE_CHECK_GL_ERROR(glEnable(GL_PRIMITIVE_RESTART_FIXED_INDEX));
         }
@@ -2456,7 +2458,7 @@ namespace Ogre {
         mStateCacheManager->bindGLBuffer(GL_ARRAY_BUFFER, hwGlBuffer->getGLBufferId());
         void* pBufferData = GL_BUFFER_OFFSET(elem.getOffset() + vertexStart * vertexBuffer->getVertexSize());
 
-        if (hwGlBuffer->getIsInstanceData())
+        if (hwGlBuffer->isInstanceData())
         {
             OGRE_CHECK_GL_ERROR(glVertexAttribDivisor(attrib, hwGlBuffer->getInstanceDataStepRate()));
         }

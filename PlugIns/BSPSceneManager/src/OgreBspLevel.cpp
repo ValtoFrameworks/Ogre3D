@@ -26,7 +26,6 @@ THE SOFTWARE.
 -----------------------------------------------------------------------------
 */
 #include "OgreBspLevel.h"
-#include "OgreBspResourceManager.h"
 #include "OgreException.h"
 #include "OgreMaterial.h"
 #include "OgreMaterialManager.h"
@@ -929,7 +928,7 @@ namespace Ogre {
         MovableToNodeMap::iterator i = mMovableToNodeMap.find(mov);
         if (i != mMovableToNodeMap.end())
         {
-            list<BspNode*>::type::iterator nodeit, nodeitend;
+            std::list<BspNode*>::iterator nodeit, nodeitend;
             nodeitend = i->second.end();
             for (nodeit = i->second.begin(); nodeit != nodeitend; ++nodeit)
             {
@@ -952,7 +951,7 @@ namespace Ogre {
             // Insert all the time, will get current if already there
             std::pair<MovableToNodeMap::iterator, bool> p = 
                 mMovableToNodeMap.insert(
-                MovableToNodeMap::value_type(mov, list<BspNode*>::type()));
+                MovableToNodeMap::value_type(mov, std::list<BspNode*>()));
 
             p.first->second.push_back(node);
 
@@ -990,7 +989,7 @@ namespace Ogre {
         MovableToNodeMap::iterator i = mMovableToNodeMap.find(mov);
         if (i != mMovableToNodeMap.end())
         {
-            list<BspNode*>::type::iterator nodeit, nodeitend;
+            std::list<BspNode*>::iterator nodeit, nodeitend;
             nodeitend = i->second.end();
             for (nodeit = i->second.begin(); nodeit != nodeitend; ++nodeit)
             {

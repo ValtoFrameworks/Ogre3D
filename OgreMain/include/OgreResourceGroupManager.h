@@ -45,6 +45,14 @@ THE SOFTWARE.
 #undef Status
 #endif
 
+#if OGRE_RESOURCEMANAGER_STRICT == 0
+#   define OGRE_RESOURCE_GROUP_INIT = ResourceGroupManager::AUTODETECT_RESOURCE_GROUP_NAME
+#elif OGRE_RESOURCEMANAGER_STRICT == 1
+#   define OGRE_RESOURCE_GROUP_INIT
+#else
+#   define OGRE_RESOURCE_GROUP_INIT = ResourceGroupManager::DEFAULT_RESOURCE_GROUP_NAME
+#endif
+
 namespace Ogre {
 
     /** \addtogroup Core
@@ -230,35 +238,30 @@ namespace Ogre {
         <li><b>Undefined</b>. Nobody knows about this resource yet. It might be
         in the filesystem, but Ogre is oblivious to it at the moment - there 
         is no Resource instance. This might be because it's never been declared
-        (either in a script, or using ResourceGroupManager::declareResource), or
+        (either in a script, or using #declareResource), or
         it may have previously been a valid Resource instance but has been 
         removed, either individually through ResourceManager::remove or as a group
-        through ResourceGroupManager::clearResourceGroup.</li>
+        through #clearResourceGroup.</li>
         <li><b>Declared</b>. Ogre has some forewarning of this resource, either
-        through calling ResourceGroupManager::declareResource, or by declaring
+        through calling #declareResource, or by declaring
         the resource in a script file which is on one of the resource locations
         which has been defined for a group. There is still no instance of Resource,
         but Ogre will know to create this resource when 
-        ResourceGroupManager::initialiseResourceGroup is called (which is automatic
+        #initialiseResourceGroup is called (which is automatic
         if you declare the resource group before Root::initialise).</li>
         <li><b>Unloaded</b>. There is now a Resource instance for this resource, 
         although it is not loaded. This means that code which looks for this
         named resource will find it, but the Resource is not using a lot of memory
         because it is in an unloaded state. A Resource can get into this state
-        by having just been created by ResourceGroupManager::initialiseResourceGroup 
-        (either from a script, or from a call to declareResource), by 
-        being created directly from code (ResourceManager::create), or it may 
+        by having just been created by #initialiseResourceGroup
+        (either from a script, or from a call to #declareResource), by
+        being created directly from code (ResourceManager::createResource), or it may
         have previously been loaded and has been unloaded, either individually
-        through Resource::unload, or as a group through ResourceGroupManager::unloadResourceGroup.</li>
+        through Resource::unload, or as a group through #unloadResourceGroup.</li>
         <li><b>Loaded</b>The Resource instance is fully loaded. This may have
         happened implicitly because something used it, or it may have been 
         loaded as part of a group.</li>
         </ol>
-        @see ResourceGroupManager::declareResource
-        @see ResourceGroupManager::initialiseResourceGroup
-        @see ResourceGroupManager::loadResourceGroup
-        @see ResourceGroupManager::unloadResourceGroup
-        @see ResourceGroupManager::clearResourceGroup
     */
     class _OgreExport ResourceGroupManager : public Singleton<ResourceGroupManager>, public ResourceAlloc
     {
@@ -281,8 +284,8 @@ namespace Ogre {
             NameValuePairList parameters;
         };
         /// List of resource declarations
-        typedef list<ResourceDeclaration>::type ResourceDeclarationList;
-        typedef map<String, ResourceManager*>::type ResourceManagerMap;
+        typedef std::list<ResourceDeclaration> ResourceDeclarationList;
+        typedef std::map<String, ResourceManager*> ResourceManagerMap;
         typedef MapIterator<ResourceManagerMap> ResourceManagerIterator;
         /// Resource location entry
         struct ResourceLocation
@@ -293,26 +296,26 @@ namespace Ogre {
             bool recursive;
         };
         /// List of possible file locations
-        typedef vector<ResourceLocation>::type LocationList;
+        typedef std::vector<ResourceLocation> LocationList;
 
     protected:
         /// Map of resource types (strings) to ResourceManagers, used to notify them to load / unload group contents
         ResourceManagerMap mResourceManagerMap;
 
         /// Map of loading order (Real) to ScriptLoader, used to order script parsing
-        typedef multimap<Real, ScriptLoader*>::type ScriptLoaderOrderMap;
+        typedef std::multimap<Real, ScriptLoader*> ScriptLoaderOrderMap;
         ScriptLoaderOrderMap mScriptLoaderOrderMap;
 
-        typedef vector<ResourceGroupListener*>::type ResourceGroupListenerList;
+        typedef std::vector<ResourceGroupListener*> ResourceGroupListenerList;
         ResourceGroupListenerList mResourceGroupListenerList;
 
         ResourceLoadingListener *mLoadingListener;
 
         /// Resource index entry, resourcename->location 
-        typedef map<String, Archive*>::type ResourceLocationIndex;
+        typedef std::map<String, Archive*> ResourceLocationIndex;
 
         /// List of resources which can be loaded / unloaded
-        typedef list<ResourcePtr>::type LoadUnloadResourceList;
+        typedef std::list<ResourcePtr> LoadUnloadResourceList;
         /// Resource group entry
         struct ResourceGroup
         {
@@ -345,7 +348,7 @@ namespace Ogre {
             /// Created resources which are ready to be loaded / unloaded
             // Group by loading order of the type (defined by ResourceManager)
             // (e.g. skeletons and materials before meshes)
-            typedef map<Real, LoadUnloadResourceList>::type LoadResourceOrderMap;
+            typedef std::map<Real, LoadUnloadResourceList> LoadResourceOrderMap;
             LoadResourceOrderMap loadResourceOrderMap;
             /// Linked world geometry, as passed to setWorldGeometry
             String worldGeometry;
@@ -360,7 +363,7 @@ namespace Ogre {
 
         };
         /// Map from resource group names to groups
-        typedef map<String, ResourceGroup*>::type ResourceGroupMap;
+        typedef std::map<String, ResourceGroup*> ResourceGroupMap;
         ResourceGroupMap mResourceGroupMap;
 
         /// Group name for world resources
@@ -442,16 +445,16 @@ namespace Ogre {
             A resource group allows you to define a set of resources that can 
             be loaded / unloaded as a unit. For example, it might be all the 
             resources used for the level of a game. There is always one predefined
-            resource group called ResourceGroupManager::DEFAULT_RESOURCE_GROUP_NAME, 
+            resource group called #DEFAULT_RESOURCE_GROUP_NAME,
             which is typically used to hold all resources which do not need to 
             be unloaded until shutdown. There is another predefined resource
-            group called ResourceGroupManager::INTERNAL_RESOURCE_GROUP_NAME too,
+            group called #INTERNAL_RESOURCE_GROUP_NAME too,
             which should be used by OGRE internal only, the resources created
             in this group aren't supposed to modify, unload or remove by user.
             You can create additional ones so that you can control the life of
             your resources in whichever way you wish.
             There is one other predefined value, 
-            ResourceGroupManager::AUTODETECT_RESOURCE_GROUP_NAME; using this 
+            #AUTODETECT_RESOURCE_GROUP_NAME; using this
             causes the group name to be derived at load time by searching for 
             the resource in the resource locations of each group in turn.
         @par
@@ -464,11 +467,11 @@ namespace Ogre {
             <li>Through the use of scripts; some ResourceManager subtypes have
                 script formats (e.g. .material, .overlay) which can be used
                 to declare resources</li>
-            <li>By calling ResourceManager::create to create a resource manually.
+            <li>By calling ResourceManager::createResource to create a resource manually.
             This resource will go on the list for it's group and will be loaded
             and unloaded with that group</li>
             </ol>
-            You must remember to call initialiseResourceGroup if you intend to use
+            You must remember to call #initialiseResourceGroup if you intend to use
             the first 2 types.
         @param name The name to give the resource group.
         @param inGlobalPool if true the resource will be loaded even a different
@@ -480,7 +483,7 @@ namespace Ogre {
         /** Initialises a resource group.
         @remarks
             After creating a resource group, adding some resource locations, and
-            perhaps pre-declaring some resources using declareResource(), but 
+            perhaps pre-declaring some resources using #declareResource, but
             before you need to use the resources in the group, you 
             should call this method to initialise the group. By calling this,
             you are triggering the following processes:
@@ -499,7 +502,7 @@ namespace Ogre {
             Loading the resource group in bulk is entirely optional, but has the 
             advantage of coming with progress reporting as resources are loaded.
         @par
-            Failure to call this method means that loadResourceGroup will do 
+            Failure to call this method means that #loadResourceGroup will do
             nothing, and any resources you define in scripts will not be found.
             Similarly, once you have called this method you won't be able to
             pick up any new scripts or pre-declared resources, unless you
@@ -519,7 +522,7 @@ namespace Ogre {
         void initialiseResourceGroup(const String& name);
 
         /** Initialise all resource groups which are yet to be initialised.
-        @see ResourceGroupManager::intialiseResourceGroup
+        @see #initialiseResourceGroup
         */
         void initialiseAllResourceGroups(void);
 
@@ -527,18 +530,18 @@ namespace Ogre {
         @remarks
             Prepares any created resources which are part of the named group.
             Note that resources must have already been created by calling
-            ResourceManager::create, or declared using declareResource() or
+            ResourceManager::createResource, or declared using #declareResource or
             in a script (such as .material and .overlay). The latter requires
             that initialiseResourceGroup has been called. 
         
-            When this method is called, this class will callback any ResourceGroupListeners
+            When this method is called, this class will callback any ResourceGroupListener
             which have been registered to update them on progress. 
         @param name The name of the resource group to prepare.
         @param prepareMainResources If true, prepares normal resources associated 
             with the group (you might want to set this to false if you wanted
             to just prepare world geometry in bulk)
         @param prepareWorldGeom If true, prepares any linked world geometry
-            @see ResourceGroupManager::linkWorldGeometryToResourceGroup
+            @see #linkWorldGeometryToResourceGroup
         */
         void prepareResourceGroup(const String& name, bool prepareMainResources = true, 
             bool prepareWorldGeom = true);
@@ -558,7 +561,7 @@ namespace Ogre {
             with the group (you might want to set this to false if you wanted
             to just load world geometry in bulk)
         @param loadWorldGeom If true, loads any linked world geometry
-            @see ResourceGroupManager::linkWorldGeometryToResourceGroup
+            @see #linkWorldGeometryToResourceGroup
         */
         void loadResourceGroup(const String& name, bool loadMainResources = true, 
             bool loadWorldGeom = true);
@@ -655,7 +658,7 @@ namespace Ogre {
             @par
                 You can also supply the name of a resource group which should
                 have this location applied to it. The
-                ResourceGroupManager::DEFAULT_RESOURCE_GROUP_NAME group is the
+                #DEFAULT_RESOURCE_GROUP_NAME group is the
                 default, and one resource group which will always exist. You
                 should consider defining resource groups for your more specific
                 resources (e.g. per level) so that you can control loading /
@@ -669,7 +672,7 @@ namespace Ogre {
                 registered plugin which deals with this type (FileSystem and
                 Zip should always be available)
             @param
-                groupName Type of name of the resource group which this location
+                resGroup the resource group which this location
                 should apply to; defaults to the General group which applies to
                 all non-specific resources.
             @param
@@ -758,11 +761,6 @@ namespace Ogre {
             find() method if you need to.
         @param groupName The name of the resource group; this determines which 
             locations are searched. 
-        @param searchGroupsIfNotFound If true, if the resource is not found in 
-            the group specified, other groups will be searched. If you're
-            loading a real Resource using this option, you <strong>must</strong>
-            also provide the resourceBeingLoaded parameter to enable the 
-            group membership to be changed
         @param resourceBeingLoaded Optional pointer to the resource being 
             loaded, which you should supply if you want
         @return Shared pointer to data stream containing the data, will be
@@ -775,7 +773,13 @@ namespace Ogre {
             return openResourceImpl(resourceName, groupName, false, resourceBeingLoaded);
         }
 
-        /// @deprecated use AUTODETECT_RESOURCE_GROUP_NAME instead of searchGroupsIfNotFound
+        /** @deprecated use AUTODETECT_RESOURCE_GROUP_NAME instead of searchGroupsIfNotFound
+            @param searchGroupsIfNotFound If true, if the resource is not found in 
+            the group specified, other groups will be searched. If you're
+            loading a real Resource using this option, you <strong>must</strong>
+            also provide the resourceBeingLoaded parameter to enable the 
+            group membership to be changed
+        */
         OGRE_DEPRECATED DataStreamPtr openResource(const String& resourceName,
                                                    const String& groupName,
                                                    bool searchGroupsIfNotFound,
@@ -954,7 +958,7 @@ namespace Ogre {
 
         /** Clear any link to world geometry from a resource group.
         @remarks
-            Basically undoes a previous call to linkWorldGeometryToResourceGroup.
+            Basically undoes a previous call to #linkWorldGeometryToResourceGroup.
         */
         void unlinkWorldGeometryFromResourceGroup(const String& group);
 

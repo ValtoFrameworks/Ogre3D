@@ -981,7 +981,6 @@ namespace Ogre
         rsc->setNumTextureUnits(OGRE_MAX_TEXTURE_LAYERS);
         rsc->setNumVertexAttributes(14); // see D3DDECLUSAGE
         rsc->setCapability(RSC_ANISOTROPY);
-        rsc->setCapability(RSC_AUTOMIPMAP);
         rsc->setCapability(RSC_AUTOMIPMAP_COMPRESSED);
         rsc->setCapability(RSC_DOT3);
         rsc->setCapability(RSC_CUBEMAPPING);        
@@ -1006,7 +1005,6 @@ namespace Ogre
         rsc->setCapability(RSC_HWSTENCIL);
         rsc->setStencilBufferBitDepth(8);
         rsc->setCapability(RSC_ADVANCED_BLEND_OPERATIONS);
-        rsc->setCapability(RSC_RTT_SEPARATE_DEPTHBUFFER);
         rsc->setCapability(RSC_RTT_MAIN_DEPTHBUFFER_ATTACHABLE);
         rsc->setCapability(RSC_RTT_DEPTHBUFFER_RESOLUTION_LESSEQUAL);
         rsc->setCapability(RSC_VERTEX_BUFFER_INSTANCE_DATA);
@@ -1060,10 +1058,8 @@ namespace Ogre
                 rsc->unsetCapability(RSC_ANISOTROPY);
 
             // Check automatic mipmap generation.
-            if ((rkCurCaps.Caps2 & D3DCAPS2_CANAUTOGENMIPMAP) == 0) {
-                rsc->unsetCapability(RSC_AUTOMIPMAP);
+            if ((rkCurCaps.Caps2 & D3DCAPS2_CANAUTOGENMIPMAP) == 0)
                 rsc->unsetCapability(RSC_AUTOMIPMAP_COMPRESSED);
-            }
 
             // Check Dot product 3.
             if ((rkCurCaps.TextureOpCaps & D3DTEXOPCAPS_DOTPRODUCT3) == 0)
@@ -3410,7 +3406,7 @@ namespace Ogre
         VertexDeclaration* globalVertexDeclaration = getGlobalInstanceVertexBufferVertexDeclaration();
         bool hasInstanceData = useGlobalInstancingVertexBufferIsAvailable &&
                     globalInstanceVertexBuffer && globalVertexDeclaration != NULL 
-                || binding->getHasInstanceData();
+                || binding->hasInstanceData();
 
 
         // TODO: attempt to detect duplicates
@@ -3450,7 +3446,7 @@ namespace Ogre
             // SetStreamSourceFreq
             if ( hasInstanceData ) 
             {
-                if ( d3d9buf->getIsInstanceData() )
+                if ( d3d9buf->isInstanceData() )
                 {
                     hr = getActiveD3D9Device()->SetStreamSourceFreq( static_cast<UINT>(source), D3DSTREAMSOURCE_INSTANCEDATA | d3d9buf->getInstanceDataStepRate() );
                 }
@@ -4385,7 +4381,7 @@ namespace Ogre
         if( eventName.empty() )
             return;
 
-        vector<wchar_t>::type result(eventName.length() + 1, '\0');
+        std::vector<wchar_t> result(eventName.length() + 1, '\0');
         (void)MultiByteToWideChar(CP_ACP, 0, eventName.data(), eventName.length(), &result[0], result.size());
         (void)D3DPERF_BeginEvent(D3DCOLOR_ARGB(1, 0, 1, 0), &result[0]);
     }
@@ -4402,7 +4398,7 @@ namespace Ogre
         if( eventName.empty() )
             return;
 
-        vector<wchar_t>::type result(eventName.length() + 1, '\0');
+        std::vector<wchar_t> result(eventName.length() + 1, '\0');
         (void)MultiByteToWideChar(CP_ACP, 0, eventName.data(), eventName.length(), &result[0], result.size());
         (void)D3DPERF_SetMarker(D3DCOLOR_ARGB(1, 0, 1, 0), &result[0]);
     }

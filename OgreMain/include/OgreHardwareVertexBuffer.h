@@ -69,7 +69,7 @@ namespace Ogre {
             /// Get the number of vertices in this buffer
             size_t getNumVertices(void) const { return mNumVertices; }
             /// Get if this vertex buffer is an "instance data" buffer (per instance)
-            bool getIsInstanceData() const { return mIsInstanceData; }
+            bool isInstanceData() const { return mIsInstanceData; }
             /// Set if this vertex buffer is an "instance data" buffer (per instance)
             void setIsInstanceData(const bool val);
             /// Get the number of instances to draw using the same per-instance data before advancing in the buffer by one element.
@@ -346,7 +346,7 @@ namespace Ogre {
     {
     public:
         /// Defines the list of vertex elements that makes up this declaration
-        typedef list<VertexElement>::type VertexElementList;
+        typedef std::list<VertexElement> VertexElementList;
         /// Sort routine for vertex elements
         static bool vertexElementLess(const VertexElement& e1, const VertexElement& e2);
     protected:
@@ -533,7 +533,7 @@ namespace Ogre {
     {
     public:
         /// Defines the vertex buffer bindings used as source for vertex declarations
-        typedef map<unsigned short, HardwareVertexBufferSharedPtr>::type VertexBufferBindingMap;
+        typedef std::map<unsigned short, HardwareVertexBufferSharedPtr> VertexBufferBindingMap;
     protected:
         VertexBufferBindingMap mBindingMap;
         mutable unsigned short mHighIndex;
@@ -577,7 +577,7 @@ namespace Ogre {
         */
         unsigned short getLastBoundIndex(void) const;
 
-        typedef map<ushort, ushort>::type BindingIndexMap;
+        typedef std::map<ushort, ushort> BindingIndexMap;
 
         /** Check whether any gaps in the bindings.
         */
@@ -598,7 +598,7 @@ namespace Ogre {
         void closeGaps(BindingIndexMap& bindingIndexMap);
 
         /// Returns true if this binding has an element that contains instance data
-        bool getHasInstanceData() const;
+        bool hasInstanceData() const;
 
 
     };

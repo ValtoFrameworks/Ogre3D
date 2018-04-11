@@ -44,13 +44,13 @@ THE SOFTWARE.
 #include "OgreBillboardChain.h"
 #include "OgreRibbonTrail.h"
 #include "OgreLight.h"
-#include "OgreManualObject.h"
 #include "OgreRenderQueueInvocation.h"
 #include "OgreConvexBody.h"
 #include "OgreTimer.h"
 #include "OgreFrameListener.h"
 #include "OgreLodStrategyManager.h"
 #include "OgreFileSystemLayer.h"
+#include "OgreSceneLoaderManager.h"
 
 #if OGRE_NO_DDS_CODEC == 0
 #include "OgreDDSCodec.h"
@@ -202,6 +202,7 @@ namespace Ogre {
         mExternalTextureSourceManager.reset(new ExternalTextureSourceManager());
         mCompositorManager.reset(new CompositorManager());
         mCompilerManager.reset(new ScriptCompilerManager());
+        mSceneLoaderManager.reset(new SceneLoaderManager());
 
         // Auto window
         mAutoWindow = 0;
@@ -700,11 +701,11 @@ namespace Ogre {
     //-----------------------------------------------------------------------
     void Root::_syncAddedRemovedFrameListeners()
     {
-        for (set<FrameListener*>::type::iterator i = mRemovedFrameListeners.begin(); i != mRemovedFrameListeners.end(); ++i)
+        for (std::set<FrameListener*>::iterator i = mRemovedFrameListeners.begin(); i != mRemovedFrameListeners.end(); ++i)
             mFrameListeners.erase(*i);
         mRemovedFrameListeners.clear();
 
-        for (set<FrameListener*>::type::iterator i = mAddedFrameListeners.begin(); i != mAddedFrameListeners.end(); ++i)
+        for (std::set<FrameListener*>::iterator i = mAddedFrameListeners.begin(); i != mAddedFrameListeners.end(); ++i)
             mFrameListeners.insert(*i);
         mAddedFrameListeners.clear();
     }
@@ -715,8 +716,11 @@ namespace Ogre {
         _syncAddedRemovedFrameListeners();
 
         // Tell all listeners
-        for (set<FrameListener*>::type::iterator i = mFrameListeners.begin(); i != mFrameListeners.end(); ++i)
+        for (std::set<FrameListener*>::iterator i = mFrameListeners.begin(); i != mFrameListeners.end(); ++i)
         {
+            if(mRemovedFrameListeners.find(*i) != mRemovedFrameListeners.end())
+                continue;
+
             if (!(*i)->frameStarted(evt))
                 return false;
         }
@@ -731,8 +735,11 @@ namespace Ogre {
         _syncAddedRemovedFrameListeners();
 
         // Tell all listeners
-        for (set<FrameListener*>::type::iterator i = mFrameListeners.begin(); i != mFrameListeners.end(); ++i)
+        for (std::set<FrameListener*>::iterator i = mFrameListeners.begin(); i != mFrameListeners.end(); ++i)
         {
+            if(mRemovedFrameListeners.find(*i) != mRemovedFrameListeners.end())
+                continue;
+
             if (!(*i)->frameRenderingQueued(evt))
                 return false;
         }
@@ -746,8 +753,11 @@ namespace Ogre {
 
         // Tell all listeners
         bool ret = true;
-        for (set<FrameListener*>::type::iterator i = mFrameListeners.begin(); i != mFrameListeners.end(); ++i)
+        for (std::set<FrameListener*>::iterator i = mFrameListeners.begin(); i != mFrameListeners.end(); ++i)
         {
+            if(mRemovedFrameListeners.find(*i) != mRemovedFrameListeners.end())
+                continue;
+
             if (!(*i)->frameEnded(evt))
             {
                 ret = false;
@@ -928,9 +938,9 @@ namespace Ogre {
         try {
             cfg.load( pluginsfile );
         }
-        catch (Exception)
+        catch (Exception& e)
         {
-            LogManager::getSingleton().logMessage(pluginsfile + " not found, automatic plugin loading disabled.");
+            LogManager::getSingleton().logMessage("automatic plugin loading disabled: "+e.getDescription());
             return;
         }
 
@@ -1041,8 +1051,7 @@ namespace Ogre {
 
     }
     //---------------------------------------------------------------------
-    DataStreamPtr Root::openFileStream(const String& filename, const String& groupName,
-        const String& locationPattern)
+    DataStreamPtr Root::openFileStream(const String& filename, const String& groupName)
     {
         try
         {

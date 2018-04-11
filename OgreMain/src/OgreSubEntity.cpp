@@ -65,9 +65,9 @@ namespace Ogre {
 
         if( !material )
         {
-            LogManager::getSingleton().logMessage("Can't assign material " + name +
-                " to SubEntity of " + mParentEntity->getName() + " because this "
-                "Material does not exist in group "+groupName+". Have you forgotten to define it in a "
+            LogManager::getSingleton().logMessage("Can't assign material '" + name +
+                "' to SubEntity of '" + mParentEntity->getName() + "' because this "
+                "Material does not exist in group '"+groupName+"'. Have you forgotten to define it in a "
                 ".material script?", LML_CRITICAL);
 
             material = MaterialManager::getSingleton().getDefaultMaterial();
@@ -83,7 +83,7 @@ namespace Ogre {
         if (!mMaterialPtr)
         {
             LogManager::getSingleton().logMessage("Can't assign material "  
-                " to SubEntity of " + mParentEntity->getName() + " because this "
+                " to SubEntity of '" + mParentEntity->getName() + "' because this "
                 "Material does not exist. Have you forgotten to define it in a "
                 ".material script?", LML_CRITICAL);
             
@@ -248,7 +248,7 @@ namespace Ogre {
             const Vector3 &cp = cam->getDerivedPosition();
             const Affine3 &l2w = mParentEntity->_getParentNodeFullTransform();
             dist = std::numeric_limits<Real>::infinity();
-            for (vector<Vector3>::type::const_iterator i = mSubMesh->extremityPoints.begin();
+            for (std::vector<Vector3>::const_iterator i = mSubMesh->extremityPoints.begin();
                  i != mSubMesh->extremityPoints.end (); ++i)
             {
                 Vector3 v = l2w * (*i);

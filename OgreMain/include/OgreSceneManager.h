@@ -357,8 +357,7 @@ namespace Ogre {
             SceneMgrQueuedRenderableVisitor() 
                 :transparentShadowCastersMode(false) {}
             ~SceneMgrQueuedRenderableVisitor() {}
-            void visit(Renderable* r);
-            bool visit(const Pass* p);
+            void visit(const Pass* p, RenderableList& rs);
             void visit(RenderablePass* rp);
 
             /// Target SM to send renderables to
@@ -376,8 +375,8 @@ namespace Ogre {
         /// Allow visitor helper to access protected methods
         friend class SceneMgrQueuedRenderableVisitor;
 
-        typedef map<String, Camera* >::type CameraList;
-        typedef map<String, Animation*>::type AnimationList;
+        typedef std::map<String, Camera* > CameraList;
+        typedef std::map<String, Animation*> AnimationList;
     protected:
 
         /// Subclasses can override this to ensure their specialised SceneNode is used.
@@ -402,15 +401,15 @@ namespace Ogre {
         */
         CameraList mCameras;
 
-        typedef map<String, StaticGeometry* >::type StaticGeometryList;
+        typedef std::map<String, StaticGeometry* > StaticGeometryList;
         StaticGeometryList mStaticGeometryList;
-        typedef map<String, InstancedGeometry* >::type InstancedGeometryList;
+        typedef std::map<String, InstancedGeometry* > InstancedGeometryList;
         InstancedGeometryList mInstancedGeometryList;
 
-        typedef map<String, InstanceManager*>::type InstanceManagerMap;
+        typedef std::map<String, InstanceManager*> InstanceManagerMap;
         InstanceManagerMap  mInstanceManagerMap;
 
-        typedef vector<SceneNode*>::type SceneNodeList;
+        typedef std::vector<SceneNode*> SceneNodeList;
 
         /** Central list of SceneNodes - for easy memory management.
             @note
@@ -429,34 +428,88 @@ namespace Ogre {
         std::unique_ptr<SceneNode> mSceneRoot;
 
         /// Autotracking scene nodes
-        typedef set<SceneNode*>::type AutoTrackingSceneNodes;
+        typedef std::set<SceneNode*> AutoTrackingSceneNodes;
         AutoTrackingSceneNodes mAutoTrackingSceneNodes;
 
         // Sky params
-        // Sky plane
-        Entity* mSkyPlaneEntity;
-        Entity* mSkyDomeEntity[5];
-        std::unique_ptr<ManualObject> mSkyBoxObj;
+        struct _OgreExport SkyRenderer
+        {
+            SkyRenderer(SceneManager* owner);
 
-        SceneNode* mSkyPlaneNode;
-        SceneNode* mSkyDomeNode;
-        SceneNode* mSkyBoxNode;
+            SceneManager* mOwner;
 
-        // Sky plane
-        bool mSkyPlaneEnabled;
-        uint8 mSkyPlaneRenderQueue;
-        Plane mSkyPlane;
-        SkyPlaneGenParameters mSkyPlaneGenParameters;
-        // Sky box
-        bool mSkyBoxEnabled;
-        uint8 mSkyBoxRenderQueue;
-        Quaternion mSkyBoxOrientation;
-        SkyBoxGenParameters mSkyBoxGenParameters;
-        // Sky dome
-        bool mSkyDomeEnabled;
-        uint8 mSkyDomeRenderQueue;
-        Quaternion mSkyDomeOrientation;
-        SkyDomeGenParameters mSkyDomeGenParameters;
+            // Sky plane
+            Entity* mSkyPlaneEntity;
+            Entity* mSkyDomeEntity[5];
+            std::unique_ptr<ManualObject> mSkyBoxObj;
+
+            SceneNode* mSkyPlaneNode;
+            SceneNode* mSkyDomeNode;
+            SceneNode* mSkyBoxNode;
+
+            // Sky plane
+            bool mSkyPlaneEnabled;
+            uint8 mSkyPlaneRenderQueue;
+            Plane mSkyPlane;
+            SkyPlaneGenParameters mSkyPlaneGenParameters;
+            // Sky box
+            bool mSkyBoxEnabled;
+            uint8 mSkyBoxRenderQueue;
+            Quaternion mSkyBoxOrientation;
+            SkyBoxGenParameters mSkyBoxGenParameters;
+            // Sky dome
+            bool mSkyDomeEnabled;
+            uint8 mSkyDomeRenderQueue;
+            Quaternion mSkyDomeOrientation;
+            SkyDomeGenParameters mSkyDomeGenParameters;
+
+            enum BoxPlane
+            {
+                BP_FRONT = 0,
+                BP_BACK = 1,
+                BP_LEFT = 2,
+                BP_RIGHT = 3,
+                BP_UP = 4,
+                BP_DOWN = 5
+            };
+
+            /* Internal utility method for creating the planes of a skybox.
+            */
+            MeshPtr createSkyboxPlane(
+                BoxPlane bp,
+                Real distance,
+                const Quaternion& orientation,
+                const String& groupName);
+
+            /* Internal utility method for creating the planes of a skydome.
+            */
+            MeshPtr createSkydomePlane(
+                BoxPlane bp,
+                Real curvature, Real tiling, Real distance,
+                const Quaternion& orientation,
+                int xsegments, int ysegments, int ySegmentsToKeep,
+                const String& groupName);
+
+            /** Internal method for queueing the sky objects with the params as
+                previously set through setSkyBox, setSkyPlane and setSkyDome.
+            */
+            void queueSkiesForRendering(RenderQueue* queue, Camera* cam);
+
+            void clear();
+
+            void setSkyBox(bool enable, const String& materialName, Real distance,
+                           uint8 renderQueue, const Quaternion& orientation,
+                           const String& groupName);
+
+            void setSkyPlane(bool enable, const Plane& plane, const String& materialName,
+                             Real scale, Real tiling, uint8 renderQueue, Real bow, int xsegments,
+                             int ysegments, const String& groupName);
+
+            void setSkyDome(bool enable, const String& materialName, Real curvature, Real tiling,
+                            Real distance, uint8 renderQueue, const Quaternion& orientation,
+                            int xsegments, int ysegments, int ysegments_keep,
+                            const String& groupName);
+        } mSkyRenderer;
 
         // Fog
         FogMode mFogMode;
@@ -465,7 +518,7 @@ namespace Ogre {
         Real mFogEnd;
         Real mFogDensity;
 
-        typedef set<uint8>::type SpecialCaseRenderQueueList;
+        typedef std::set<uint8> SpecialCaseRenderQueueList;
         SpecialCaseRenderQueueList mSpecialCaseQueueList;
         SpecialCaseRenderQueueMode mSpecialCaseQueueMode;
         uint8 mWorldGeometryRenderQueue;
@@ -488,18 +541,18 @@ namespace Ogre {
                 have a focus step to limit the shadow sample distribution to only valid visible
                 scene elements.
         */
-        typedef map< const Camera*, VisibleObjectsBoundsInfo>::type CamVisibleObjectsMap;
+        typedef std::map< const Camera*, VisibleObjectsBoundsInfo> CamVisibleObjectsMap;
         CamVisibleObjectsMap mCamVisibleObjectsMap; 
 
         /** ShadowCamera to light mapping */
-        typedef map< const Camera*, const Light* >::type ShadowCamLightMapping;
+        typedef std::map< const Camera*, const Light* > ShadowCamLightMapping;
         ShadowCamLightMapping mShadowCamLightMapping;
 
         /// Array defining shadow count per light type.
         size_t mShadowTextureCountPerType[3];
 
         /// Array defining shadow texture index in light list.
-        vector<size_t>::type mShadowTextureIndexLightList;
+        std::vector<size_t> mShadowTextureIndexLightList;
 
         /// Cached light information, used to tracking light's changes
         struct _OgreExport LightInfo
@@ -522,7 +575,7 @@ namespace Ogre {
             }
         };
 
-        typedef vector<LightInfo>::type LightInfoList;
+        typedef std::vector<LightInfo> LightInfoList;
 
         LightList mLightsAffectingFrustum;
         LightInfoList mCachedLightInfos;
@@ -530,14 +583,14 @@ namespace Ogre {
         ulong mLightsDirtyCounter;
         LightList mShadowTextureCurrentCasterLightList;
 
-        typedef map<String, MovableObject*>::type MovableObjectMap;
+        typedef std::map<String, MovableObject*> MovableObjectMap;
         /// Simple structure to hold MovableObject map and a mutex to go with it.
         struct MovableObjectCollection
         {
                     MovableObjectMap map;
                     OGRE_MUTEX(mutex);
         };
-        typedef map<String, MovableObjectCollection*>::type MovableObjectCollectionMap;
+        typedef std::map<String, MovableObjectCollection*> MovableObjectCollectionMap;
         MovableObjectCollectionMap mMovableObjectCollectionMap;
         NameGenerator mMovableNameGenerator;
         /** Gets the movable object collection for the given type name.
@@ -598,33 +651,6 @@ namespace Ogre {
         */
         bool validateRenderableForRendering(const Pass* pass, const Renderable* rend);
 
-        enum BoxPlane
-        {
-            BP_FRONT = 0,
-            BP_BACK = 1,
-            BP_LEFT = 2,
-            BP_RIGHT = 3,
-            BP_UP = 4,
-            BP_DOWN = 5
-        };
-
-        /* Internal utility method for creating the planes of a skybox.
-        */
-        MeshPtr createSkyboxPlane(
-            BoxPlane bp,
-            Real distance,
-            const Quaternion& orientation,
-            const String& groupName);
-
-        /* Internal utility method for creating the planes of a skydome.
-        */
-        MeshPtr createSkydomePlane(
-            BoxPlane bp,
-            Real curvature, Real tiling, Real distance,
-            const Quaternion& orientation,
-            int xsegments, int ysegments, int ySegmentsToKeep, 
-            const String& groupName);
-
         /// Flag indicating whether SceneNodes will be rendered as a set of 3 axes
         bool mDisplayNodes;
 
@@ -650,12 +676,12 @@ namespace Ogre {
             which override the camera's own view / projection matrices. */
         void resetViewProjMode(bool fixedFunction);
 
-        typedef vector<RenderQueueListener*>::type RenderQueueListenerList;
+        typedef std::vector<RenderQueueListener*> RenderQueueListenerList;
         RenderQueueListenerList mRenderQueueListeners;
 
-        typedef vector<RenderObjectListener*>::type RenderObjectListenerList;
+        typedef std::vector<RenderObjectListener*> RenderObjectListenerList;
         RenderObjectListenerList mRenderObjectListeners;
-        typedef vector<Listener*>::type ListenerList;
+        typedef std::vector<Listener*> ListenerList;
         ListenerList mListeners;
         /// Internal method for firing the queue start event
         void firePreRenderQueues();
@@ -746,7 +772,7 @@ namespace Ogre {
         bool mShadowTextureConfigDirty;
         ShadowTextureList mShadowTextures;
         TexturePtr mNullShadowTexture;
-        typedef vector<Camera*>::type ShadowTextureCameraList;
+        typedef std::vector<Camera*> ShadowTextureCameraList;
         ShadowTextureCameraList mShadowTextureCameras;
         Texture* mCurrentShadowTexture;
         bool mShadowUseInfiniteFarPlane;
@@ -762,7 +788,7 @@ namespace Ogre {
             LightClippingInfo() : scissorValid(false), clipPlanesValid(false) {}
 
         };
-        typedef map<Light*, LightClippingInfo>::type LightClippingInfoMap;
+        typedef std::map<Light*, LightClippingInfo> LightClippingInfoMap;
         LightClippingInfoMap mLightClippingInfoMap;
         unsigned long mLightClippingInfoMapFrameNumber;
 
@@ -797,7 +823,7 @@ namespace Ogre {
         /// Internal method for destroying shadow textures (texture-based shadows)
         virtual void destroyShadowTextures(void);
 
-        typedef vector<InstanceManager*>::type      InstanceManagerVec;
+        typedef std::vector<InstanceManager*>      InstanceManagerVec;
         InstanceManagerVec mDirtyInstanceManagers;
         InstanceManagerVec mDirtyInstanceMgrsTmp;
 
@@ -855,7 +881,7 @@ namespace Ogre {
             only on DirectX 11 Render System*/
         void renderUsingReadBackAsTexture(unsigned int secondpass, Ogre::String variableName,unsigned int StartSlot);
 
-        typedef vector<ShadowCaster*>::type ShadowCasterList;
+        typedef std::vector<ShadowCaster*> ShadowCasterList;
         ShadowCasterList mShadowCasterList;
         std::unique_ptr<SphereSceneQuery> mShadowCasterSphereQuery;
         std::unique_ptr<AxisAlignedBoxSceneQuery> mShadowCasterAABBQuery;
@@ -1014,19 +1040,19 @@ namespace Ogre {
 
 
         /// Set of registered LOD listeners
-        typedef set<LodListener*>::type LodListenerSet;
+        typedef std::set<LodListener*> LodListenerSet;
         LodListenerSet mLodListeners;
 
         /// List of movable object LOD changed events
-        typedef vector<MovableObjectLodChangedEvent>::type MovableObjectLodChangedEventList;
+        typedef std::vector<MovableObjectLodChangedEvent> MovableObjectLodChangedEventList;
         MovableObjectLodChangedEventList mMovableObjectLodChangedEvents;
 
         /// List of entity mesh LOD changed events
-        typedef vector<EntityMeshLodChangedEvent>::type EntityMeshLodChangedEventList;
+        typedef std::vector<EntityMeshLodChangedEvent> EntityMeshLodChangedEventList;
         EntityMeshLodChangedEventList mEntityMeshLodChangedEvents;
 
         /// List of entity material LOD changed events
-        typedef vector<EntityMaterialLodChangedEvent>::type EntityMaterialLodChangedEventList;
+        typedef std::vector<EntityMaterialLodChangedEvent> EntityMaterialLodChangedEventList;
         EntityMaterialLodChangedEventList mEntityMaterialLodChangedEvents;
 
     public:
@@ -1813,9 +1839,10 @@ namespace Ogre {
         /** Internal method for queueing the sky objects with the params as 
             previously set through setSkyBox, setSkyPlane and setSkyDome.
         */
-        void _queueSkiesForRendering(Camera* cam);
-
-
+        void _queueSkiesForRendering(Camera* cam)
+        {
+            mSkyRenderer.queueSkiesForRendering(getRenderQueue(), cam);
+        }
 
         /** Notifies the scene manager of its destination render system
             @remarks
@@ -1916,16 +1943,16 @@ namespace Ogre {
             const String& groupName = ResourceGroupManager::AUTODETECT_RESOURCE_GROUP_NAME);
 
         /** Enables / disables a 'sky plane' */
-        void setSkyPlaneEnabled(bool enable) { mSkyPlaneEnabled = enable; }
+        void setSkyPlaneEnabled(bool enable) { mSkyRenderer.mSkyPlaneEnabled = enable; }
 
         /** Return whether a key plane is enabled */
-        bool isSkyPlaneEnabled(void) const { return mSkyPlaneEnabled; }
+        bool isSkyPlaneEnabled(void) const { return mSkyRenderer.mSkyPlaneEnabled; }
 
         /** Get the sky plane node, if enabled. */
-        SceneNode* getSkyPlaneNode(void) const { return mSkyPlaneNode; }
+        SceneNode* getSkyPlaneNode(void) const { return mSkyRenderer.mSkyPlaneNode; }
 
         /** Get the parameters used to construct the SkyPlane, if any **/
-        const SkyPlaneGenParameters& getSkyPlaneGenParameters(void) const { return mSkyPlaneGenParameters; }
+        const SkyPlaneGenParameters& getSkyPlaneGenParameters(void) const { return mSkyRenderer.mSkyPlaneGenParameters; }
 
         /** Enables / disables a 'sky box' i.e. a 6-sided box at constant
             distance from the camera representing the sky.
@@ -1985,16 +2012,16 @@ namespace Ogre {
             const String& groupName = ResourceGroupManager::AUTODETECT_RESOURCE_GROUP_NAME);
 
         /** Enables / disables a 'sky box' */
-        void setSkyBoxEnabled(bool enable) { mSkyBoxEnabled = enable; }
+        void setSkyBoxEnabled(bool enable) { mSkyRenderer.mSkyBoxEnabled = enable; }
 
         /** Return whether a skybox is enabled */
-        bool isSkyBoxEnabled(void) const { return mSkyBoxEnabled; }
+        bool isSkyBoxEnabled(void) const { return mSkyRenderer.mSkyBoxEnabled; }
 
         /** Get the skybox node, if enabled. */
-        SceneNode* getSkyBoxNode(void) const { return mSkyBoxNode; }
+        SceneNode* getSkyBoxNode(void) const { return mSkyRenderer.mSkyBoxNode; }
 
         /** Get the parameters used to generate the current SkyBox, if any */
-        const SkyBoxGenParameters& getSkyBoxGenParameters(void) const { return mSkyBoxGenParameters; }
+        const SkyBoxGenParameters& getSkyBoxGenParameters(void) const { return mSkyRenderer.mSkyBoxGenParameters; }
 
         /** Enables / disables a 'sky dome' i.e. an illusion of a curved sky.
             @remarks
@@ -2070,16 +2097,16 @@ namespace Ogre {
             const String& groupName = ResourceGroupManager::AUTODETECT_RESOURCE_GROUP_NAME);
 
         /** Enables / disables a 'sky dome' */
-        void setSkyDomeEnabled(bool enable) { mSkyDomeEnabled = enable; }
+        void setSkyDomeEnabled(bool enable) { mSkyRenderer.mSkyDomeEnabled = enable; }
 
         /** Return whether a skydome is enabled */
-        bool isSkyDomeEnabled(void) const { return mSkyDomeEnabled; }
+        bool isSkyDomeEnabled(void) const { return mSkyRenderer.mSkyDomeEnabled; }
 
         /** Get the sky dome node, if enabled. */
-        SceneNode* getSkyDomeNode(void) const { return mSkyDomeNode; }
+        SceneNode* getSkyDomeNode(void) const { return mSkyRenderer.mSkyDomeNode; }
 
         /** Get the parameters used to generate the current SkyDome, if any */
-        const SkyDomeGenParameters& getSkyDomeGenParameters(void) const { return mSkyDomeGenParameters; }
+        const SkyDomeGenParameters& getSkyDomeGenParameters(void) const { return mSkyRenderer.mSkyDomeGenParameters; }
 
         /** Sets the fogging mode applied to the scene.
             @remarks

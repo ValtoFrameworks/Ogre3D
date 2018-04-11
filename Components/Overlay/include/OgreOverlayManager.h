@@ -33,6 +33,7 @@ THE SOFTWARE.
 #include "OgreStringVector.h"
 #include "OgreScriptLoader.h"
 #include "OgreFrustum.h"
+#include "OgreScriptTranslator.h"
 
 namespace Ogre {
     class Overlay;
@@ -54,24 +55,24 @@ namespace Ogre {
     class _OgreOverlayExport OverlayManager : public Singleton<OverlayManager>, public ScriptLoader, public OverlayAlloc
     {
     public:
-        typedef map<String, Overlay*>::type OverlayMap;
-        typedef map<String, OverlayElement*>::type ElementMap;
-        typedef map<String, OverlayElementFactory*>::type FactoryMap;
+        typedef std::map<String, Overlay*> OverlayMap;
+        typedef std::map<String, OverlayElement*> ElementMap;
+        typedef std::map<String, OverlayElementFactory*> FactoryMap;
     protected:
         OverlayMap mOverlayMap;
         StringVector mScriptPatterns;
 
-        void parseNewElement( DataStreamPtr& chunk, String& elemType, String& elemName, 
-            bool isContainer, Overlay* pOverlay, bool isTemplate, String templateName = String(""), OverlayContainer* container = 0);
+        void parseNewElement( DataStreamPtr& chunk, int& l, String& elemType, String& elemName,
+            Overlay* pOverlay, bool isTemplate, String templateName = String(""), OverlayContainer* container = 0);
         void parseAttrib( const String& line, Overlay* pOverlay);
         void parseElementAttrib( const String& line, Overlay* pOverlay, OverlayElement* pElement );
-        void skipToNextCloseBrace(DataStreamPtr& chunk);
-        void skipToNextOpenBrace(DataStreamPtr& chunk);
+        void skipToNextCloseBrace(DataStreamPtr& chunk, int& l);
+        void skipToNextOpenBrace(DataStreamPtr& chunk, int& l);
 
         int mLastViewportWidth, mLastViewportHeight;
         OrientationMode mLastViewportOrientationMode;
 
-        bool parseChildren( DataStreamPtr& chunk, const String& line,
+        bool parseChildren( DataStreamPtr& chunk, const String& line, int& l,
             Overlay* pOverlay, bool isTemplate, OverlayContainer* parent = NULL);
 
         FactoryMap mFactories;
@@ -79,11 +80,10 @@ namespace Ogre {
         ElementMap mInstances;
         ElementMap mTemplates;
 
-        typedef set<String>::type LoadedScripts;
+        typedef std::set<String> LoadedScripts;
         LoadedScripts mLoadedScripts;
 
-
-
+        std::unique_ptr<ScriptTranslatorManager> mTranslatorManager;
 
         ElementMap& getElementMap(bool isTemplate);
 

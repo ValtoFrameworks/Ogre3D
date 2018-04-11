@@ -64,7 +64,7 @@ namespace Ogre
     class _OgreExport LogManager : public Singleton<LogManager>, public LogAlloc
     {
     protected:
-        typedef map<String, Log*>::type LogList;
+        typedef std::map<String, Log*> LogList;
 
         /// A list of all the logs the manager can access
         LogList mLogs;
@@ -120,9 +120,9 @@ namespace Ogre
         void logMessage( const String& message, LogMessageLevel lml = LML_NORMAL, 
             bool maskDebug = false);
 
-        /// @override
+        /// @overload
         void logError(const String& message, bool maskDebug = false );
-        /// @override
+        /// @overload
         void logWarning(const String& message, bool maskDebug = false );
 
         /** Log a message to the default log (signature for backward compatibility).

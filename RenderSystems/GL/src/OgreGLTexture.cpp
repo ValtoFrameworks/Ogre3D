@@ -129,8 +129,7 @@ namespace Ogre {
             mNumMipmaps = maxMips;
 
         // Check if we can do HW mipmap generation
-        mMipmapsHardwareGenerated =
-            Root::getSingleton().getRenderSystem()->getCapabilities()->hasCapability(RSC_AUTOMIPMAP);
+        mMipmapsHardwareGenerated = true;
         
         // Generate texture name
         glGenTextures( 1, &mTextureID );
@@ -152,8 +151,7 @@ namespace Ogre {
             mRenderSystem->_getStateCacheManager()->setTexParameteri(getGLTextureTarget(), GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
         }
 
-        if((mUsage & TU_AUTOMIPMAP) &&
-            mNumRequestedMipmaps && mMipmapsHardwareGenerated)
+        if ((mUsage & TU_AUTOMIPMAP) && mNumRequestedMipmaps)
         {
             mRenderSystem->_getStateCacheManager()->setTexParameteri( getGLTextureTarget(), GL_GENERATE_MIPMAP, GL_TRUE );
         }
@@ -175,7 +173,7 @@ namespace Ogre {
             // Provide temporary buffer filled with zeroes as glCompressedTexImageXD does not
             // accept a 0 pointer like normal glTexImageXD
             // Run through this process for every mipmap to pregenerate mipmap piramid
-            vector<uint8>::type tmpdata(size);
+            std::vector<uint8> tmpdata(size);
             
             for(uint32 mip=0; mip<=mNumMipmaps; mip++)
             {

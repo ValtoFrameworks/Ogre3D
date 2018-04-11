@@ -337,12 +337,7 @@ public:
     @param materialName The source material name.   
     @param groupName The source group name. 
     */
-    bool
-#if OGRE_RESOURCEMANAGER_STRICT
-    removeAllShaderBasedTechniques(const String& materialName, const String& groupName);
-#else
-    removeAllShaderBasedTechniques(const String& materialName, const String& groupName = ResourceGroupManager::AUTODETECT_RESOURCE_GROUP_NAME);
-#endif
+    bool removeAllShaderBasedTechniques(const String& materialName, const String& groupName OGRE_RESOURCE_GROUP_INIT);
 
     /** 
     Clone all shader based techniques from one material to another.
@@ -389,12 +384,7 @@ public:
     @param materialName The material to invalidate.
     @param groupName The source group name. 
     */
-    void
-#if OGRE_RESOURCEMANAGER_STRICT
-    invalidateMaterial(const String& schemeName, const String& materialName, const String& groupName);
-#else
-    invalidateMaterial(const String& schemeName, const String& materialName, const String& groupName = ResourceGroupManager::AUTODETECT_RESOURCE_GROUP_NAME);
-#endif
+    void invalidateMaterial(const String& schemeName, const String& materialName, const String& groupName OGRE_RESOURCE_GROUP_INIT);
 
     /** 
     Validate specific material scheme. This action will generate shader programs for the technique of the
@@ -403,12 +393,7 @@ public:
     @param materialName The material to validate.
     @param groupName The source group name. 
     */
-    bool
-#if OGRE_RESOURCEMANAGER_STRICT
-    validateMaterial(const String& schemeName, const String& materialName, const String& groupName);
-#else
-    validateMaterial(const String& schemeName, const String& materialName, const String& groupName = ResourceGroupManager::AUTODETECT_RESOURCE_GROUP_NAME);
-#endif
+    bool validateMaterial(const String& schemeName, const String& materialName, const String& groupName OGRE_RESOURCE_GROUP_INIT);
 
 	/**
 	Invalidate specific material scheme. This action will lead to shader regeneration of the technique belongs to the
@@ -417,12 +402,7 @@ public:
 	@param materialName The material to invalidate.
 	@param groupName The source group name.
 	*/
-    void
-#if OGRE_RESOURCEMANAGER_STRICT
-    invalidateMaterialIlluminationPasses(const String& schemeName, const String& materialName, const String& groupName);
-#else
-	invalidateMaterialIlluminationPasses(const String& schemeName, const String& materialName, const String& groupName = ResourceGroupManager::AUTODETECT_RESOURCE_GROUP_NAME);
-#endif
+    void invalidateMaterialIlluminationPasses(const String& schemeName, const String& materialName, const String& groupName OGRE_RESOURCE_GROUP_INIT);
 
 	/**
 	Validate specific material scheme. This action will generate shader programs illumination passes of the technique of the
@@ -431,12 +411,7 @@ public:
 	@param materialName The material to validate.
 	@param groupName The source group name.
 	*/
-	bool
-#if OGRE_RESOURCEMANAGER_STRICT
-    validateMaterialIlluminationPasses(const String& schemeName, const String& materialName, const String& groupName);
-#else
-	validateMaterialIlluminationPasses(const String& schemeName, const String& materialName, const String& groupName = ResourceGroupManager::AUTODETECT_RESOURCE_GROUP_NAME);
-#endif
+	bool validateMaterialIlluminationPasses(const String& schemeName, const String& materialName, const String& groupName OGRE_RESOURCE_GROUP_INIT);
 
     /** 
     Return custom material Serializer of the shader generator.
@@ -515,26 +490,26 @@ protected:
         }
     };
 
-    typedef vector<SGPass*>::type                   SGPassList;
+    typedef std::vector<SGPass*>                   SGPassList;
     typedef SGPassList::iterator                        SGPassIterator;
     typedef SGPassList::const_iterator              SGPassConstIterator;
 
-    typedef vector<SGTechnique*>::type              SGTechniqueList;
+    typedef std::vector<SGTechnique*>              SGTechniqueList;
     typedef SGTechniqueList::iterator               SGTechniqueIterator;
     typedef SGTechniqueList::const_iterator         SGTechniqueConstIterator;
 
-    typedef map<SGTechnique*, SGTechnique*>::type   SGTechniqueMap;
+    typedef std::map<SGTechnique*, SGTechnique*>   SGTechniqueMap;
     typedef SGTechniqueMap::iterator                    SGTechniqueMapIterator;
     
-    typedef map<MatGroupPair, SGMaterial*, MatGroupPair_less>::type SGMaterialMap;
+    typedef std::map<MatGroupPair, SGMaterial*, MatGroupPair_less> SGMaterialMap;
     typedef SGMaterialMap::iterator                 SGMaterialIterator;
     typedef SGMaterialMap::const_iterator           SGMaterialConstIterator;
 
-    typedef map<String, SGScheme*>::type                SGSchemeMap;
+    typedef std::map<String, SGScheme*>                SGSchemeMap;
     typedef SGSchemeMap::iterator                   SGSchemeIterator;
     typedef SGSchemeMap::const_iterator             SGSchemeConstIterator;
 
-    typedef map<String, ScriptTranslator*>::type        SGScriptTranslatorMap;
+    typedef std::map<uint32, ScriptTranslator*>        SGScriptTranslatorMap;
     typedef SGScriptTranslatorMap::iterator         SGScriptTranslatorIterator;
     typedef SGScriptTranslatorMap::const_iterator   SGScriptTranslatorConstIterator;
 
@@ -884,12 +859,6 @@ protected:
         {
             mOwner = owner;
         }
-
-        /// Returns the number of translators being managed
-        virtual size_t getNumTranslators() const
-        {
-            return mOwner->getNumTranslators();
-        }
         
         /// Returns a manager for the given object abstract node, or null if it is not supported
         virtual ScriptTranslator *getTranslator(const AbstractNodePtr& node)
@@ -924,12 +893,12 @@ protected:
     };
 
     //-----------------------------------------------------------------------------
-    typedef map<String, SubRenderStateFactory*>::type       SubRenderStateFactoryMap;
+    typedef std::map<String, SubRenderStateFactory*>       SubRenderStateFactoryMap;
     typedef SubRenderStateFactoryMap::iterator              SubRenderStateFactoryIterator;
     typedef SubRenderStateFactoryMap::const_iterator        SubRenderStateFactoryConstIterator;
 
     //-----------------------------------------------------------------------------
-    typedef map<String, SceneManager*>::type                SceneManagerMap;
+    typedef std::map<String, SceneManager*>                SceneManagerMap;
     typedef SceneManagerMap::iterator                       SceneManagerIterator;
     typedef SceneManagerMap::const_iterator                 SceneManagerConstIterator;
 
@@ -977,24 +946,6 @@ protected:
     @param translator The translator for the specific SubRenderState
     */
     SubRenderState* createSubRenderState(ScriptCompiler* compiler, PropertyAbstractNode* prop, TextureUnitState* texState, SGScriptTranslator* translator);
-
-    /** 
-    Add custom script translator. 
-    Return true upon success.
-    @param key The key name of the given translator.
-    @param translator The translator to associate with the given key.
-    */
-    bool addCustomScriptTranslator(const String& key, ScriptTranslator* translator);
-
-    /** 
-    Remove custom script translator. 
-    Return true upon success.
-    @param key The key name of the translator to remove.    
-    */
-    bool removeCustomScriptTranslator(const String& key);
-
-    /** Return number of script translators. */
-    size_t getNumTranslators() const;
 
     /** Return a matching script translator. */
     ScriptTranslator* getTranslator(const AbstractNodePtr& node);
@@ -1049,8 +1000,6 @@ protected:
     SGMaterialSerializerListener* mMaterialSerializerListener;
     // get notified if materials get dropped
     SGResourceGroupListener* mResourceGroupListener;
-    // A map of the registered custom script translators.
-    SGScriptTranslatorMap mScriptTranslatorsMap;
     // The core translator of the RT Shader System.
     SGScriptTranslator mCoreScriptTranslator;
     // The target shader language (currently only cg supported).
@@ -1095,6 +1044,8 @@ protected:
     bool mCreateShaderOverProgrammablePass;
     // A flag to indicate finalizing
     bool mIsFinalizing;
+
+    uint32 ID_RT_SHADER_SYSTEM;
 private:
     friend class SGPass;
     friend class FFPRenderStateBuilder;
