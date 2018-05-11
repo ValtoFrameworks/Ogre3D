@@ -113,11 +113,6 @@ namespace Ogre {
         GCT_BOOL2 = 45,
         GCT_BOOL3 = 46,
         GCT_BOOL4 = 47,
-        GCT_SAMPLER_WRAPPER1D = 48,
-        GCT_SAMPLER_WRAPPER2D = 49,
-        GCT_SAMPLER_WRAPPER3D = 50,
-        GCT_SAMPLER_WRAPPERCUBE = 51,
-        GCT_SAMPLER_STATE = 52, //only for hlsl 4.0
         GCT_UNKNOWN = 99
     };
 
@@ -2383,29 +2378,20 @@ namespace Ogre {
             @note Only applicable to low-level programs.
             @param logicalIndex The logical parameter index
             @param requestedSize The requested size - pass 0 to ignore missing entries
-            @param variability
             and return std::numeric_limits<size_t>::max()
+            @param variability
         */
         size_t _getFloatConstantPhysicalIndex(size_t logicalIndex, size_t requestedSize, uint16 variability);
         /** Gets the physical buffer index associated with a logical double constant index.
-            @note Only applicable to low-level programs.
-            @param logicalIndex The logical parameter index
-            @param requestedSize The requested size - pass 0 to ignore missing entries
-            and return std::numeric_limits<size_t>::max()
+            @copydetails _getFloatConstantPhysicalIndex
         */
         size_t _getDoubleConstantPhysicalIndex(size_t logicalIndex, size_t requestedSize, uint16 variability);
         /** Gets the physical buffer index associated with a logical int constant index.
-            @note Only applicable to low-level programs.
-            @param logicalIndex The logical parameter index
-            @param requestedSize The requested size - pass 0 to ignore missing entries
-            and return std::numeric_limits<size_t>::max()
+            @copydetails _getFloatConstantPhysicalIndex
         */
         size_t _getIntConstantPhysicalIndex(size_t logicalIndex, size_t requestedSize, uint16 variability);
         /** Gets the physical buffer index associated with a logical unsigned int constant index.
-            @note Only applicable to low-level programs.
-            @param logicalIndex The logical parameter index
-            @param requestedSize The requested size - pass 0 to ignore missing entries
-            and return std::numeric_limits<size_t>::max()
+            @copydetails _getFloatConstantPhysicalIndex
         */
         size_t _getUnsignedIntConstantPhysicalIndex(size_t logicalIndex, size_t requestedSize, uint16 variability);
         /* Gets the physical buffer index associated with a logical bool constant index.

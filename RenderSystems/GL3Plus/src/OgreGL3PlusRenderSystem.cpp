@@ -554,12 +554,6 @@ namespace Ogre {
         // Create the texture manager
         mTextureManager = new GL3PlusTextureManager(this);
 
-        if (caps->hasCapability(RSC_CAN_GET_COMPILED_SHADER_BUFFER))
-        {
-            // Enable microcache
-            mShaderManager->setSaveMicrocodesToCache(true);
-        }
-
         mGLInitialised = true;
     }
 
@@ -849,31 +843,6 @@ namespace Ogre {
         }
 
         mStateCacheManager->activateGLTextureUnit(0);
-    }
-
-    void GL3PlusRenderSystem::_setVertexTexture( size_t unit, const TexturePtr &tex )
-    {
-        _setTexture(unit, true, tex);
-    }
-
-    void GL3PlusRenderSystem::_setGeometryTexture( size_t unit, const TexturePtr &tex )
-    {
-        _setTexture(unit, true, tex);
-    }
-
-    void GL3PlusRenderSystem::_setComputeTexture( size_t unit, const TexturePtr &tex )
-    {
-        _setTexture(unit, true, tex);
-    }
-
-    void GL3PlusRenderSystem::_setTesselationHullTexture( size_t unit, const TexturePtr &tex )
-    {
-        _setTexture(unit, true, tex);
-    }
-
-    void GL3PlusRenderSystem::_setTesselationDomainTexture( size_t unit, const TexturePtr &tex )
-    {
-        _setTexture(unit, true, tex);
     }
 
     void GL3PlusRenderSystem::_setTextureCoordSet(size_t stage, size_t index)

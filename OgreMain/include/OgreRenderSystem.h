@@ -245,6 +245,9 @@ namespace Ogre
         */
         virtual void setAmbientLight(float r, float g, float b) {}
 
+        /// @overload
+        void setAmbientLight(const ColourValue& c) { setAmbientLight(c.r, c.g, c.b); }
+
         /** Sets the type of light shading required (default = Gouraud).
         @deprecated only needed for fixed function APIs
         */
@@ -538,13 +541,9 @@ namespace Ogre
         samplers, using this method. For those that don't, you should use the
         regular texture samplers which are shared between the vertex and
         fragment units; calling this method will throw an exception.
-        @see RenderSystemCapabilites::getVertexTextureUnitsShared
+        @deprecated only needed for D3D9
         */
         virtual void _setVertexTexture(size_t unit, const TexturePtr& tex);
-        virtual void _setGeometryTexture(size_t unit, const TexturePtr& tex);
-        virtual void _setComputeTexture(size_t unit, const TexturePtr& tex);
-        virtual void _setTesselationHullTexture(size_t unit, const TexturePtr& tex);
-        virtual void _setTesselationDomainTexture(size_t unit, const TexturePtr& tex);
 
         /**
         Sets the texture coordinate set to use for a texture unit.
@@ -977,7 +976,7 @@ namespace Ogre
         @param twoSidedOperation If set to true, then if you render both back and front faces 
         (you'll have to turn off culling) then these parameters will apply for front faces, 
         and the inverse of them will happen for back faces (keep remains the same).
-        @param readBackAsTexture D3D11 specific @see _renderUsingReadBackAsTexture
+        @param readBackAsTexture D3D11 specific
         */
         virtual void setStencilBufferParams(CompareFunction func = CMPF_ALWAYS_PASS, 
             uint32 refValue = 0, uint32 compareMask = 0xFFFFFFFF, uint32 writeMask = 0xFFFFFFFF, 
@@ -1013,8 +1012,6 @@ namespace Ogre
         details of the operation to be performed.
         */
         virtual void _render(const RenderOperation& op);
-
-        virtual void _renderUsingReadBackAsTexture(unsigned int secondPass,Ogre::String variableName,unsigned int StartSlot);
 
         /** Gets the capabilities of the render system. */
         const RenderSystemCapabilities* getCapabilities(void) const { return mCurrentCapabilities; }

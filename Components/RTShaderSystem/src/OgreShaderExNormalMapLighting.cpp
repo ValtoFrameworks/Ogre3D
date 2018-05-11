@@ -220,17 +220,14 @@ void NormalMapLighting::updateGpuProgramsParams(Renderable* rend, Pass* pass, co
 bool NormalMapLighting::resolveGlobalParameters(ProgramSet* programSet)
 {
     bool hasError = false;
-    Program* vsProgram = programSet->getCpuVertexProgram();
-    Program* psProgram = programSet->getCpuFragmentProgram();
+    Program* vsProgram = programSet->getCpuProgram(GPT_VERTEX_PROGRAM);
+    Program* psProgram = programSet->getCpuProgram(GPT_FRAGMENT_PROGRAM);
     Function* vsMain = vsProgram->getEntryPointFunction();
     Function* psMain = psProgram->getEntryPointFunction();
     
     // Resolve normal map texture sampler parameter.        
     mNormalMapSampler = psProgram->resolveParameter(GCT_SAMPLER2D, mNormalMapSamplerIndex, (uint16)GPV_PER_OBJECT, "gNormalMapSampler");
 
-	if (Ogre::RTShader::ShaderGenerator::getSingletonPtr()->IsHlsl4())
-		mNormalMapSamplerState = psProgram->resolveParameter(GCT_SAMPLER_STATE, mNormalMapSamplerIndex, (uint16)GPV_PER_OBJECT, "gNormalMapSamplerState");
-    
     // Get surface ambient colour if need to.
     if ((mTrackVertexColourType & TVC_AMBIENT) == 0)
     {       
@@ -388,8 +385,8 @@ bool NormalMapLighting::resolveGlobalParameters(ProgramSet* programSet)
 //-----------------------------------------------------------------------
 bool NormalMapLighting::resolvePerLightParameters(ProgramSet* programSet)
 {
-    Program* vsProgram = programSet->getCpuVertexProgram();
-    Program* psProgram = programSet->getCpuFragmentProgram();
+    Program* vsProgram = programSet->getCpuProgram(GPT_VERTEX_PROGRAM);
+    Program* psProgram = programSet->getCpuProgram(GPT_FRAGMENT_PROGRAM);
     Function* vsMain = vsProgram->getEntryPointFunction();
     Function* psMain = psProgram->getEntryPointFunction();
 
@@ -597,8 +594,8 @@ bool NormalMapLighting::resolvePerLightParameters(ProgramSet* programSet)
 //-----------------------------------------------------------------------
 bool NormalMapLighting::resolveDependencies(ProgramSet* programSet)
 {
-    Program* vsProgram = programSet->getCpuVertexProgram();
-    Program* psProgram = programSet->getCpuFragmentProgram();
+    Program* vsProgram = programSet->getCpuProgram(GPT_VERTEX_PROGRAM);
+    Program* psProgram = programSet->getCpuProgram(GPT_FRAGMENT_PROGRAM);
 
     vsProgram->addDependency(FFP_LIB_TEXTURING);
     psProgram->addDependency(FFP_LIB_TEXTURING);
@@ -615,9 +612,9 @@ bool NormalMapLighting::resolveDependencies(ProgramSet* programSet)
 //-----------------------------------------------------------------------
 bool NormalMapLighting::addFunctionInvocations(ProgramSet* programSet)
 {
-    Program* vsProgram = programSet->getCpuVertexProgram(); 
+    Program* vsProgram = programSet->getCpuProgram(GPT_VERTEX_PROGRAM); 
     Function* vsMain = vsProgram->getEntryPointFunction();  
-    Program* psProgram = programSet->getCpuFragmentProgram();
+    Program* psProgram = programSet->getCpuProgram(GPT_FRAGMENT_PROGRAM);
     Function* psMain = psProgram->getEntryPointFunction();  
 
     // Add the global illumination functions.
@@ -804,20 +801,9 @@ bool NormalMapLighting::addVSIlluminationInvocation(LightParams* curLightParams,
 //-----------------------------------------------------------------------
 bool NormalMapLighting::addPSNormalFetchInvocation(Function* psMain, const int groupOrder)
 {
-    FunctionInvocation* curFuncInvocation = NULL;   
-
-	bool isHLSL = Ogre::RTShader::ShaderGenerator::getSingleton().getTargetLanguage() == "hlsl";
-
-	if (isHLSL)
-		FFPTexturing::AddTextureSampleWrapperInvocation(mNormalMapSampler, mNormalMapSamplerState, GCT_SAMPLER2D, psMain, groupOrder);
-
+    FunctionInvocation* curFuncInvocation = NULL;
     curFuncInvocation = OGRE_NEW FunctionInvocation(SGX_FUNC_FETCHNORMAL, groupOrder);
-
-	if (isHLSL)
-		curFuncInvocation->pushOperand(FFPTexturing::GetSamplerWrapperParam(mNormalMapSampler, psMain), Operand::OPS_IN);
-	else
-		curFuncInvocation->pushOperand(mNormalMapSampler, Operand::OPS_IN);
-
+	curFuncInvocation->pushOperand(mNormalMapSampler, Operand::OPS_IN);
     curFuncInvocation->pushOperand(mPSInTexcoord, Operand::OPS_IN);
 	curFuncInvocation->pushOperand(mPSNormal, Operand::OPS_OUT);	
     psMain->addAtomInstance(curFuncInvocation);     

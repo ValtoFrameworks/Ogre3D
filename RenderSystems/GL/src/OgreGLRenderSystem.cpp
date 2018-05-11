@@ -630,11 +630,6 @@ namespace Ogre {
         // GPU Program Manager setup
         mGpuProgramManager = new GLGpuProgramManager();
 
-        if(caps->hasCapability(RSC_CAN_GET_COMPILED_SHADER_BUFFER))
-        {
-            mGpuProgramManager->setSaveMicrocodesToCache(true);
-        }
-
         if(caps->hasCapability(RSC_VERTEX_PROGRAM))
         {
             if(caps->isShaderProfileSupported("arbvp1"))
@@ -1464,31 +1459,6 @@ namespace Ogre {
         }
 
         mStateCacheManager->activateGLTextureUnit(0);
-    }
-    //-----------------------------------------------------------------------------
-    void GLRenderSystem::_setVertexTexture( size_t unit, const TexturePtr &tex )
-    {
-        _setTexture(unit, true, tex);
-    }
-    //-----------------------------------------------------------------------------
-    void GLRenderSystem::_setGeometryTexture( size_t unit, const TexturePtr &tex )
-    {
-        _setTexture(unit, true, tex);
-    }
-    //-----------------------------------------------------------------------------
-    void GLRenderSystem::_setComputeTexture( size_t unit, const TexturePtr &tex )
-    {
-        _setTexture(unit, true, tex);
-    }
-    //-----------------------------------------------------------------------------
-    void GLRenderSystem::_setTesselationHullTexture( size_t unit, const TexturePtr &tex )
-    {
-        _setTexture(unit, true, tex);
-    }
-    //-----------------------------------------------------------------------------
-    void GLRenderSystem::_setTesselationDomainTexture( size_t unit, const TexturePtr &tex )
-    {
-        _setTexture(unit, true, tex);
     }
     //-----------------------------------------------------------------------------
     void GLRenderSystem::_setTextureCoordSet(size_t stage, size_t index)

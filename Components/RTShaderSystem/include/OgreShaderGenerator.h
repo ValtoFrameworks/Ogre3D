@@ -122,54 +122,29 @@ public:
     @param version
     @remarks The default shader language is cg.
     */
-    void setTargetLanguage(const String& shaderLanguage,const float version = 1.0);
+    void setTargetLanguage(const String& shaderLanguage);
 
-    /** 
-    Return if hlsl 4.0 shading language is currently in use.        
-    */
-    bool IsHlsl4() const { return mShaderLanguage == "hlsl" && mShaderLanguageVersion == 4.0f; }
     /** 
     Return the target shader language currently in use.     
     */
     const String& getTargetLanguage() const { return mShaderLanguage; }
 
     /** 
-    Return the target shader language version currently in use.     
+    Set the output shader target profiles.
+    @param type shader type
+    @param shaderProfiles The target profiles for the shader.
     */
-    float getTargetLanguageVersion() const { return mShaderLanguageVersion; }
+    void setShaderProfiles(GpuProgramType type, const String& shaderProfiles);
 
     /** 
-    Set the output vertex shader target profiles.
-    @param vertexShaderProfiles The target profiles for the vertex shader.  
+    Get the output shader target profiles.
     */
-    void setVertexShaderProfiles(const String& vertexShaderProfiles);
+    const String& getShaderProfiles(GpuProgramType type) const;
 
     /** 
-    Get the output vertex shader target profiles.   
+    Get the output shader target profiles as list of strings.
     */
-    const String& getVertexShaderProfiles() const { return mVertexShaderProfiles; }
-
-    /** 
-    Get the output vertex shader target profiles as list of strings.    
-    */
-    const StringVector& getVertexShaderProfilesList() const { return mVertexShaderProfilesList; }
-
-
-    /** 
-    Set the output fragment shader target profiles.
-    @param fragmentShaderProfiles The target profiles for the fragment shader.  
-    */
-    void setFragmentShaderProfiles(const String& fragmentShaderProfiles);
-
-    /** 
-    Get the output fragment shader target profiles. 
-    */
-    const String& getFragmentShaderProfiles() const { return mFragmentShaderProfiles; }
-
-    /** 
-    Get the output fragment shader target profiles as list of strings.
-    */
-    const StringVector& getFragmentShaderProfilesList() const { return mFragmentShaderProfilesList; }
+    const StringVector& getShaderProfilesList(GpuProgramType type);
 
     /** 
     Set the output shader cache path. Generated shader code will be written to this path.
@@ -224,12 +199,6 @@ public:
      @param passIndex The pass index.
      */
     RenderState* getRenderState(const String& schemeName, const String& materialName, const String& groupName, unsigned short passIndex);
-
-#if !OGRE_RESOURCEMANAGER_STRICT
-    /// @overload
-    /// @deprecated use ShaderGenerator::getRenderState(const String& schemeName, const String& materialName, const String& groupName, ...)
-    OGRE_DEPRECATED RenderState* getRenderState(const String& schemeName, const String& materialName, unsigned short passIndex);
-#endif
 
     /** 
     Add sub render state factory. Plugins or 3d party applications may implement sub classes of
@@ -305,16 +274,6 @@ public:
     */
     bool createShaderBasedTechnique(const Material& srcMat, const String& srcTechniqueSchemeName, const String& dstTechniqueSchemeName, bool overProgrammable = false);
 
-#if !OGRE_RESOURCEMANAGER_STRICT
-    /// @overload
-    /// @deprecated use ShaderGenerator::createShaderBasedTechnique(srcMat, ...)
-    OGRE_DEPRECATED bool createShaderBasedTechnique(const String& materialName, const String& srcTechniqueSchemeName, const String& dstTechniqueSchemeName, bool overProgrammable = false);
-#endif
-
-    /// @overload
-    /// @deprecated use ShaderGenerator::createShaderBasedTechnique(srcMat, ...)
-    bool createShaderBasedTechnique(const String& materialName, const String& groupName, const String& srcTechniqueSchemeName, const String& dstTechniqueSchemeName, bool overProgrammable = false);
-
     /**
      Remove shader based technique from a given technique.
      Return true upon success. Failure may occur if the given source technique was not previously
@@ -325,11 +284,6 @@ public:
      @param dstTechniqueSchemeName The destination shader based technique scheme name.
      */
     bool removeShaderBasedTechnique(const String& materialName, const String& groupName, const String& srcTechniqueSchemeName, const String& dstTechniqueSchemeName);
-
-#if !OGRE_RESOURCEMANAGER_STRICT
-    /// @overload
-    OGRE_DEPRECATED bool removeShaderBasedTechnique(const String& materialName, const String& srcTechniqueSchemeName, const String& dstTechniqueSchemeName);
-#endif
 
     /** 
     Remove all shader based techniques of the given material. 
@@ -426,15 +380,8 @@ public:
     */
     SGMaterialSerializerListener* getMaterialSerializerListener();
 
-
-    /** Return the current number of generated vertex shaders. */
-    size_t getVertexShaderCount() const;
-
-
-    /** Return the current number of generated fragment shaders. */
-    size_t getFragmentShaderCount() const;
-
-
+    /** Return the current number of generated shaders. */
+    size_t getShaderCount(GpuProgramType type) const;
 
     /** Set the vertex shader outputs compaction policy. 
     @see VSOutputCompactPolicy.
@@ -1004,8 +951,6 @@ protected:
     SGScriptTranslator mCoreScriptTranslator;
     // The target shader language (currently only cg supported).
     String mShaderLanguage;
-    // The target shader language version.
-    float  mShaderLanguageVersion;
     // The target vertex shader profile. Will be used as argument for program compilation.
     String mVertexShaderProfiles;
     // List of target vertex shader profiles.

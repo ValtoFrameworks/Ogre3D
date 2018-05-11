@@ -290,12 +290,6 @@ namespace Ogre
         D3D11HLSLProgram* _getBoundComputeProgram() const;
         void _setTexture(size_t unit, bool enabled, const TexturePtr &texPtr);
         void _setBindingType(TextureUnitState::BindingType bindingType);
-        void _setVertexTexture(size_t unit, const TexturePtr& tex);
-        void _setGeometryTexture(size_t unit, const TexturePtr& tex);
-        void _setComputeTexture(size_t unit, const TexturePtr& tex);
-        void _setTesselationHullTexture(size_t unit, const TexturePtr& tex);
-        void _setTesselationDomainTexture(size_t unit, const TexturePtr& tex);
-        void _disableTextureUnit(size_t texUnit);
         void _setTextureCoordSet( size_t unit, size_t index );
         void _setTextureAddressingMode(size_t stage, const TextureUnitState::UVWAddressingMode& uvw);
         void _setTextureBorderColour(size_t stage, const ColourValue& colour);
@@ -331,6 +325,7 @@ namespace Ogre
         void setVertexDeclaration(VertexDeclaration* decl);
         void setVertexDeclaration(VertexDeclaration* decl, VertexBufferBinding* binding);
         void setVertexBufferBinding(VertexBufferBinding* binding);
+        /** render using the feature of reading back the inactive depth-stencil buffers as texture*/
         void _renderUsingReadBackAsTexture(unsigned int passNr, Ogre::String variableName,unsigned int StartSlot);
         void _render(const RenderOperation& op);
 

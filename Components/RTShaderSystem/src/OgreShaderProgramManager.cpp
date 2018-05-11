@@ -86,12 +86,12 @@ void ProgramManager::acquirePrograms(Pass* pass, TargetRenderState* renderState)
     }   
 
     // Bind the created GPU programs to the target pass.
-    pass->setVertexProgram(programSet->getGpuVertexProgram()->getName());
-    pass->setFragmentProgram(programSet->getGpuFragmentProgram()->getName());
+    pass->setVertexProgram(programSet->getGpuProgram(GPT_VERTEX_PROGRAM)->getName());
+    pass->setFragmentProgram(programSet->getGpuProgram(GPT_FRAGMENT_PROGRAM)->getName());
 
     // Bind uniform parameters to pass parameters.
-    bindUniformParameters(programSet->getCpuVertexProgram(), pass->getVertexProgramParameters());
-    bindUniformParameters(programSet->getCpuFragmentProgram(), pass->getFragmentProgramParameters());
+    bindUniformParameters(programSet->getCpuProgram(GPT_VERTEX_PROGRAM), pass->getVertexProgramParameters());
+    bindUniformParameters(programSet->getCpuProgram(GPT_FRAGMENT_PROGRAM), pass->getFragmentProgramParameters());
 
 }
 
@@ -105,8 +105,8 @@ void ProgramManager::releasePrograms(Pass* pass, TargetRenderState* renderState)
         pass->setVertexProgram(BLANKSTRING);
         pass->setFragmentProgram(BLANKSTRING);
 
-        GpuProgramPtr vsProgram(programSet->getGpuVertexProgram());
-        GpuProgramPtr psProgram(programSet->getGpuFragmentProgram());
+        GpuProgramPtr vsProgram(programSet->getGpuProgram(GPT_VERTEX_PROGRAM));
+        GpuProgramPtr psProgram(programSet->getGpuProgram(GPT_FRAGMENT_PROGRAM));
 
         GpuProgramsMapIterator itVsGpuProgram = !vsProgram ? mVertexShaderMap.end() : mVertexShaderMap.find(vsProgram->getName());
         GpuProgramsMapIterator itFsGpuProgram = !psProgram ? mFragmentShaderMap.end() : mFragmentShaderMap.find(psProgram->getName());
@@ -139,6 +139,18 @@ void ProgramManager::flushGpuProgramsCache()
     flushGpuProgramsCache(mFragmentShaderMap);
 }
 
+size_t ProgramManager::getShaderCount(GpuProgramType type) const
+{
+    switch(type)
+    {
+    case GPT_VERTEX_PROGRAM:
+        return mVertexShaderMap.size();
+    case GPT_FRAGMENT_PROGRAM:
+        return mFragmentShaderMap.size();
+    default:
+        return 0;
+    }
+}
 //-----------------------------------------------------------------------------
 void ProgramManager::flushGpuProgramsCache(GpuProgramsMap& gpuProgramsMap)
 {
@@ -296,47 +308,25 @@ bool ProgramManager::createGpuPrograms(ProgramSet* programSet)
     if (success == false)   
         return false;   
     
-    // Create the vertex shader program.
-    GpuProgramPtr vsGpuProgram;
-    
-    vsGpuProgram = createGpuProgram(programSet->getCpuVertexProgram(), 
-        programWriter,
-        language, 
-        ShaderGenerator::getSingleton().getVertexShaderProfiles(),
-        ShaderGenerator::getSingleton().getVertexShaderProfilesList(),
-        ShaderGenerator::getSingleton().getShaderCachePath());
+    // Create the shader programs
+    for(auto type : {GPT_VERTEX_PROGRAM, GPT_FRAGMENT_PROGRAM})
+    {
+        auto gpuProgram = createGpuProgram(programSet->getCpuProgram(type), programWriter, language,
+                                           ShaderGenerator::getSingleton().getShaderProfiles(type),
+                                           ShaderGenerator::getSingleton().getShaderProfilesList(type),
+                                           ShaderGenerator::getSingleton().getShaderCachePath());
+        if(!gpuProgram)
+            return false;
 
-    if (!vsGpuProgram)
-        return false;
-
-    programSet->setGpuVertexProgram(vsGpuProgram);
+        programSet->setGpuProgram(gpuProgram, type);
+    }
 
     //update flags
-    programSet->getGpuVertexProgram()->setSkeletalAnimationIncluded(
-        programSet->getCpuVertexProgram()->getSkeletalAnimationIncluded());
-    // Create the fragment shader program.
-    GpuProgramPtr psGpuProgram;
-
-    psGpuProgram = createGpuProgram(programSet->getCpuFragmentProgram(), 
-        programWriter,
-        language, 
-        ShaderGenerator::getSingleton().getFragmentShaderProfiles(),
-        ShaderGenerator::getSingleton().getFragmentShaderProfilesList(),
-        ShaderGenerator::getSingleton().getShaderCachePath());
-
-    if (!psGpuProgram)
-        return false;
-
-    programSet->setGpuFragmentProgram(psGpuProgram);
+    programSet->getGpuProgram(GPT_VERTEX_PROGRAM)->setSkeletalAnimationIncluded(
+        programSet->getCpuProgram(GPT_VERTEX_PROGRAM)->getSkeletalAnimationIncluded());
 
     // Call the post creation of GPU programs method.
-    success = programProcessor->postCreateGpuPrograms(programSet);
-    if (success == false)   
-        return false;   
-
-    
-    return true;
-    
+    return programProcessor->postCreateGpuPrograms(programSet);
 }
 
 
@@ -443,7 +433,7 @@ GpuProgramPtr ProgramManager::createGpuProgram(Program* shaderProgram,
             }
         }
 
-        pGpuProgram->setParameter("enable_backwards_compatibility", "false");
+        pGpuProgram->setParameter("enable_backwards_compatibility", "true");
         pGpuProgram->setParameter("column_major_matrices", StringConverter::toString(shaderProgram->getUseColumnMajorMatrices()));
     }
     
@@ -527,8 +517,8 @@ void ProgramManager::destroyGpuProgram(GpuProgramPtr& gpuProgram)
 //-----------------------------------------------------------------------
 void ProgramManager::synchronizePixelnToBeVertexOut( ProgramSet* programSet )
 {
-    Program* vsProgram = programSet->getCpuVertexProgram();
-    Program* psProgram = programSet->getCpuFragmentProgram();
+    Program* vsProgram = programSet->getCpuProgram(GPT_VERTEX_PROGRAM);
+    Program* psProgram = programSet->getCpuProgram(GPT_FRAGMENT_PROGRAM);
 
     // first find the vertex shader
     ShaderFunctionConstIterator itFunction ;

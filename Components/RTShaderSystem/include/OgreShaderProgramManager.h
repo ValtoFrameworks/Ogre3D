@@ -98,7 +98,6 @@ protected:
 
     //-----------------------------------------------------------------------------
     typedef std::map<String, GpuProgramPtr>            GpuProgramsMap;
-    typedef std::map<String, String>                   ProgramSourceToNameMap;
     typedef GpuProgramsMap::iterator                    GpuProgramsMapIterator;
     typedef GpuProgramsMap::const_iterator              GpuProgramsMapConstIterator;
 
@@ -191,11 +190,8 @@ protected:
     */
     void flushGpuProgramsCache(GpuProgramsMap& gpuProgramsMap);
     
-    /** Return the number of created vertex shaders. */
-    size_t getVertexShaderCount() const { return mVertexShaderMap.size(); }
-
-    /** Return the number of created fragment shaders. */
-    size_t getFragmentShaderCount() const { return mFragmentShaderMap.size(); }
+    /** Return the number of created shaders. */
+    size_t getShaderCount(GpuProgramType type) const;
 
     /** Fix the input of the pixel shader to be the same as the output of the vertex shader */
     void synchronizePixelnToBeVertexOut(ProgramSet* programSet);
@@ -222,8 +218,6 @@ protected:
     GpuProgramsMap mFragmentShaderMap;
     // The default program processors.
     ProgramProcessorList mDefaultProgramProcessors;
-    // map the source code of the shaders to a name for them
-    ProgramSourceToNameMap mProgramSourceToNameMap;
 
 private:
     friend class ProgramSet;

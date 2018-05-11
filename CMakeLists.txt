@@ -109,7 +109,7 @@ if(UNIX)
   if (EMSCRIPTEN)
       set(OGRE_WARNING_FLAGS "${OGRE_WARNING_FLAGS} -Wno-warn-absolute-paths")
   endif ()
-  set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${OGRE_WARNING_FLAGS}")
+  set(CMAKE_CXX_FLAGS "${OGRE_WARNING_FLAGS} ${CMAKE_CXX_FLAGS}")
 endif ()
 if (MSVC)
   add_definitions(-D_MT -D_USRDLL)
@@ -160,8 +160,6 @@ if (MINGW)
     # the atomic primitives
     set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -march=i686")
   endif ()
-  # Fpermissive required to let some "non-standard" casting operations in the plugins pass
-  set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fpermissive")
   # disable this optimisation because it breaks release builds (reason unknown)
   set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fno-tree-slp-vectorize")
   # Ignore some really annoying warnings which also happen in dependencies
