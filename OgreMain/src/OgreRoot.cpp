@@ -944,8 +944,17 @@ namespace Ogre {
             return;
         }
 
-        pluginDir = cfg.getSetting("PluginFolder"); // Ignored on Mac OS X, uses Resources/ directory
+        pluginDir = cfg.getSetting("PluginFolder");
         pluginList = cfg.getMultiSetting("Plugin");
+
+        StringUtil::trim(pluginDir);
+        if(pluginDir.empty() || pluginDir[0] == '.')
+        {
+            // resolve relative path with regards to configfile
+            String baseDir, filename;
+            StringUtil::splitFilename(pluginsfile, filename, baseDir);
+            pluginDir = baseDir + pluginDir;
+        }
 
         pluginDir = FileSystemLayer::resolveBundlePath(pluginDir);
 

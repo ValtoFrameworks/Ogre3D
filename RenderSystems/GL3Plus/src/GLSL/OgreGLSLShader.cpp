@@ -208,11 +208,6 @@ namespace Ogre {
 
     bool GLSLShader::compile(bool checkErrors)
     {
-        if (mCompiled == 1)
-        {
-            return true;
-        }
-
         // Create shader object.
         GLenum GLShaderType = getGLShaderType(mType);
         OGRE_CHECK_GL_ERROR(mGLShaderHandle = glCreateShader(GLShaderType));
@@ -234,18 +229,22 @@ namespace Ogre {
         OGRE_CHECK_GL_ERROR(glCompileShader(mGLShaderHandle));
 
         // Check for compile errors
-        OGRE_CHECK_GL_ERROR(glGetShaderiv(mGLShaderHandle, GL_COMPILE_STATUS, &mCompiled));
-        if (!mCompiled && checkErrors)
-        {
-            String message = logObjectInfo("GLSL compile log: " + mName, mGLShaderHandle);
-            checkAndFixInvalidDefaultPrecisionError(message);
-        }
+        int compiled = 0;
+        OGRE_CHECK_GL_ERROR(glGetShaderiv(mGLShaderHandle, GL_COMPILE_STATUS, &compiled));
 
-        // Log a message that the shader compiled successfully.
-        if (mCompiled && checkErrors)
-            logObjectInfo("GLSL compiled: " + mName, mGLShaderHandle);
+        if(!checkErrors)
+            return compiled == 1;
 
-        return (mCompiled == 1);
+        String compileInfo = getObjectInfo(mGLShaderHandle);
+
+        if (!compiled)
+            OGRE_EXCEPT(Exception::ERR_RENDERINGAPI_ERROR, getResourceLogName() + " " + compileInfo, "compile");
+
+        // probably we have warnings
+        if (!compileInfo.empty())
+            LogManager::getSingleton().stream(LML_WARNING) << getResourceLogName() << " " << compileInfo;
+
+        return compiled == 1;
     }
 
 
@@ -271,7 +270,6 @@ namespace Ogre {
 
         mGLShaderHandle = 0;
         mGLProgramHandle = 0;
-        mCompiled = 0;
         mLinked = 0;
     }
 
@@ -299,13 +297,8 @@ namespace Ogre {
     void GLSLShader::attachToProgramObject(const GLuint programObject)
     {
         // attach child objects
-        GLSLProgramContainerIterator childProgramCurrent = mAttachedGLSLPrograms.begin();
-        GLSLProgramContainerIterator childProgramEnd = mAttachedGLSLPrograms.end();
-
-        for (; childProgramCurrent != childProgramEnd; ++childProgramCurrent)
+        for (auto childShader : mAttachedGLSLPrograms)
         {
-            GLSLShaderCommon* childShader = *childProgramCurrent;
-            childShader->compile(true);
             childShader->attachToProgramObject(programObject);
         }
         OGRE_CHECK_GL_ERROR(glAttachShader(programObject, mGLShaderHandle));
@@ -343,60 +336,6 @@ namespace Ogre {
         return params;
     }
 
-
-    void GLSLShader::checkAndFixInvalidDefaultPrecisionError(String &message)
-    {
-        String precisionQualifierErrorString = ": 'Default Precision Qualifier' :  invalid type Type for default precision qualifier can be only float or int";
-        std::vector< String > linesOfSource = StringUtil::split(mSource, "\n");
-        if (message.find(precisionQualifierErrorString) != String::npos)
-        {
-            LogManager::getSingleton().logMessage("Fixing invalid type Type for default precision qualifier by deleting bad lines the re-compiling", LML_CRITICAL);
-
-            // remove relevant lines from source
-            std::vector< String > errors = StringUtil::split(message, "\n");
-
-            // going from the end so when we delete a line the numbers of the lines before will not change
-            for (int i = (int)errors.size() - 1 ; i != -1 ; i--)
-            {
-                String & curError = errors[i];
-                size_t foundPos = curError.find(precisionQualifierErrorString);
-                if (foundPos != String::npos)
-                {
-                    String lineNumber = curError.substr(0, foundPos);
-                    size_t posOfStartOfNumber = lineNumber.find_last_of(':');
-                    if (posOfStartOfNumber != String::npos)
-                    {
-                        lineNumber = lineNumber.substr(posOfStartOfNumber +     1, lineNumber.size() - (posOfStartOfNumber + 1));
-                        if (StringConverter::isNumber(lineNumber))
-                        {
-                            int iLineNumber = StringConverter::parseInt(lineNumber);
-                            linesOfSource.erase(linesOfSource.begin() + iLineNumber - 1);
-                        }
-                    }
-                }
-            }
-            // rebuild source
-            StringStream newSource;
-            for (size_t i = 0; i < linesOfSource.size()  ; i++)
-            {
-                newSource << linesOfSource[i] << "\n";
-            }
-            mSource = newSource.str();
-
-            const char *source = mSource.c_str();
-            OGRE_CHECK_GL_ERROR(glShaderSource(mGLShaderHandle, 1, &source, NULL));
-            // Check for load errors
-            if (compile(true))
-            {
-                LogManager::getSingleton().logMessage("The removing of the lines fixed the invalid type Type for default precision qualifier error.", LML_CRITICAL);
-            }
-            else
-            {
-                LogManager::getSingleton().logMessage("The removing of the lines didn't help.", LML_CRITICAL);
-            }
-        }
-    }
-
     GLenum GLSLShader::getGLShaderType(GpuProgramType programType)
     {
         //TODO Convert to map, or is speed different negligible?
@@ -419,35 +358,6 @@ namespace Ogre {
         //TODO add warning or error
         return 0;
     }
-
-    String GLSLShader::getShaderTypeLabel(GpuProgramType programType)
-    {
-        switch (programType)
-        {
-        case GPT_VERTEX_PROGRAM:
-            return "vertex";
-            break;
-        case GPT_DOMAIN_PROGRAM:
-            return "tessellation evaluation";
-            break;
-        case GPT_HULL_PROGRAM:
-            return "tessellation control";
-            break;
-        case GPT_GEOMETRY_PROGRAM:
-            return "geometry";
-            break;
-        case GPT_FRAGMENT_PROGRAM:
-            return "fragment";
-            break;
-        case GPT_COMPUTE_PROGRAM:
-            return "compute";
-            break;
-        }
-
-        //TODO add warning or error
-        return 0;
-    }
-
 
     GLuint GLSLShader::getGLProgramHandle() {
         //TODO This should be removed and the compile() function

@@ -47,6 +47,13 @@ namespace Ogre {
     GLSLShaderCommon::CmdOutputOperationType GLSLShaderCommon::msOutputOperationTypeCmd;
     GLSLShaderCommon::CmdMaxOutputVertices GLSLShaderCommon::msMaxOutputVerticesCmd;
 
+    String GLSLShaderCommon::getResourceLogName() const
+    {
+        if(mLoadFromFile)
+            return "'" + mFilename + "'";
+        return "'"+mName+"'";
+    }
+
     //-----------------------------------------------------------------------
     void GLSLShaderCommon::loadFromSource(void)
     {
@@ -126,6 +133,8 @@ namespace Ogre {
         mSource = String (out, out_size);
         if (out < src || out > src + src_len)
             free (out);
+
+        compile(true);
     }
     //---------------------------------------------------------------------------
     void GLSLShaderCommon::unloadImpl()
@@ -150,7 +159,6 @@ namespace Ogre {
         const String& name, ResourceHandle handle,
         const String& group, bool isManual, ManualResourceLoader* loader)
         : HighLevelGpuProgram(creator, name, handle, group, isManual, loader)
-        , mCompiled(0)
         , mInputOperationType(RenderOperation::OT_TRIANGLE_LIST)
         , mOutputOperationType(RenderOperation::OT_TRIANGLE_LIST)
         , mMaxOutputVertices(3)
@@ -197,13 +205,13 @@ namespace Ogre {
         {
             // make sure attached program source gets loaded and compiled
             // don't need a low level implementation for attached shader objects
-            // loadHighLevelImpl will only load the source and compile once
+            // loadHighLevel will only load the source and compile once
             // so don't worry about calling it several times
             GLSLShaderCommon* childShader = static_cast<GLSLShaderCommon*>(hlProgram.get());
             // load the source and attach the child shader only if supported
             if (isSupported())
             {
-                childShader->loadHighLevelImpl();
+                childShader->loadHighLevel();
                 // add to the container
                 mAttachedGLSLPrograms.push_back( childShader );
                 mAttachedShaderNames += name + " ";

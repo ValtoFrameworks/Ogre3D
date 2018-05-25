@@ -139,7 +139,7 @@ if(OGRE_BUILD_DEPENDENCIES AND NOT EXISTS ${OGREDEPS_PATH})
     
     message(STATUS "Building freetype")
     file(DOWNLOAD
-        http://download.savannah.gnu.org/releases/freetype/freetype-2.9.tar.gz
+        https://download.savannah.gnu.org/releases/freetype/freetype-2.9.tar.gz
         ${OGRE_BINARY_DIR}/freetype-2.9.tar.gz)
     execute_process(COMMAND ${CMAKE_COMMAND}
         -E tar xf freetype-2.9.tar.gz WORKING_DIRECTORY ${OGRE_BINARY_DIR})
@@ -231,10 +231,6 @@ endif()
 # Find OpenGL ES 2.x
 find_package(OpenGLES2)
 macro_log_feature(OPENGLES2_FOUND "OpenGL ES 2.x" "Support for the OpenGL ES 2.x render system" "http://www.khronos.org/opengles/" FALSE "" "")
-
-# Find OpenGL ES 3.x
-find_package(OpenGLES3)
-macro_log_feature(OPENGLES3_FOUND "OpenGL ES 3.x" "Support for the OpenGL ES 2.x render system with OpenGL ES 3 support" "http://www.khronos.org/opengles/" FALSE "" "")
 
 # Find DirectX
 if(WIN32)

@@ -61,7 +61,7 @@ namespace Ogre {
 
     void GLSLMonolithicProgram::activate(void)
     {
-        if (!mLinked && !mTriedToLinkAndFailed)
+        if (!mLinked)
         {
             OGRE_CHECK_GL_ERROR(mGLProgramHandle = glCreateProgram());
 
@@ -88,71 +88,17 @@ namespace Ogre {
 
     void GLSLMonolithicProgram::compileAndLink()
     {
-        // Compile and attach Vertex Program
+        // attach Vertex Program
         if (mVertexShader)
         {
-            if (!getVertexShader()->compile(true))
-            {
-                mTriedToLinkAndFailed = true;
-                return;
-            }
             getVertexShader()->attachToProgramObject(mGLProgramHandle);
             setSkeletalAnimationIncluded(mVertexShader->isSkeletalAnimationIncluded());
         }
 
-        // Compile and attach Fragment Program
-        if (mFragmentShader)
+        // attach remaining Programs
+        for (auto shader : {mFragmentShader, mGeometryShader, mHullShader, mDomainShader, mComputeShader})
         {
-            if (!mFragmentShader->compile(true))
-            {
-                mTriedToLinkAndFailed = true;
-                return;
-            }
-            mFragmentShader->attachToProgramObject(mGLProgramHandle);
-        }
-
-        // Compile and attach Geometry Program
-        if (mGeometryShader)
-        {
-            if (!mGeometryShader->compile(true))
-            {
-                return;
-            }
-
-            mGeometryShader->attachToProgramObject(mGLProgramHandle);
-        }
-
-        // Compile and attach Tessellation Control Program
-        if (mHullShader)
-        {
-            if (!mHullShader->compile(true))
-            {
-                return;
-            }
-
-            mHullShader->attachToProgramObject(mGLProgramHandle);
-        }
-
-        // Compile and attach Tessellation Evaluation Program
-        if (mDomainShader)
-        {
-            if (!mDomainShader->compile(true))
-            {
-                return;
-            }
-
-            mDomainShader->attachToProgramObject(mGLProgramHandle);
-        }
-
-        // Compile and attach Compute Program
-        if (mComputeShader)
-        {
-            if (!mComputeShader->compile(true))
-            {
-                return;
-            }
-
-            mComputeShader->attachToProgramObject(mGLProgramHandle);
+            shader->attachToProgramObject(mGLProgramHandle);
         }
 
         bindFixedAttributes(mGLProgramHandle);
@@ -160,8 +106,6 @@ namespace Ogre {
         // the link
         OGRE_CHECK_GL_ERROR(glLinkProgram( mGLProgramHandle ));
         OGRE_CHECK_GL_ERROR(glGetProgramiv( mGLProgramHandle, GL_LINK_STATUS, &mLinked ));
-
-        mTriedToLinkAndFailed = !mLinked;
 
         logObjectInfo( getCombinedName() + String(" GLSL link result : "), mGLProgramHandle );
 
