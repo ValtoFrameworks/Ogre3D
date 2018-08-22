@@ -453,7 +453,7 @@ The requirements to read from or write to the fixed function pipeline are simila
 
 ## Parameter specification {#Program-Parameter-Specification}
 
-Parameters can be specified using one of 4 commands as shown below. The same syntax is used whether you are defining a parameter just for this particular use of the program, or when specifying the [Default Program Parameters](#Default-Program-Parameters). Parameters set in the specific use of the program override the defaults.
+Parameters can be specified using one of 4 commands as shown below. The same syntax is used whether you are defining a parameter just for this particular use of the program, or when specifying the @ref Default-Program-Parameters. Parameters set in the specific use of the program override the defaults.
 
 -   [param\_indexed](#param_005findexed)
 -   [param\_indexed\_auto](#param_005findexed_005fauto)
@@ -510,7 +510,11 @@ The allowed value codes and the meaning of extra\_params are detailed in [param\
 
 ## shared\_params\_ref
 
-This option allows you to reference shared parameter sets as defined in [Declaring Shared Parameters](#Declaring-Shared-Parameters).  Format: shared\_params\_ref &lt;shared\_set\_name&gt; Example: shared\_params\_ref mySharedParams
+This option allows you to reference shared parameter sets as defined in @ref Declaring-Shared-Parameters.
+@par
+Format: shared\_params\_ref &lt;shared\_set\_name&gt; 
+@par
+Example: shared\_params\_ref mySharedParams
 
 The only required parameter is a name, which must be the name of an already defined shared parameter set. All named parameters which are present in the program that are also present in the shared parameter set will be linked, and the shared parameters used as if you had defined them locally. This is dependent on the definitions (type and array size) matching between the shared set and the program.
 
@@ -594,15 +598,6 @@ If your vertex program makes use of [Vertex Texture Fetch](#Vertex-Texture-Fetch
    uses_vertex_texture_fetch true
 ```
 
-# Adjacency information in Geometry Programs {#Adjacency-information-in-Geometry-Programs}
-
-Some geometry programs require adjacency information from the geometry. It means that a geometry shader doesn’t only get the information of the primitive it operates on, it also has access to its neighbours (in the case of lines or triangles). This directive will tell Ogre to send the information to the geometry shader.
-
-```cpp
-   uses_adjacency_information true
-```
-
-
 # Vertex Texture Fetch {#Vertex-Texture-Fetch}
 
 More recent generations of video card allow you to perform a read from a texture in the vertex program rather than just the fragment program, as is traditional. This allows you to, for example, read the contents of a texture and displace vertices based on the intensity of the colour contained within.
@@ -634,3 +629,40 @@ Again as at the time of writing, the types of texture you can use in a vertex pr
 ## Hardware limitations
 
 As at the time of writing (early Q3 2006), ATI do not support texture fetch in their current crop of cards (Radeon X1n00). nVidia do support it in both their 6n00 and 7n00 range. ATI support an alternative called ’Render to Vertex Buffer’, but this is not standardised at this time and is very much different in its implementation, so cannot be considered to be a drop-in replacement. This is the case even though the Radeon X1n00 cards claim to support vs\_3\_0 (which requires vertex texture fetch).
+
+@page Runtime-Shader-Generation Runtime Shader Generation 
+
+Writing shading programs is a common task when developing 3D based application. Most of the visual effects used by 3D based applications involve shader programs.
+Additionally with D3D11, support for fixed pipeline functionality was removed. Meaning you can only render objects using shaders.
+
+While @ref High-level-Programs offer you maximal control and flexibility over how your objects are rendered, writing and maintaining them is also a very time consuming task.
+
+Instead %Ogre can also automatically generate shaders on the fly, based on object material properties, scene setup and other user definitions. While the resulting shaders are less optimized, they offer the following advantages:
+
+* Save development time e.g. when your target scene has dynamic lights and the number changes, fog changes and the number of material attributes increases the total count of needed shaders dramatically. It can easily cross 100 and it becomes a time consuming development task.
+* Reusable code - once you've written the shader extension you can use it anywhere due to its independent nature.
+* Custom shaders extension library - enjoy the shared library of effects created by the community. Unlike hand written shader code, which may require many adjustments to be plugged into your own shader code, using the extensions library requires minimum changes.
+
+You have the choice between two different systems, which are implemented as components. You can select the one you need (or disable both) at compile time.
+
+* @subpage rtss <br />
+The RTSS is not another Uber shader with an exploding amount of @c \#ifdefs that make it increasingly difficult to add new functionality. 
+Instead, it manages a set of opaque isolated components (SubRenderStates) where each implements a specific effect.
+These "effects" notable include full Fixed Function emulation. At the core these components are plain shader files providing a set of functions. The shaders are based on properties defined in @ref Material-Scripts.
+* @subpage hlms <br />
+This component allows you to manage shader variations of a specific shader template.
+This is a different take to the Uber shader management, but instead of using plain
+@c \#ifdefs it uses a custom, more powerful preprocessor language.
+Currently the HLMS can be only configured via a custom API and does not respect classical @ref Ogre::Material properties.
+
+# Historical background
+
+When the early graphic cards came into the market they contained a fixed but large set of functions with which you could influence how 3D object were rendered. These included influencing object positions using matrices, calculating the effect of textures on a pixel, calculating the effect of lights on vertices and so on. These set of functions and their implementation in hardware became later known as the graphic card fixed pipeline (or Fixed Function Pipeline).
+
+As graphic cards became more powerful and graphic application became more complex, a need for new ways to manipulate the rendering of 3D models became apparent. This need saw the introduction of shaders. 
+
+Shaders are small custom made programs that run directly on the graphics card. Using these programs, one could replace the calculations that were made by the fixed pipeline and add new functionality. However there was a catch: If shaders are used on an object, the object can no longer use any of the functionality of the fixed pipeline. Any calculation that was used in the fixed pipeline needed to be recreated in the shaders. With early graphics applications this was not problematic. Shaders were simple and their numbers were kept low. However as applications grew in complexity this meant that the need for shaders grew as well. As a programmer you were left with 2 choices, both bad. Either create an exuberant amount of small shaders that soon became too many to effectively maintain. Or create an uber shader, a huge complex shader, that soon became too complex to effectively maintain as well.
+
+The RTSS seeks to fix those problems by automatically generating shaders based on the operations previously required from the fixed pipeline and new capabilities required by the user.
+
+With the introduction of the version 11 of Direct3D, a new reason for having an RTSS like system became apparent. With D3D11 support for fixed pipeline functionality was removed. Meaning, you can only render objects using shaders. The RTSS is an excellent tool for this purpose.

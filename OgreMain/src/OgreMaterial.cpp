@@ -535,7 +535,7 @@ namespace Ogre {
 
     }
     //-----------------------------------------------------------------------
-    void Material::setAmbient(Real red, Real green, Real blue)
+    void Material::setAmbient(float red, float green, float blue)
     {
         setAmbient(ColourValue(red, green, blue));
     }
@@ -550,7 +550,7 @@ namespace Ogre {
         }
     }
     //-----------------------------------------------------------------------
-    void Material::setDiffuse(Real red, Real green, Real blue, Real alpha)
+    void Material::setDiffuse(float red, float green, float blue, float alpha)
     {
         Techniques::iterator i, iend;
         iend = mTechniques.end();
@@ -565,7 +565,7 @@ namespace Ogre {
         setDiffuse(diffuse.r, diffuse.g, diffuse.b, diffuse.a);
     }
     //-----------------------------------------------------------------------
-    void Material::setSpecular(Real red, Real green, Real blue, Real alpha)
+    void Material::setSpecular(float red, float green, float blue, float alpha)
     {
         Techniques::iterator i, iend;
         iend = mTechniques.end();
@@ -590,7 +590,7 @@ namespace Ogre {
         }
     }
     //-----------------------------------------------------------------------
-    void Material::setSelfIllumination(Real red, Real green, Real blue)
+    void Material::setSelfIllumination(float red, float green, float blue)
     {
         setSelfIllumination(ColourValue(red, green, blue));   
     }
@@ -642,6 +642,16 @@ namespace Ogre {
         for (i = mTechniques.begin(); i != iend; ++i)
         {
             (*i)->setColourWriteEnabled(enabled);
+        }
+    }
+    //-----------------------------------------------------------------------
+    void Material::setColourWriteEnabled(bool red, bool green, bool blue, bool alpha)
+    {
+        Techniques::iterator i, iend;
+        iend = mTechniques.end();
+        for (i = mTechniques.begin(); i != iend; ++i)
+        {
+            (*i)->setColourWriteEnabled(red, green, blue, alpha);
         }
     }
     //-----------------------------------------------------------------------

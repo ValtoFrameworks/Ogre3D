@@ -699,13 +699,7 @@ namespace Ogre {
     //-----------------------------------------------------------------------
     Real BillboardChain::getSquaredViewDepth(const Camera* cam) const
     {
-        Vector3 min, max, mid, dist;
-        min = mAABB.getMinimum();
-        max = mAABB.getMaximum();
-        mid = ((max - min) * 0.5) + min;
-        dist = cam->getDerivedPosition() - mid;
-
-        return dist.squaredLength();
+        return (cam->getDerivedPosition() - mAABB.getCenter()).squaredLength();
     }
     //-----------------------------------------------------------------------
     Real BillboardChain::getBoundingRadius(void) const
@@ -821,12 +815,12 @@ namespace Ogre {
             NameValuePairList::const_iterator ni = params->find("maxElements");
             if (ni != params->end())
             {
-                maxElements = StringConverter::parseUnsignedLong(ni->second);
+                maxElements = StringConverter::parseSizeT(ni->second);
             }
             ni = params->find("numberOfChains");
             if (ni != params->end())
             {
-                numberOfChains = StringConverter::parseUnsignedLong(ni->second);
+                numberOfChains = StringConverter::parseSizeT(ni->second);
             }
             ni = params->find("useTextureCoords");
             if (ni != params->end())

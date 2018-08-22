@@ -70,9 +70,6 @@ namespace Ogre {
             /// Holds texture type settings for every stage
             GLenum mTextureTypes[OGRE_MAX_TEXTURE_LAYERS];
 
-            /// GL support class, used for creating windows etc.
-            GLES2Support *mGLSupport;
-
             /// State cache manager which responsible to reduce redundant state changes
             GLES2StateCacheManager* mStateCacheManager;
 
@@ -104,16 +101,19 @@ namespace Ogre {
 
             GLenum mPolygonMode;
 
-            GLint getCombinedMinMipFilter(void) const;
-
             GLSLESProgram* mCurrentVertexProgram;
             GLSLESProgram* mCurrentFragmentProgram;
 
-            GLint getTextureAddressingMode(TextureUnitState::TextureAddressingMode tam) const;
+            GLint getTextureAddressingMode(TextureAddressingMode tam) const;
             GLenum getBlendMode(SceneBlendFactor ogreBlend) const;
             void bindVertexElementToGpu(const VertexElement& elem,
                                         const HardwareVertexBufferSharedPtr& vertexBuffer,
                                         const size_t vertexStart);
+
+            /** Initialises GL extensions, must be done AFTER the GL context has been
+                established.
+            */
+            void initialiseExtensions();
 
             // Mipmap count of the actual bounded texture
             size_t mCurTexMipCount;
@@ -133,12 +133,6 @@ namespace Ogre {
             // ----------------------------------
 
             const String& getName(void) const;
-
-            ConfigOptionMap& getConfigOptions(void);
-
-            void setConfigOption(const String &name, const String &value);
-
-            String validateConfigOptions(void);
 
             RenderWindow* _initialise(bool autoCreateWindow, const String& windowTitle = "OGRE Render NativeWindowType");
 
@@ -173,13 +167,15 @@ namespace Ogre {
 
             void _setTexture(size_t unit, bool enabled, const TexturePtr &tex);
 
-            void _setTextureCoordSet(size_t stage, size_t index);
+            void _setSampler(size_t unit, Sampler& sampler);
 
-            void _setTextureAddressingMode(size_t stage, const TextureUnitState::UVWAddressingMode& uvw);
+            void _setTextureAddressingMode(size_t stage, const Sampler::UVWAddressingMode& uvw);
 
             void _setTextureBorderColour(size_t stage, const ColourValue& colour) { };   // Not supported
 
             void _setTextureMipmapBias(size_t unit, float bias) { };   // Not supported
+
+            void _setLineWidth(float width);
 
             void _setViewport(Viewport *vp);
 
@@ -240,14 +236,10 @@ namespace Ogre {
             void preExtraThreadsStarted();
             void postExtraThreadsStarted();
             void setClipPlanesImpl(const Ogre::PlaneList& planeList) {}
-            GLES2Support* getGLSupportRef() { return mGLSupport; }
 
             // ----------------------------------
             // GLES2RenderSystem specific members
-            // ----------------------------------
-            bool hasMinGLVersion(int major, int minor) const;
-            bool checkExtension(const String& ext) const;
-        
+            // ----------------------------------        
             GLES2StateCacheManager * _getStateCacheManager() { return mStateCacheManager; }
         
             /** Create VAO on current context */

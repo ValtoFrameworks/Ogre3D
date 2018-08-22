@@ -1,8 +1,8 @@
 # Setting up an OGRE project {#setup}
-@note see BuildingOgre.md for instructions how to build OGRE itself
+@note see @ref building-ogre for instructions how to build OGRE itself
 # CMake Configuration {#cmake}
 Ogre uses CMake as its build system. It is recommended that you use it in your project as well.  
-Then all you need is to add the following three lines to your project
+Then all you need is to add the following lines to your project
 @snippet Samples/Tutorials/CMakeLists.txt discover_ogre
 These settings include all available components and third party libraries OGRE depends on (e.g. boost) - nothing more to do.
 

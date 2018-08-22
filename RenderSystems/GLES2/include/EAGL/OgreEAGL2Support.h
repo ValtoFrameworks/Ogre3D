@@ -29,7 +29,7 @@ THE SOFTWARE.
 #ifndef __EAGL2Support_H__
 #define __EAGL2Support_H__
 
-#include "OgreGLES2Support.h"
+#include "OgreGLNativeSupport.h"
 
 #ifdef __OBJC__
 // Forward declarations
@@ -51,13 +51,11 @@ namespace Ogre {
 
             void start(void);
             void stop(void);
-            void addConfig(void);
-            String validateConfig(void);
+            ConfigOptionMap getConfigOptions();
             virtual String getDisplayName(void);
             CFDictionaryRef chooseGLConfig(const GLint *attribList, GLint *nElements);
             GLint getGLConfigAttrib(CFDictionaryRef fbConfig, GLint attribute, GLint *value);
             void * getProcAddress(const char* name) const;
-            NameValuePairList parseOptions(uint& w, uint& h, bool& fullscreen);
 
             RenderWindow * newWindow(const String& name,
                                         unsigned int width, unsigned int height,

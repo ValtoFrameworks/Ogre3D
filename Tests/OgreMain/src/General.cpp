@@ -167,7 +167,7 @@ TEST(MaterialSerializer, Basic)
     auto mat = std::make_shared<Material>(nullptr, "Material Name", 0, group);
     auto pass = mat->createTechnique()->createPass();
     auto tus = pass->createTextureUnitState();
-    tus->setTextureFiltering(FT_MIP, FO_POINT);
+    tus->setContentType(TextureUnitState::CONTENT_SHADOW);
     tus->setName("Test TUS");
     pass->setAmbient(ColourValue::Green);
 
@@ -186,7 +186,8 @@ TEST(MaterialSerializer, Basic)
     ASSERT_TRUE(mat2);
     EXPECT_EQ(mat2->getTechniques().size(), mat->getTechniques().size());
     EXPECT_EQ(mat2->getTechniques()[0]->getPasses()[0]->getAmbient(), ColourValue::Green);
-    EXPECT_EQ(mat2->getTechniques()[0]->getPasses()[0]->getTextureUnitState("Test TUS")->getTextureFiltering(FT_MIP), FO_POINT);
+    EXPECT_EQ(mat2->getTechniques()[0]->getPasses()[0]->getTextureUnitState("Test TUS")->getContentType(),
+              TextureUnitState::CONTENT_SHADOW);
 }
 
 TEST(Image, FlipV)

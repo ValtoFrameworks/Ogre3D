@@ -1091,6 +1091,10 @@ const Pass* SceneManager::_setPass(const Pass* pass, bool evenIfSuppressed,
         }
     }
 
+    // Line width
+    if (mDestRenderSystem->getCapabilities()->hasCapability(RSC_WIDE_LINES))
+        mDestRenderSystem->_setLineWidth(pass->getLineWidth());
+
     // Set point parameters
     mDestRenderSystem->_setPointParameters(
         pass->getPointSize(),
@@ -1211,10 +1215,11 @@ const Pass* SceneManager::_setPass(const Pass* pass, bool evenIfSuppressed,
     mDestRenderSystem->_setAlphaRejectSettings(pass->getAlphaRejectFunction(),
                                                pass->getAlphaRejectValue(),
                                                pass->isAlphaToCoverageEnabled());
-    // Set colour write mode
-    // Right now we only use on/off, not per-channel
-    bool colWrite = pass->getColourWriteEnabled();
-    mDestRenderSystem->_setColourBufferWriteEnabled(colWrite, colWrite, colWrite, colWrite);
+    // Set colour write mode.
+    bool colWriteR, colWriteG, colWriteB, colWriteA;
+    pass->getColourWriteEnabled(colWriteR, colWriteG, colWriteB, colWriteA);
+    mDestRenderSystem->_setColourBufferWriteEnabled(colWriteR, colWriteG, colWriteB, colWriteA);
+
     // Culling mode
     if (isShadowTechniqueTextureBased() && mIlluminationStage == IRS_RENDER_TO_TEXTURE &&
         mShadowCasterRenderBackFaces && pass->getCullingMode() == CULL_CLOCKWISE)
@@ -1423,9 +1428,6 @@ void SceneManager::_renderScene(Camera* camera, Viewport* vp, bool includeOverla
         mAutoParamDataSource->setCurrentCamera(camera, mCameraRelativeRendering);
         // Set autoparams for finite dir light extrusion
         mAutoParamDataSource->setShadowDirLightExtrusionDistance(mShadowRenderer.mShadowDirLightExtrudeDist);
-
-        // Tell rendersystem
-        mDestRenderSystem->setAmbientLight(mAutoParamDataSource->getAmbientLightColour());
 
         // Tell params about render target
         mAutoParamDataSource->setCurrentRenderTarget(vp->getTarget());
@@ -1954,6 +1956,8 @@ void SceneManager::renderObjects(const QueuedRenderableCollection& objs,
                                  const LightList* manualLightList,
                                  bool transparentShadowCastersMode)
 {
+    mDestRenderSystem->setAmbientLight(mAutoParamDataSource->getAmbientLightColour());
+
     mActiveQueuedRenderableVisitor->autoLights = doLightIteration;
     mActiveQueuedRenderableVisitor->manualLightList = manualLightList;
     mActiveQueuedRenderableVisitor->transparentShadowCastersMode = transparentShadowCastersMode;
@@ -3825,9 +3829,6 @@ void SceneManager::_resumeRendering(SceneManager::RenderContext* context)
     // Set autoparams for finite dir light extrusion
     mAutoParamDataSource->setShadowDirLightExtrusionDistance(mShadowRenderer.mShadowDirLightExtrudeDist);
 
-    // Tell params about current ambient light
-    mDestRenderSystem->setAmbientLight(mAutoParamDataSource->getAmbientLightColour());
-
     // Tell params about render target
     mAutoParamDataSource->setCurrentRenderTarget(vp->getTarget());
 
@@ -4569,41 +4570,15 @@ void SceneManager::updateGpuProgramParameters(const Pass* pass)
         if (mGpuParamsDirty)
             pass->_updateAutoParams(mAutoParamDataSource.get(), mGpuParamsDirty);
 
-        if (pass->hasVertexProgram())
+        for (int i = 0; i < GPT_COUNT; i++)
         {
-            mDestRenderSystem->bindGpuProgramParameters(GPT_VERTEX_PROGRAM, 
-                pass->getVertexProgramParameters(), mGpuParamsDirty);
+            GpuProgramType t = (GpuProgramType)i;
+            if (pass->hasGpuProgram(t))
+            {
+                mDestRenderSystem->bindGpuProgramParameters(t, pass->getGpuProgramParameters(t),
+                                                            mGpuParamsDirty);
+            }
         }
-
-        if (pass->hasGeometryProgram())
-        {
-            mDestRenderSystem->bindGpuProgramParameters(GPT_GEOMETRY_PROGRAM,
-                pass->getGeometryProgramParameters(), mGpuParamsDirty);
-        }
-
-        if (pass->hasFragmentProgram())
-        {
-            mDestRenderSystem->bindGpuProgramParameters(GPT_FRAGMENT_PROGRAM, 
-                pass->getFragmentProgramParameters(), mGpuParamsDirty);
-        }
-
-        if (pass->hasTessellationHullProgram())
-        {
-            mDestRenderSystem->bindGpuProgramParameters(GPT_HULL_PROGRAM, 
-                pass->getTessellationHullProgramParameters(), mGpuParamsDirty);
-        }
-
-        if (pass->hasTessellationDomainProgram())
-        {
-            mDestRenderSystem->bindGpuProgramParameters(GPT_DOMAIN_PROGRAM, 
-                pass->getTessellationDomainProgramParameters(), mGpuParamsDirty);
-        }
-
-                // if (pass->hasComputeProgram())
-        // {
-                //     mDestRenderSystem->bindGpuProgramParameters(GPT_COMPUTE_PROGRAM, 
-                //                                                 pass->getComputeProgramParameters(), mGpuParamsDirty);
-        // }
 
         mGpuParamsDirty = 0;
     }

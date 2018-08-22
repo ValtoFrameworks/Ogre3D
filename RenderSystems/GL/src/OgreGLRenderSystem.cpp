@@ -28,7 +28,7 @@ THE SOFTWARE.
 
 
 #include "OgreGLRenderSystem.h"
-#include "OgreGLSupport.h"
+#include "OgreGLNativeSupport.h"
 #include "OgreLogManager.h"
 #include "OgreStringConverter.h"
 #include "OgreLight.h"
@@ -107,6 +107,48 @@ namespace Ogre {
         return ret;
     }
 
+    static GLint getCombinedMinMipFilter(FilterOptions min, FilterOptions mip)
+    {
+        switch(min)
+        {
+        case FO_ANISOTROPIC:
+        case FO_LINEAR:
+            switch (mip)
+            {
+            case FO_ANISOTROPIC:
+            case FO_LINEAR:
+                // linear min, linear mip
+                return GL_LINEAR_MIPMAP_LINEAR;
+            case FO_POINT:
+                // linear min, point mip
+                return GL_LINEAR_MIPMAP_NEAREST;
+            case FO_NONE:
+                // linear min, no mip
+                return GL_LINEAR;
+            }
+            break;
+        case FO_POINT:
+        case FO_NONE:
+            switch (mip)
+            {
+            case FO_ANISOTROPIC:
+            case FO_LINEAR:
+                // nearest min, linear mip
+                return GL_NEAREST_MIPMAP_LINEAR;
+            case FO_POINT:
+                // nearest min, point mip
+                return GL_NEAREST_MIPMAP_NEAREST;
+            case FO_NONE:
+                // nearest min, no mip
+                return GL_NEAREST;
+            }
+            break;
+        }
+
+        // should never get here
+        return 0;
+    }
+
     GLRenderSystem::GLRenderSystem()
     :   mStopRendering(false),
         mFixedFunctionTextureUnits(0),
@@ -130,7 +172,7 @@ namespace Ogre {
         mRenderInstanceAttribsBound.reserve(100);
 
         // Get our GLSupport
-        mGLSupport = new GLSupport(getGLSupport(GLNativeSupport::CONTEXT_COMPATIBILITY));
+        mGLSupport = getGLSupport(GLNativeSupport::CONTEXT_COMPATIBILITY);
 
         for( i=0; i<MAX_LIGHTS; i++ )
             mLights[i] = NULL;
@@ -177,27 +219,6 @@ namespace Ogre {
         return strName;
     }
 
-    void GLRenderSystem::initConfigOptions(void)
-    {
-        mGLSupport->addConfig();
-    }
-
-    ConfigOptionMap& GLRenderSystem::getConfigOptions(void)
-    {
-        return mGLSupport->getConfigOptions();
-    }
-
-    void GLRenderSystem::setConfigOption(const String &name, const String &value)
-    {
-        mGLSupport->setConfigOption(name, value);
-    }
-
-    String GLRenderSystem::validateConfigOptions(void)
-    {
-        // XXX Return an error string if something is invalid
-        return mGLSupport->validateConfig();
-    }
-
     RenderWindow* GLRenderSystem::_initialise(bool autoCreateWindow, const String& windowTitle)
     {
         mGLSupport->start();
@@ -209,7 +230,7 @@ namespace Ogre {
         if(autoCreateWindow) {
             uint w, h;
             bool fullscreen;
-            NameValuePairList misc = mGLSupport->parseOptions(w, h, fullscreen);
+            NameValuePairList misc = parseOptions(w, h, fullscreen);
             autoWindow = _createRenderWindow(windowTitle, w, h, fullscreen, &misc);
         }
 
@@ -440,7 +461,7 @@ namespace Ogre {
             rsc->addShaderProfile("gp4gp");
         }
 
-        if (mGLSupport->checkExtension("GL_ARB_get_program_binary"))
+        if (checkExtension("GL_ARB_get_program_binary"))
         {
             // states 3.0 here: http://developer.download.nvidia.com/opengl/specs/GL_ARB_get_program_binary.txt
             // but not here: http://www.opengl.org/sdk/docs/man4/xhtml/glGetProgramBinary.xml
@@ -537,7 +558,7 @@ namespace Ogre {
         }
 
         // Check GLSupport for PBuffer support
-        if(mGLSupport->supportsPBuffers())
+        if(GLEW_ARB_pixel_buffer_object || GLEW_EXT_pixel_buffer_object)
         {
             // Use PBuffers
             rsc->setCapability(RSC_HWRENDER_TO_TEXTURE);
@@ -550,7 +571,7 @@ namespace Ogre {
         rsc->setMaxPointSize(ps);
 
         // Vertex texture fetching
-        if (mGLSupport->checkExtension("GL_ARB_vertex_shader"))
+        if (checkExtension("GL_ARB_vertex_shader"))
         {
             GLint vUnits;
             glGetIntegerv(GL_MAX_VERTEX_TEXTURE_IMAGE_UNITS_ARB, &vUnits);
@@ -566,7 +587,7 @@ namespace Ogre {
         rsc->setCapability(RSC_MIPMAP_LOD_BIAS);
 
         // Alpha to coverage?
-        if (mGLSupport->checkExtension("GL_ARB_multisample"))
+        if (checkExtension("GL_ARB_multisample"))
         {
             // Alpha to coverage always 'supported' when MSAA is available
             // although card may ignore it if it doesn't specifically support A2C
@@ -578,6 +599,11 @@ namespace Ogre {
         {
             rsc->setCapability(RSC_ADVANCED_BLEND_OPERATIONS);
         }
+
+        GLfloat lineWidth[2] = {1, 1};
+        glGetFloatv(GL_ALIASED_LINE_WIDTH_RANGE, lineWidth);
+        if(lineWidth[1] != 1 && lineWidth[1] != lineWidth[0])
+            rsc->setCapability(RSC_WIDE_LINES);
 
         return rsc;
     }
@@ -961,20 +987,8 @@ namespace Ogre {
             // set up glew and GLSupport
             initialiseContext(win);
 
-            StringVector tokens = StringUtil::split(mGLSupport->getGLVersion(), ".");
-
-            if (!tokens.empty())
-            {
-                mDriverVersion.major = StringConverter::parseInt(tokens[0]);
-                if (tokens.size() > 1)
-                    mDriverVersion.minor = StringConverter::parseInt(tokens[1]);
-                if (tokens.size() > 2)
-                    mDriverVersion.release = StringConverter::parseInt(tokens[2]);
-            }
-            mDriverVersion.build = 0;
-
             const char* shadingLangVersion = (const char*)glGetString(GL_SHADING_LANGUAGE_VERSION);
-            tokens = StringUtil::split(shadingLangVersion, ". ");
+            StringVector tokens = StringUtil::split(shadingLangVersion, ". ");
             mNativeShadingLanguageVersion = (StringConverter::parseUnsignedInt(tokens[0]) * 100) + StringConverter::parseUnsignedInt(tokens[1]);
 
             // Initialise GL after the first window has been created
@@ -1074,7 +1088,7 @@ namespace Ogre {
             mCurrentContext->setCurrent();
 
         // Setup GLSupport
-        mGLSupport->initialiseExtensions();
+        initialiseExtensions();
 
         LogManager::getSingleton().logMessage("***************************");
         LogManager::getSingleton().logMessage("*** GL Renderer Started ***");
@@ -1390,6 +1404,12 @@ namespace Ogre {
 
         mStateCacheManager->setPointParameters(val, minSize, maxSize);
     }
+
+    void GLRenderSystem::_setLineWidth(float width)
+    {
+        glLineWidth(width);
+    }
+
     //---------------------------------------------------------------------
     void GLRenderSystem::_setPointSpritesEnabled(bool enabled)
     {
@@ -1406,8 +1426,6 @@ namespace Ogre {
             glTexEnvi(GL_POINT_SPRITE, GL_COORD_REPLACE,
                       enabled ? GL_TRUE : GL_FALSE);
         }
-        mStateCacheManager->activateGLTextureUnit(0);
-
     }
     //-----------------------------------------------------------------------------
     void GLRenderSystem::_setTexture(size_t stage, bool enabled, const TexturePtr &texPtr)
@@ -1454,12 +1472,62 @@ namespace Ogre {
                 }
                 glTexEnvf(GL_TEXTURE_ENV, GL_TEXTURE_ENV_MODE, GL_MODULATE);
             }
-            // bind zero texture
-            mStateCacheManager->bindGLTexture(GL_TEXTURE_2D, 0);
+        }
+    }
+
+    void GLRenderSystem::_setSampler(size_t unit, Sampler& sampler)
+    {
+        if (!mStateCacheManager->activateGLTextureUnit(unit))
+            return;
+
+        GLenum target = mTextureTypes[unit];
+
+        const Sampler::UVWAddressingMode& uvw = sampler.getAddressingMode();
+        mStateCacheManager->setTexParameteri(target, GL_TEXTURE_WRAP_S, getTextureAddressingMode(uvw.u));
+        mStateCacheManager->setTexParameteri(target, GL_TEXTURE_WRAP_T, getTextureAddressingMode(uvw.v));
+        mStateCacheManager->setTexParameteri(target, GL_TEXTURE_WRAP_R, getTextureAddressingMode(uvw.w));
+
+        if (uvw.u == TAM_BORDER || uvw.v == TAM_BORDER || uvw.w == TAM_BORDER)
+            glTexParameterfv( target, GL_TEXTURE_BORDER_COLOR, sampler.getBorderColour().ptr());
+
+        if (mCurrentCapabilities->hasCapability(RSC_MIPMAP_LOD_BIAS))
+        {
+            glTexEnvf(GL_TEXTURE_FILTER_CONTROL_EXT, GL_TEXTURE_LOD_BIAS_EXT, sampler.getMipmapBias());
         }
 
-        mStateCacheManager->activateGLTextureUnit(0);
+        if (mCurrentCapabilities->hasCapability(RSC_ANISOTROPY))
+            mStateCacheManager->setTexParameteri(
+                target, GL_TEXTURE_MAX_ANISOTROPY_EXT,
+                std::min<uint>(mCurrentCapabilities->getMaxSupportedAnisotropy(), sampler.getAnisotropy()));
+
+        if(GLEW_VERSION_2_0)
+        {
+            mStateCacheManager->setTexParameteri(target, GL_TEXTURE_COMPARE_MODE,
+                                                 sampler.getCompareEnabled() ? GL_COMPARE_REF_TO_TEXTURE
+                                                                             : GL_NONE);
+            if (sampler.getCompareEnabled())
+                mStateCacheManager->setTexParameteri(target, GL_TEXTURE_COMPARE_FUNC,
+                                                     convertCompareFunction(sampler.getCompareFunction()));
+        }
+
+        // Combine with existing mip filter
+        mStateCacheManager->setTexParameteri(
+            target, GL_TEXTURE_MIN_FILTER,
+            getCombinedMinMipFilter(sampler.getFiltering(FT_MIN), sampler.getFiltering(FT_MIP)));
+
+        switch (sampler.getFiltering(FT_MAG))
+        {
+        case FO_ANISOTROPIC: // GL treats linear and aniso the same
+        case FO_LINEAR:
+            mStateCacheManager->setTexParameteri(target, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+            break;
+        case FO_POINT:
+        case FO_NONE:
+            mStateCacheManager->setTexParameteri(target, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+            break;
+        }
     }
+
     //-----------------------------------------------------------------------------
     void GLRenderSystem::_setTextureCoordSet(size_t stage, size_t index)
     {
@@ -1610,11 +1678,10 @@ namespace Ogre {
         default:
             break;
         }
-        mStateCacheManager->activateGLTextureUnit(0);
     }
     //-----------------------------------------------------------------------------
     GLint GLRenderSystem::getTextureAddressingMode(
-        TextureUnitState::TextureAddressingMode tam) const
+        TextureAddressingMode tam) const
     {
         switch(tam)
         {
@@ -1631,7 +1698,7 @@ namespace Ogre {
 
     }
     //-----------------------------------------------------------------------------
-    void GLRenderSystem::_setTextureAddressingMode(size_t stage, const TextureUnitState::UVWAddressingMode& uvw)
+    void GLRenderSystem::_setTextureAddressingMode(size_t stage, const Sampler::UVWAddressingMode& uvw)
     {
         if (!mStateCacheManager->activateGLTextureUnit(stage))
             return;
@@ -1641,7 +1708,6 @@ namespace Ogre {
                          getTextureAddressingMode(uvw.v));
         mStateCacheManager->setTexParameteri( mTextureTypes[stage], GL_TEXTURE_WRAP_R,
                          getTextureAddressingMode(uvw.w));
-        mStateCacheManager->activateGLTextureUnit(0);
     }
     //-----------------------------------------------------------------------------
     void GLRenderSystem::_setTextureBorderColour(size_t stage, const ColourValue& colour)
@@ -1650,7 +1716,6 @@ namespace Ogre {
         if (mStateCacheManager->activateGLTextureUnit(stage))
         {
             glTexParameterfv( mTextureTypes[stage], GL_TEXTURE_BORDER_COLOR, border);
-            mStateCacheManager->activateGLTextureUnit(0);
         }
     }
     //-----------------------------------------------------------------------------
@@ -1661,7 +1726,6 @@ namespace Ogre {
             if (mStateCacheManager->activateGLTextureUnit(stage))
             {
                 glTexEnvf(GL_TEXTURE_FILTER_CONTROL_EXT, GL_TEXTURE_LOD_BIAS_EXT, bias);
-                    mStateCacheManager->activateGLTextureUnit(0);
             }
         }
     }
@@ -1691,7 +1755,6 @@ namespace Ogre {
         }
 
         glMatrixMode(GL_MODELVIEW);
-        mStateCacheManager->activateGLTextureUnit(0);
     }
     //-----------------------------------------------------------------------------
     GLint GLRenderSystem::getBlendMode(SceneBlendFactor ogreBlend) const
@@ -2204,49 +2267,6 @@ namespace Ogre {
         return SOP_KEEP;
     }
     //---------------------------------------------------------------------
-    GLuint GLRenderSystem::getCombinedMinMipFilter(void) const
-    {
-        switch(mMinFilter)
-        {
-        case FO_ANISOTROPIC:
-        case FO_LINEAR:
-            switch(mMipFilter)
-            {
-            case FO_ANISOTROPIC:
-            case FO_LINEAR:
-                // linear min, linear mip
-                return GL_LINEAR_MIPMAP_LINEAR;
-            case FO_POINT:
-                // linear min, point mip
-                return GL_LINEAR_MIPMAP_NEAREST;
-            case FO_NONE:
-                // linear min, no mip
-                return GL_LINEAR;
-            }
-            break;
-        case FO_POINT:
-        case FO_NONE:
-            switch(mMipFilter)
-            {
-            case FO_ANISOTROPIC:
-            case FO_LINEAR:
-                // nearest min, linear mip
-                return GL_NEAREST_MIPMAP_LINEAR;
-            case FO_POINT:
-                // nearest min, point mip
-                return GL_NEAREST_MIPMAP_NEAREST;
-            case FO_NONE:
-                // nearest min, no mip
-                return GL_NEAREST;
-            }
-            break;
-        }
-
-        // should never get here
-        return 0;
-
-    }
-    //---------------------------------------------------------------------
     void GLRenderSystem::_setTextureUnitFiltering(size_t unit,
                                                   FilterType ftype, FilterOptions fo)
     {
@@ -2260,7 +2280,7 @@ namespace Ogre {
             mStateCacheManager->setTexParameteri(
                 mTextureTypes[unit],
                 GL_TEXTURE_MIN_FILTER,
-                getCombinedMinMipFilter());
+                getCombinedMinMipFilter(mMinFilter, mMipFilter));
             break;
         case FT_MAG:
             switch (fo)
@@ -2287,21 +2307,30 @@ namespace Ogre {
             mStateCacheManager->setTexParameteri(
                 mTextureTypes[unit],
                 GL_TEXTURE_MIN_FILTER,
-                getCombinedMinMipFilter());
+                getCombinedMinMipFilter(mMinFilter, mMipFilter));
             break;
         }
-
-        mStateCacheManager->activateGLTextureUnit(0);
     }
     //---------------------------------------------------------------------
     void GLRenderSystem::_setTextureUnitCompareFunction(size_t unit, CompareFunction function)
     {
-        //TODO: implement (opengl 3 only?)
+        if (!mStateCacheManager->activateGLTextureUnit(unit) || !GLEW_VERSION_2_0)
+            return;
+
+        mStateCacheManager->setTexParameteri(mTextureTypes[unit],
+                                            GL_TEXTURE_COMPARE_FUNC,
+                                            convertCompareFunction(function));
     }
     //---------------------------------------------------------------------
     void GLRenderSystem::_setTextureUnitCompareEnabled(size_t unit, bool compare)
     {
-        //TODO: implement (opengl 3 only?)
+        // actually ARB_shadow would be enough..
+        if (!mStateCacheManager->activateGLTextureUnit(unit) || !GLEW_VERSION_2_0)
+            return;
+
+        mStateCacheManager->setTexParameteri(mTextureTypes[unit],
+                                            GL_TEXTURE_COMPARE_MODE,
+                                            compare ? GL_COMPARE_REF_TO_TEXTURE : GL_NONE);
     }
     //---------------------------------------------------------------------
     void GLRenderSystem::_setTextureLayerAnisotropy(size_t unit, unsigned int maxAnisotropy)
@@ -2317,8 +2346,6 @@ namespace Ogre {
             maxAnisotropy = largest_supported_anisotropy ?
                 static_cast<uint>(largest_supported_anisotropy) : 1;
         glTexParameterf(mTextureTypes[unit], GL_TEXTURE_MAX_ANISOTROPY_EXT, maxAnisotropy);
-
-        mStateCacheManager->activateGLTextureUnit(0);
     }
     //-----------------------------------------------------------------------------
     void GLRenderSystem::_setTextureBlendMode(size_t stage, const LayerBlendModeEx& bm)
@@ -2535,8 +2562,6 @@ namespace Ogre {
             glTexEnvfv(GL_TEXTURE_ENV, GL_TEXTURE_ENV_COLOR, cv1);
         if (bm.source2 == LBS_MANUAL)
             glTexEnvfv(GL_TEXTURE_ENV, GL_TEXTURE_ENV_COLOR, cv2);
-
-        mStateCacheManager->activateGLTextureUnit(0);
     }
     //---------------------------------------------------------------------
     void GLRenderSystem::setGLLightPositionDirection(Light* lt, GLenum lightindex)
@@ -2623,25 +2648,39 @@ namespace Ogre {
 
         // Find the correct type to render
         GLint primType;
-        //Use adjacency if there is a geometry program and it requested adjacency info
-        bool useAdjacency = (mGeometryProgramBound && mCurrentGeometryProgram && mCurrentGeometryProgram->isAdjacencyInfoRequired());
-        switch (op.operationType)
+        int operationType = op.operationType;
+        // Use adjacency if there is a geometry program and it requested adjacency info
+        if(mGeometryProgramBound && mCurrentGeometryProgram && mCurrentGeometryProgram->isAdjacencyInfoRequired())
+            operationType |= RenderOperation::OT_DETAIL_ADJACENCY_BIT;
+        switch (operationType)
         {
         case RenderOperation::OT_POINT_LIST:
             primType = GL_POINTS;
             break;
         case RenderOperation::OT_LINE_LIST:
-            primType = useAdjacency ? GL_LINES_ADJACENCY_EXT : GL_LINES;
+            primType = GL_LINES;
+            break;
+        case RenderOperation::OT_LINE_LIST_ADJ:
+            primType = GL_LINES_ADJACENCY_EXT;
             break;
         case RenderOperation::OT_LINE_STRIP:
-            primType = useAdjacency ? GL_LINE_STRIP_ADJACENCY_EXT : GL_LINE_STRIP;
+            primType = GL_LINE_STRIP;
+            break;
+        case RenderOperation::OT_LINE_STRIP_ADJ:
+            primType = GL_LINE_STRIP_ADJACENCY_EXT;
             break;
         default:
         case RenderOperation::OT_TRIANGLE_LIST:
-            primType = useAdjacency ? GL_TRIANGLES_ADJACENCY_EXT : GL_TRIANGLES;
+            primType = GL_TRIANGLES;
+            break;
+        case RenderOperation::OT_TRIANGLE_LIST_ADJ:
+            primType = GL_TRIANGLES_ADJACENCY_EXT;
             break;
         case RenderOperation::OT_TRIANGLE_STRIP:
-            primType = useAdjacency ? GL_TRIANGLE_STRIP_ADJACENCY_EXT : GL_TRIANGLE_STRIP;
+            primType = GL_TRIANGLE_STRIP;
+            break;
+        case RenderOperation::OT_TRIANGLE_STRIP_ADJ:
+            primType = GL_TRIANGLE_STRIP_ADJACENCY_EXT;
             break;
         case RenderOperation::OT_TRIANGLE_FAN:
             primType = GL_TRIANGLE_FAN;
@@ -3100,7 +3139,7 @@ namespace Ogre {
 
         // Check for FSAA
         // Enable the extension if it was enabled by the GLSupport
-        if (mGLSupport->checkExtension("GL_ARB_multisample"))
+        if (checkExtension("GL_ARB_multisample"))
         {
             int fsaa_active = false;
             glGetIntegerv(GL_SAMPLE_BUFFERS_ARB,(GLint*)&fsaa_active);
@@ -3111,7 +3150,7 @@ namespace Ogre {
             }            
         }
 
-		if (mGLSupport->checkExtension("GL_ARB_seamless_cube_map"))
+		if (checkExtension("GL_ARB_seamless_cube_map"))
 		{
             // Enable seamless cube maps
             glEnable(GL_TEXTURE_CUBE_MAP_SEAMLESS);
@@ -3544,4 +3583,40 @@ namespace Ogre {
         PixelUtil::bulkPixelVerticalFlip(dst);
     }
 	//---------------------------------------------------------------------
+    void GLRenderSystem::initialiseExtensions(void)
+    {
+        // Set version string
+        const GLubyte* pcVer = glGetString(GL_VERSION);
+        assert(pcVer && "Problems getting GL version string using glGetString");
+
+        String tmpStr = (const char*)pcVer;
+        mDriverVersion.fromString(tmpStr.substr(0, tmpStr.find(' ')));
+        LogManager::getSingleton().logMessage("GL_VERSION = " + mDriverVersion.toString());
+
+        // Get vendor
+        const GLubyte* pcVendor = glGetString(GL_VENDOR);
+        tmpStr = (const char*)pcVendor;
+        LogManager::getSingleton().logMessage("GL_VENDOR = " + tmpStr);
+        mVendor = tmpStr.substr(0, tmpStr.find(' '));
+
+        // Get renderer
+        const GLubyte* pcRenderer = glGetString(GL_RENDERER);
+        tmpStr = (const char*)pcRenderer;
+        LogManager::getSingleton().logMessage("GL_RENDERER = " + tmpStr);
+
+        // Set extension list
+        StringStream ext;
+        String str;
+
+        const GLubyte* pcExt = glGetString(GL_EXTENSIONS);
+        assert(pcExt && "Problems getting GL extension string using glGetString");
+        LogManager::getSingleton().logMessage("GL_EXTENSIONS = " + String((const char*)pcExt));
+
+        ext << pcExt;
+
+        while(ext >> str)
+        {
+            mExtensionList.insert(str);
+        }
+    }
 }

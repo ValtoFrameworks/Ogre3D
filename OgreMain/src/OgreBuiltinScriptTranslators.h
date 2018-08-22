@@ -62,12 +62,7 @@ namespace Ogre{
         PassTranslator();
         void translate(ScriptCompiler *compiler, const AbstractNodePtr &node);
     protected:
-        void translateVertexProgramRef(ScriptCompiler *compiler, ObjectAbstractNode *node);
-        void translateGeometryProgramRef(ScriptCompiler *compiler, ObjectAbstractNode *node);
-        void translateFragmentProgramRef(ScriptCompiler *compiler, ObjectAbstractNode *node);
-        void translateTessellationHullProgramRef(ScriptCompiler *compiler, ObjectAbstractNode *node);
-        void translateTessellationDomainProgramRef(ScriptCompiler *compiler, ObjectAbstractNode *node);
-        void translateComputeProgramRef(ScriptCompiler *compiler, ObjectAbstractNode *node);
+        void translateProgramRef(GpuProgramType type, ScriptCompiler *compiler, ObjectAbstractNode *node);
         void translateShadowCasterVertexProgramRef(ScriptCompiler *compiler, ObjectAbstractNode *node);
         void translateShadowCasterFragmentProgramRef(ScriptCompiler *compiler, ObjectAbstractNode *node);
         void translateShadowReceiverVertexProgramRef(ScriptCompiler *compiler, ObjectAbstractNode *node);
@@ -80,6 +75,12 @@ namespace Ogre{
         TextureUnitState *mUnit;
     public:
         TextureUnitTranslator();
+        void translate(ScriptCompiler *compiler, const AbstractNodePtr &node);
+    };
+
+    struct SamplerTranslator : public ScriptTranslator
+    {
+        static void translateSamplerParam(ScriptCompiler *compiler, const SamplerPtr& sampler, PropertyAbstractNode* node);
         void translate(ScriptCompiler *compiler, const AbstractNodePtr &node);
     };
 
@@ -174,7 +175,6 @@ namespace Ogre{
         CompositionPassTranslator();
         void translate(ScriptCompiler *compiler, const AbstractNodePtr &node);
     };
-
     /**************************************************************************
      * BuiltinScriptTranslatorManager
      *************************************************************************/
@@ -186,6 +186,7 @@ namespace Ogre{
         TechniqueTranslator mTechniqueTranslator;
         PassTranslator mPassTranslator;
         TextureUnitTranslator mTextureUnitTranslator;
+        SamplerTranslator mSamplerTranslator;
         TextureSourceTranslator mTextureSourceTranslator;
         GpuProgramTranslator mGpuProgramTranslator;
         SharedParamsTranslator mSharedParamsTranslator;

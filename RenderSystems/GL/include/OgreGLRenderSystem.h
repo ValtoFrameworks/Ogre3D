@@ -84,13 +84,11 @@ namespace Ogre {
         /// Number of fixed-function texture units
         unsigned short mFixedFunctionTextureUnits;
 
-        void initConfigOptions(void);
-
         void setGLLight(size_t index, Light* lt);
         void makeGLMatrix(GLfloat gl_matrix[16], const Matrix4& m);
  
         GLint getBlendMode(SceneBlendFactor ogreBlend) const;
-        GLint getTextureAddressingMode(TextureUnitState::TextureAddressingMode tam) const;
+        GLint getTextureAddressingMode(TextureAddressingMode tam) const;
                 void initialiseContext(RenderWindow* primary);
 
         void setLights();
@@ -109,10 +107,7 @@ namespace Ogre {
 
         GLint convertCompareFunction(CompareFunction func) const;
         GLint convertStencilOp(StencilOperation op, bool invert = false) const;
-        
-        /// GL support class, used for creating windows etc.
-        GLSupport* mGLSupport;
-        
+
         /// Internal method to set pos / direction of a light
         void setGLLightPositionDirection(Light* lt, GLenum lightindex);
 
@@ -127,8 +122,6 @@ namespace Ogre {
         GLSL::GLSLProgramFactory* mGLSLProgramFactory;
 
         unsigned short mCurrentLights;
-
-        GLuint getCombinedMinMipFilter(void) const;
 
         GLGpuProgram* mCurrentVertexProgram;
         GLGpuProgram* mCurrentFragmentProgram;
@@ -166,6 +159,11 @@ namespace Ogre {
         void bindVertexElementToGpu(const VertexElement& elem,
                                     const HardwareVertexBufferSharedPtr& vertexBuffer,
                                     const size_t vertexStart);
+
+        /** Initialises GL extensions, must be done AFTER the GL context has been
+            established.
+        */
+        void initialiseExtensions();
     public:
         // Default constructor / destructor
         GLRenderSystem();
@@ -176,13 +174,6 @@ namespace Ogre {
         // ----------------------------------
 
         const String& getName(void) const;
-
-
-        ConfigOptionMap& getConfigOptions(void);
-
-        void setConfigOption(const String &name, const String &value);
-
-        String validateConfigOptions(void);
 
         RenderWindow* _initialise(bool autoCreateWindow, const String& windowTitle = "OGRE Render Window");
 
@@ -243,9 +234,13 @@ namespace Ogre {
         void _setPointParameters(Real size, bool attenuationEnabled, 
             Real constant, Real linear, Real quadratic, Real minSize, Real maxSize);
 
+        void _setLineWidth(float width);
+
         void _setPointSpritesEnabled(bool enabled);
 
         void _setTexture(size_t unit, bool enabled, const TexturePtr &tex);
+
+        void _setSampler(size_t unit, Sampler& sampler);
 
         void _setTextureCoordSet(size_t stage, size_t index);
 
@@ -254,7 +249,7 @@ namespace Ogre {
 
         void _setTextureBlendMode(size_t stage, const LayerBlendModeEx& bm);
 
-        void _setTextureAddressingMode(size_t stage, const TextureUnitState::UVWAddressingMode& uvw);
+        void _setTextureAddressingMode(size_t stage, const Sampler::UVWAddressingMode& uvw);
 
         void _setTextureBorderColour(size_t stage, const ColourValue& colour);
 
@@ -343,7 +338,6 @@ namespace Ogre {
         void unregisterThread();
         void preExtraThreadsStarted();
         void postExtraThreadsStarted();
-        GLSupport* getGLSupportRef() { return mGLSupport; }
 
         // ----------------------------------
         // GLRenderSystem specific members

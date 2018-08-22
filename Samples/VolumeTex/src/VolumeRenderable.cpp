@@ -27,11 +27,11 @@ using namespace Ogre;
 
 VolumeRenderable::VolumeRenderable(size_t nSlices, float size, const String &texture):
     mSlices(nSlices),
-    mSize(size),
+    mSize(size/2),
     mTexture(texture)
 {
-    mRadius = sqrtf(size*size+size*size+size*size)/2.0f;
-    mBox = Ogre::AxisAlignedBox(-size, -size, -size, size, size, size);
+    mBox = Ogre::AxisAlignedBox(-mSize, -mSize, -mSize, mSize, mSize, mSize);
+    mRadius = mBox.getMaximum().length();
     
     // No shadows
     setCastShadows(false);
@@ -76,10 +76,13 @@ void VolumeRenderable::_notifyCurrentCamera( Camera* cam )
     rotMat = tempMat;
     rotMat.setTrans(Vector3(0.5f, 0.5f, 0.5f));
 
-    // RTSS creates and switches to a second technique
-    Pass* pass = mMaterial->getTechniques().size() == 1 ? mMaterial->getTechnique(0)->getPass(0)
-                                                        : mMaterial->getBestTechnique()->getPass(0);
-    pass->getTextureUnitState(0)->setTextureTransform(rotMat);
+    Technique* tech = mMaterial->getBestTechnique();
+
+    // set the texture transform anyway, so the RTSS picks it up when it runs
+    if(!tech)
+        tech = mMaterial->getTechniques().front();
+
+    tech->getPass(0)->getTextureUnitState(0)->setTextureTransform(rotMat);
 }
 
 
@@ -129,9 +132,9 @@ void VolumeRenderable::initialise()
             float zcoord = -((float)x/(float)(mSlices-1)  - 0.5f);
             // 1.0f .. a/(a+1)
             // coordinate
-            vertices[x*4*elemsize+y*elemsize+0] = xcoord*(mSize/2.0f);
-            vertices[x*4*elemsize+y*elemsize+1] = ycoord*(mSize/2.0f);
-            vertices[x*4*elemsize+y*elemsize+2] = zcoord*(mSize/2.0f);
+            vertices[x*4*elemsize+y*elemsize+0] = xcoord*mSize;
+            vertices[x*4*elemsize+y*elemsize+1] = ycoord*mSize;
+            vertices[x*4*elemsize+y*elemsize+2] = zcoord*mSize;
             // normal
             vertices[x*4*elemsize+y*elemsize+3] = 0.0f;
             vertices[x*4*elemsize+y*elemsize+4] = 0.0f;
@@ -229,13 +232,6 @@ Ogre::Real VolumeRenderable::getBoundingRadius() const
 }
 Ogre::Real VolumeRenderable::getSquaredViewDepth(const Ogre::Camera* cam) const
 {
-    Ogre::Vector3 min, max, mid, dist;
-
-    min = mBox.getMinimum();
-    max = mBox.getMaximum();
-    mid = ((min - max) * 0.5) + min;
-    dist = cam->getDerivedPosition() - mid;
-                                                                        
-    return dist.squaredLength();
+    return (cam->getDerivedPosition() - mBox.getCenter()).squaredLength();
 }
 

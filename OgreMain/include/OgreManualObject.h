@@ -45,16 +45,16 @@ namespace Ogre
     */
     /** Class providing a much simplified interface to generating manual
         objects with custom geometry.
-    @remarks
+
         Building one-off geometry objects manually usually requires getting
         down and dirty with the vertex buffer and vertex declaration API, 
         which some people find a steep learning curve. This class gives you 
         a simpler interface specifically for the purpose of building a 
         3D object simply and quickly. Note that if you intend to instance your
         object you will still need to become familiar with the Mesh class. 
-    @par
+
         This class draws heavily on the interface for OpenGL 
-        immediate-mode (glBegin, glVertex, glNormal etc), since this
+        immediate-mode (@c glBegin, @c glVertex, @c glNormal etc), since this
         is generally well-liked by people. There are a couple of differences
         in the results though - internally this class still builds hardware 
         buffers which can be re-used, so you can render the resulting object
@@ -63,10 +63,10 @@ namespace Ogre
         all OGRE objects. This makes this object more efficient than the 
         equivalent GL immediate-mode commands, so it's feasible to use it for
         large objects if you really want to.
-    @par
+
         To construct some geometry with this object:
           -# If you know roughly how many vertices (and indices, if you use them)
-             you're going to submit, call estimateVertexCount and estimateIndexCount.
+             you're going to submit, call estimateVertexCount() and estimateIndexCount().
              This is not essential but will make the process more efficient by saving
              memory reallocations.
           -# Call begin() to begin entering data
@@ -91,14 +91,14 @@ namespace Ogre
         MovableObject you should attach the object to a SceneNode to make it 
         visible. Other aspects like the relative render order can be controlled
         using standard MovableObject methods like setRenderQueueGroup.
-    @par
+
         You can also use beginUpdate() to alter the geometry later on if you wish.
         If you do this, you should call setDynamic(true) before your first call 
-        to begin(), and also consider using estimateVertexCount / estimateIndexCount
+        to begin(), and also consider using estimateVertexCount() / estimateIndexCount()
         if your geometry is going to be growing, to avoid buffer recreation during
         growth.
-    @par
-        Note that like all OGRE geometry, triangles should be specified in 
+
+        @note like all OGRE geometry, triangles should be specified in 
         anti-clockwise winding order (whether you're doing it with just
         vertices, or using indexes too). That is to say that the front of the
         face is the one where the vertices are listed in anti-clockwise order.
@@ -184,7 +184,7 @@ namespace Ogre
         */
         virtual void position(const Vector3& pos);
         /// @overload
-        virtual void position(Real x, Real y, Real z);
+        virtual void position(float x, float y, float z);
 
         /** Add a vertex normal to the current vertex.
         @remarks
@@ -193,7 +193,7 @@ namespace Ogre
         */
         virtual void normal(const Vector3& norm);
         /// @overload
-        virtual void normal(Real x, Real y, Real z);
+        virtual void normal(float x, float y, float z);
 
         /** Add a vertex tangent to the current vertex.
         @remarks
@@ -204,7 +204,7 @@ namespace Ogre
         */
         virtual void tangent(const Vector3& tan);
         /// @overload
-        virtual void tangent(Real x, Real y, Real z);
+        virtual void tangent(float x, float y, float z);
 
         /** Add a texture coordinate to the current vertex.
         @remarks
@@ -214,13 +214,13 @@ namespace Ogre
             most common. There are several versions of this method for the 
             variations in number of dimensions.
         */
-        virtual void textureCoord(Real u);
+        virtual void textureCoord(float u);
         /// @overload
-        virtual void textureCoord(Real u, Real v);
+        virtual void textureCoord(float u, float v);
         /// @overload
-        virtual void textureCoord(Real u, Real v, Real w);
+        virtual void textureCoord(float u, float v, float w);
         /// @overload
-        virtual void textureCoord(Real x, Real y, Real z, Real w);
+        virtual void textureCoord(float x, float y, float z, float w);
         /// @overload
         virtual void textureCoord(const Vector2& uv);
         /// @overload
@@ -232,7 +232,7 @@ namespace Ogre
         */
         virtual void colour(const ColourValue& col);
         /// @overload
-        virtual void colour(Real r, Real g, Real b, Real a = 1.0f);
+        virtual void colour(float r, float g, float b, float a = 1.0f);
 
         /** Add a vertex index to construct faces / lines / points via indexing
             rather than just by a simple list of vertices. 

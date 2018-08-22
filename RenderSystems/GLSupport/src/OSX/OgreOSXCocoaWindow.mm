@@ -280,7 +280,7 @@ namespace Ogre {
 
         if(miscParams && opt != miscParams->end())
         {
-            NSOpenGLContext *openGLContext = (NSOpenGLContext*)StringConverter::parseUnsignedLong(opt->second);
+            NSOpenGLContext *openGLContext = (NSOpenGLContext*)StringConverter::parseSizeT(opt->second);
             mGLContext = openGLContext;
         }
         else
@@ -313,7 +313,7 @@ namespace Ogre {
         }
         else
         {
-            NSObject* externalHandle = (NSObject*)StringConverter::parseUnsignedLong(opt->second);
+            NSObject* externalHandle = (NSObject*)StringConverter::parseSizeT(opt->second);
             if([externalHandle isKindOfClass:[NSWindow class]])
             {
                 mView = [(NSWindow*)externalHandle contentView];
@@ -386,16 +386,18 @@ namespace Ogre {
     unsigned int CocoaWindow::getWidth() const
     {
         // keep mWidth in sync with reality
-        assert(mView == nil || int(mWidth) == _getPixelFromPoint([mView frame].size.width));
-        
+        OgreAssertDbg(mView == nil || int(mWidth) == _getPixelFromPoint([mView frame].size.width),
+                      "Window dimension mismatch. Did you call windowMovedOrResized?");
+
         return mWidth;
     }
 
     unsigned int CocoaWindow::getHeight() const
     {
         // keep mHeight in sync with reality
-        assert(mView == nil || int(mHeight) == _getPixelFromPoint([mView frame].size.height));
-        
+        OgreAssertDbg(mView == nil || int(mHeight) == _getPixelFromPoint([mView frame].size.height),
+                      "Window dimension mismatch. Did you call windowMovedOrResized?");
+
         return mHeight;
     }
 

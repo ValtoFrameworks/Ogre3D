@@ -68,9 +68,6 @@ namespace Ogre
 
         /// Direct3D rendering device
         D3D11Device     mDevice;
-        
-        // Stored options
-        ConfigOptionMap mOptions;
 
         /// List of D3D drivers installed (video cards)
         D3D11DriverList* mDriverList;
@@ -172,8 +169,6 @@ namespace Ogre
         {
             /// the type of the texture
             TextureType type;
-            /// which texCoordIndex to use
-            size_t coordIndex;
 
             /// texture 
             ID3D11ShaderResourceView  *pTex;
@@ -228,7 +223,6 @@ namespace Ogre
         virtual void initConfigOptions(void);
 
         // Overridden RenderSystem functions
-        ConfigOptionMap& getConfigOptions(void);
         String validateConfigOptions(void);
         RenderWindow* _initialise( bool autoCreateWindow, const String& windowTitle = "OGRE Render Window"  );
         /// @copydoc RenderSystem::_createRenderWindow
@@ -287,8 +281,8 @@ namespace Ogre
         D3D11HLSLProgram* _getBoundTessellationDomainProgram() const;
         D3D11HLSLProgram* _getBoundComputeProgram() const;
         void _setTexture(size_t unit, bool enabled, const TexturePtr &texPtr);
-        void _setTextureCoordSet( size_t unit, size_t index );
-        void _setTextureAddressingMode(size_t stage, const TextureUnitState::UVWAddressingMode& uvw);
+        void _setSampler(size_t unit, Sampler& sampler);
+        void _setTextureAddressingMode(size_t stage, const Sampler::UVWAddressingMode& uvw);
         void _setTextureBorderColour(size_t stage, const ColourValue& colour);
         void _setTextureMipmapBias(size_t unit, float bias);
         void _setSceneBlending(SceneBlendFactor sourceFactor, SceneBlendFactor destFactor, SceneBlendOperation op = SBO_ADD);

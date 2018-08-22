@@ -438,11 +438,11 @@ namespace Ogre {
             24, 16, 8, 0
         },
         //-----------------------------------------------------------------------
-        {"PF_DEPTH",
+        {"PF_DEPTH16",
             /* Bytes per element */
             2,
             /* Flags */
-            PFF_LUMINANCE | PFF_DEPTH,
+            PFF_LUMINANCE | PFF_DEPTH | PFF_NATIVEENDIAN,
             /* Component type and count */
             PCT_SHORT, 1,
             /* rbits, gbits, bbits, abits */

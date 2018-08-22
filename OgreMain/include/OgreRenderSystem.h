@@ -151,7 +151,7 @@ namespace Ogre
         A 'map' of options, i.e. a list of options which is also
         indexed by option name.
         */
-        virtual ConfigOptionMap& getConfigOptions(void) = 0;
+        ConfigOptionMap& getConfigOptions() { return mOptions; }
 
         /** Sets an option for this API
         @remarks
@@ -450,6 +450,8 @@ namespace Ogre
         unit, thus minimising render state changes.
         */
         virtual void _setTextureUnitSettings(size_t texUnit, TextureUnitState& tl);
+        /// set the sampler settings for the given texture unit
+        virtual void _setSampler(size_t texUnit, Sampler& s) = 0;
         OGRE_DEPRECATED virtual void _setBindingType(TextureUnitState::BindingType bindigType) {}
         /** Turns off a texture unit. */
         virtual void _disableTextureUnit(size_t texUnit);
@@ -516,6 +518,11 @@ namespace Ogre
         virtual void _setPointParameters(Real size, bool attenuationEnabled, 
             Real constant, Real linear, Real quadratic, Real minSize, Real maxSize) {};
 
+        /**
+         * Set the line width when drawing as RenderOperation::OT_LINE_LIST/ RenderOperation::OT_LINE_STRIP
+         * @param width only value of 1.0 might be supported. Check for RSC_WIDE_LINES.
+         */
+        virtual void _setLineWidth(float width) {};
 
         /**
         Sets the texture to bind to a given texture unit.
@@ -552,8 +559,9 @@ namespace Ogre
 
         @param unit Texture unit as above
         @param index The index of the texture coordinate set to use.
+        @deprecated only needed for fixed function APIs
         */
-        virtual void _setTextureCoordSet(size_t unit, size_t index) = 0;
+        virtual void _setTextureCoordSet(size_t unit, size_t index) {}
 
         /**
         Sets a method for automatically calculating texture coordinates for a stage.
@@ -609,7 +617,7 @@ namespace Ogre
         virtual void _setTextureLayerAnisotropy(size_t unit, unsigned int maxAnisotropy) = 0;
 
         /** Sets the texture addressing mode for a texture unit.*/
-        virtual void _setTextureAddressingMode(size_t unit, const TextureUnitState::UVWAddressingMode& uvw) = 0;
+        virtual void _setTextureAddressingMode(size_t unit, const Sampler::UVWAddressingMode& uvw) = 0;
 
         /** Sets the texture border colour for a texture unit.*/
         virtual void _setTextureBorderColour(size_t unit, const ColourValue& colour) = 0;
@@ -1441,8 +1449,10 @@ namespace Ogre
         bool mTexProjRelative;
         Vector3 mTexProjRelativeOrigin;
 
+        // Stored options
+        ConfigOptionMap mOptions;
 
-
+        virtual void initConfigOptions();
     };
     /** @} */
     /** @} */

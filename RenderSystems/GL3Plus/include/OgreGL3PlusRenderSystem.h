@@ -70,8 +70,6 @@ namespace Ogre {
 
         GLint mLargestSupportedAnisotropy;
 
-        void initConfigOptions(void);
-
         /// Store last colour write state
         bool mColourWrite[4];
 
@@ -86,9 +84,6 @@ namespace Ogre {
 
         /// Store last stencil mask state
         uint32 mStencilWriteMask;
-
-        /// GL support class, used for creating windows etc.
-        GL3PlusSupport *mGLSupport;
 
         typedef std::list<GL3PlusContext*> GL3PlusContextList;
         /// List of background thread contexts
@@ -123,8 +118,6 @@ namespace Ogre {
 		virtual bool setDrawBuffer(ColourBufferType colourBuffer);
 #endif
 
-        GLint getCombinedMinMipFilter(void) const;
-
         GLSLShader* mCurrentVertexShader;
         GLSLShader* mCurrentFragmentShader;
         GLSLShader* mCurrentGeometryShader;
@@ -132,13 +125,15 @@ namespace Ogre {
         GLSLShader* mCurrentDomainShader;
         GLSLShader* mCurrentComputeShader;
 
-        GLint getTextureAddressingMode(TextureUnitState::TextureAddressingMode tam) const;
         GLenum getBlendMode(SceneBlendFactor ogreBlend) const;
 
         void bindVertexElementToGpu(const VertexElement& elem,
                                     const HardwareVertexBufferSharedPtr& vertexBuffer,
                                     const size_t vertexStart);
-
+        /** Initialises GL extensions, must be done AFTER the GL context has been
+            established.
+        */
+        void initialiseExtensions();
     public:
         // Default constructor / destructor
         GL3PlusRenderSystem();
@@ -151,12 +146,6 @@ namespace Ogre {
         // ----------------------------------
 
         const String& getName(void) const;
-
-        ConfigOptionMap& getConfigOptions(void);
-
-        void setConfigOption(const String &name, const String &value);
-
-        String validateConfigOptions(void);
 
         RenderWindow* _initialise(bool autoCreateWindow, const String& windowTitle = "OGRE Render Window");
 
@@ -195,13 +184,15 @@ namespace Ogre {
 
         void _setTexture(size_t unit, bool enabled, const TexturePtr &tex);
 
-        void _setTextureCoordSet(size_t stage, size_t index);
+        void _setSampler(size_t unit, Sampler& sampler);
 
-        void _setTextureAddressingMode(size_t stage, const TextureUnitState::UVWAddressingMode& uvw);
+        void _setTextureAddressingMode(size_t stage, const Sampler::UVWAddressingMode& uvw);
 
         void _setTextureBorderColour(size_t stage, const ColourValue& colour);
 
         void _setTextureMipmapBias(size_t unit, float bias);
+
+        void _setLineWidth(float width);
 
         void _setViewport(Viewport *vp);
 
@@ -259,15 +250,11 @@ namespace Ogre {
         void preExtraThreadsStarted();
         void postExtraThreadsStarted();
         void setClipPlanesImpl(const Ogre::PlaneList& planeList);
-        GL3PlusSupport* getGLSupportRef() { return mGLSupport; }
 
 
         // ----------------------------------
         // GL3PlusRenderSystem specific members
         // ----------------------------------
-        bool hasMinGLVersion(int major, int minor) const;
-        bool checkExtension(const String& ext) const;
-
         GL3PlusStateCacheManager * _getStateCacheManager() { return mStateCacheManager; }
 
         /** Create VAO on current context */
@@ -300,8 +287,8 @@ namespace Ogre {
          */
         void _setRenderTarget(RenderTarget *target);
 
-        GLint convertCompareFunction(CompareFunction func) const;
-        GLint convertStencilOp(StencilOperation op, bool invert = false) const;
+        static GLint convertCompareFunction(CompareFunction func);
+        static GLint convertStencilOp(StencilOperation op, bool invert = false);
 
         void bindGpuProgram(GpuProgram* prg);
         void unbindGpuProgram(GpuProgramType gptype);

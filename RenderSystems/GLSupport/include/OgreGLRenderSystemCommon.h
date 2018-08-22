@@ -35,6 +35,7 @@ THE SOFTWARE.
 namespace Ogre {
     class GLContext;
     class GLSLProgramCommon;
+    class GLNativeSupport;
 
     class _OgreGLExport GLRenderSystemCommon : public RenderSystem
     {
@@ -44,7 +45,30 @@ namespace Ogre {
 
         /* The current GL context  - main thread only */
         GLContext* mCurrentContext;
+
+        // GL support class, used for creating windows etc.
+        GLNativeSupport* mGLSupport;
+
+        // This contains the complete list of supported extensions
+        std::set<String> mExtensionList;
+        String mVendor;
+
+        void initConfigOptions();
+        void refreshConfig();
+        NameValuePairList parseOptions(uint& w, uint& h, bool& fullscreen);
     public:
+        struct VideoMode {
+            uint32 width;
+            uint32 height;
+            int16 refreshRate;
+            uint8  bpp;
+
+            String getDescription() const;
+        };
+        typedef std::vector<VideoMode>    VideoModes;
+
+        void setConfigOption(const String &name, const String &value);
+
         virtual ~GLRenderSystemCommon() {}
 
         /** @copydoc RenderTarget::copyContentsToMemory */
@@ -56,6 +80,18 @@ namespace Ogre {
 
         /** Returns the current context */
         GLContext* _getCurrentContext() { return mCurrentContext; }
+
+        /**
+        * Check if GL Version is supported
+        */
+        bool hasMinGLVersion(int major, int minor) const;
+
+        /**
+        * Check if an extension is available
+        */
+        bool checkExtension(const String& ext) const;
+
+        String validateConfigOptions() { return BLANKSTRING; }
 
         /** Unregister a render target->context mapping. If the context of target
             is the current context, change the context to the main context so it

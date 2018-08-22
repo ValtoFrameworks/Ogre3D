@@ -135,7 +135,10 @@ namespace Ogre {
         , mHashDirtyQueued(false)
         , mSeparateBlend(false)
         , mSeparateBlendOperation(false)
-        , mColourWrite(true)
+        , mColourWriteR(true)
+        , mColourWriteG(true)
+        , mColourWriteB(true)
+        , mColourWriteA(true)
         , mDepthCheck(true)
         , mDepthWrite(true)
         , mAlphaToCoverageEnabled(false)
@@ -174,6 +177,7 @@ namespace Ogre {
         , mFogEnd(1.0)
         , mFogDensity(0.001)
         , mPassIterationCount(1)
+        , mLineWidth(1.0f)
         , mPointSize(1.0f)
         , mPointMinSize(0.0f)
         , mPointMaxSize(0.0f)
@@ -181,9 +185,6 @@ namespace Ogre {
     {
         mPointAttenuationCoeffs[0] = 1.0f;
         mPointAttenuationCoeffs[1] = mPointAttenuationCoeffs[2] = 0.0f;
-
-        // default name to index
-        mName = StringConverter::toString(mIndex);
 
         // init the hash inline
         _recalculateHash();
@@ -240,7 +241,10 @@ namespace Ogre {
         mAlphaToCoverageEnabled = oth.mAlphaToCoverageEnabled;
         mTransparentSorting = oth.mTransparentSorting;
         mTransparentSortingForced = oth.mTransparentSortingForced;
-        mColourWrite = oth.mColourWrite;
+        mColourWriteR = oth.mColourWriteR;
+        mColourWriteG = oth.mColourWriteG;
+        mColourWriteB = oth.mColourWriteB;
+        mColourWriteA = oth.mColourWriteA;
         mDepthFunc = oth.mDepthFunc;
         mDepthBiasConstant = oth.mDepthBiasConstant;
         mDepthBiasSlopeScale = oth.mDepthBiasSlopeScale;
@@ -259,6 +263,7 @@ namespace Ogre {
         mPolygonMode = oth.mPolygonMode;
         mPolygonModeOverrideable = oth.mPolygonModeOverrideable;
         mPassIterationCount = oth.mPassIterationCount;
+        mLineWidth = oth.mLineWidth;
         mPointSize = oth.mPointSize;
         mPointMinSize = oth.mPointMinSize;
         mPointMaxSize = oth.mPointMaxSize;
@@ -422,7 +427,7 @@ namespace Ogre {
         return mPointMaxSize;
     }
     //-----------------------------------------------------------------------
-    void Pass::setAmbient(Real red, Real green, Real blue)
+    void Pass::setAmbient(float red, float green, float blue)
     {
         mAmbient.r = red;
         mAmbient.g = green;
@@ -435,7 +440,7 @@ namespace Ogre {
         mAmbient = ambient;
     }
     //-----------------------------------------------------------------------
-    void Pass::setDiffuse(Real red, Real green, Real blue, Real alpha)
+    void Pass::setDiffuse(float red, float green, float blue, float alpha)
     {
         mDiffuse.r = red;
         mDiffuse.g = green;
@@ -448,7 +453,7 @@ namespace Ogre {
         mDiffuse = diffuse;
     }
     //-----------------------------------------------------------------------
-    void Pass::setSpecular(Real red, Real green, Real blue, Real alpha)
+    void Pass::setSpecular(float red, float green, float blue, float alpha)
     {
         mSpecular.r = red;
         mSpecular.g = green;
@@ -466,7 +471,7 @@ namespace Ogre {
         mShininess = val;
     }
     //-----------------------------------------------------------------------
-    void Pass::setSelfIllumination(Real red, Real green, Real blue)
+    void Pass::setSelfIllumination(float red, float green, float blue)
     {
         mEmissive.r = red;
         mEmissive.g = green;
@@ -559,9 +564,7 @@ namespace Ogre {
                     
                     // allow 8 digit hex number. there should never be that many texture units.
                     // This sprintf replaced a call to StringConverter::toString for performance reasons
-                    char buff[9] = {0};
-                    sprintf(buff, "%lx", static_cast<long>(idx));
-                    state->setName( buff );
+                    state->setName( StringUtil::format("%lx", static_cast<long>(idx)));
                     
                     /** since the name was never set and a default one has been made, clear the alias name
                      so that when the texture unit name is set by the user, the alias name will be set to
@@ -907,12 +910,32 @@ namespace Ogre {
     //-----------------------------------------------------------------------
     void Pass::setColourWriteEnabled(bool enabled)
     {
-        mColourWrite = enabled;
+        mColourWriteR = enabled;
+        mColourWriteG = enabled;
+        mColourWriteB = enabled;
+        mColourWriteA = enabled;
     }
     //-----------------------------------------------------------------------
-    bool Pass::getColourWriteEnabled(void) const
+    bool Pass::getColourWriteEnabled() const
     {
-        return mColourWrite;
+        return mColourWriteR || mColourWriteG || mColourWriteB || mColourWriteA;
+    }
+    //-----------------------------------------------------------------------
+
+    void Pass::setColourWriteEnabled(bool red, bool green, bool blue, bool alpha)
+    {
+        mColourWriteR = red;
+        mColourWriteG = green;
+        mColourWriteB = blue;
+        mColourWriteA = alpha;
+    }
+    //-----------------------------------------------------------------------
+    void Pass::getColourWriteEnabled(bool& red, bool& green, bool& blue, bool& alpha) const
+    {
+        red = mColourWriteR;
+        green = mColourWriteG;
+        blue = mColourWriteB;
+        alpha = mColourWriteA;
     }
     //-----------------------------------------------------------------------
     void Pass::setCullingMode( CullingMode mode)
@@ -1578,7 +1601,7 @@ namespace Ogre {
         // programs are expected to indicate they are ambient only by
         // setting the state so it matches one of the conditions above, even
         // though this state is not used in rendering.
-        return (!mLightingEnabled || !mColourWrite ||
+        return (!mLightingEnabled || !getColourWriteEnabled() ||
             (mDiffuse == ColourValue::Black &&
              mSpecular == ColourValue::Black));
     }

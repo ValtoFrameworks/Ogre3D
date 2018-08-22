@@ -151,11 +151,24 @@ namespace Ogre {
     
 	void EAGL2Window::windowMovedOrResized()
 	{
-		CGRect frame = [mView frame];
-        mWidth = _getPixelFromPoint(frame.size.width);
-        mHeight = _getPixelFromPoint(frame.size.height);
-        mLeft = _getPixelFromPoint(frame.origin.x);
-        mTop = _getPixelFromPoint(frame.origin.y + frame.size.height);
+        CGRect frame = [mView frame];
+        CGFloat width  = _getPixelFromPoint(frame.size.width);
+        CGFloat height = _getPixelFromPoint(frame.size.height);
+        CGFloat left   = _getPixelFromPoint(frame.origin.x);
+        CGFloat top    = _getPixelFromPoint(frame.origin.y);
+        
+        if(mWidth == width && mHeight == height && mLeft == left && mTop == top)
+            return;
+        
+        EAGLContextGuard ctx_guard(mContext->getContext());
+        mContext->destroyFramebuffer();
+
+        mWidth  = width;
+        mHeight = height;
+        mLeft   = left;
+        mTop    = top;
+
+        mContext->createFramebuffer();
 
         for (ViewportList::iterator it = mViewportList.begin(); it != mViewportList.end(); ++it)
         {
@@ -227,7 +240,7 @@ namespace Ogre {
             
             if ((option = miscParams->find("externalSharegroup")) != miscParams->end())
             {
-                group = (__bridge EAGLSharegroup *)(void*)StringConverter::parseUnsignedLong(option->second);
+                group = (__bridge EAGLSharegroup *)(void*)StringConverter::parseSizeT(option->second);
                 LogManager::getSingleton().logMessage("iOS: Using an external EAGLSharegroup");
             }
             else
@@ -288,14 +301,6 @@ namespace Ogre {
         mIsFullScreen = fullScreen;
         mName = name;
         
-        // Check the configuration. This may be overridden later by the value sent via miscParams
-        ConfigOptionMap::const_iterator configOpt;
-        ConfigOptionMap::const_iterator configEnd = mGLSupport->getConfigOptions().end();
-        if ((configOpt = mGLSupport->getConfigOptions().find("Content Scaling Factor")) != configEnd)
-        {
-            mContentScalingFactor = StringConverter::parseReal(configOpt->second.currentValue);
-        }
-
         if (miscParams)
         {
             NameValuePairList::const_iterator opt;
@@ -339,21 +344,21 @@ namespace Ogre {
 
             if ((opt = miscParams->find("externalWindowHandle")) != end)
             {
-                mWindow = (__bridge UIWindow *)(void*)StringConverter::parseUnsignedLong(opt->second);
+                mWindow = (__bridge UIWindow *)(void*)StringConverter::parseSizeT(opt->second);
                 mIsExternal = true;
                 LogManager::getSingleton().logMessage("iOS: Using an external window handle");
             }
         
             if ((opt = miscParams->find("externalViewHandle")) != end)
             {
-                mView = (__bridge EAGL2View *)(void*)StringConverter::parseUnsignedLong(opt->second);
+                mView = (__bridge EAGL2View *)(void*)StringConverter::parseSizeT(opt->second);
                 mUsingExternalView = true;
                 LogManager::getSingleton().logMessage("iOS: Using an external view handle");
             }
         
             if ((opt = miscParams->find("externalViewControllerHandle")) != end)
             {
-                mViewController = (__bridge EAGL2ViewController *)(void*)StringConverter::parseUnsignedLong(opt->second);
+                mViewController = (__bridge EAGL2ViewController *)(void*)StringConverter::parseSizeT(opt->second);
                 if(mViewController.view != nil)
                     mView = (EAGL2View *)mViewController.view;
                 mUsingExternalViewController = true;

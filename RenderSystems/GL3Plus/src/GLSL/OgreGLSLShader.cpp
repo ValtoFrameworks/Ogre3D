@@ -168,9 +168,10 @@ namespace Ogre {
                         break;
                     }
                 }
-                else if(mType == GPT_VERTEX_PROGRAM) // shaderVersion < 150, means we only have vertex shaders
+                else if(mType == GPT_VERTEX_PROGRAM && shaderVersion >= 130) // shaderVersion < 150, means we only have vertex shaders
                 {
-                    mSource.insert(belowVersionPos, "varying vec4 gl_Position;\nvarying float gl_PointSize;\nvarying "+clipDistDecl+"\n\n");
+                	// TODO: can we have SSO with GLSL < 130?
+                    mSource.insert(belowVersionPos, "out vec4 gl_Position;\nout float gl_PointSize;\nout "+clipDistDecl+"\n\n");
                 }
             }
         }
@@ -466,6 +467,11 @@ namespace Ogre {
             program->updateUniformBlocks(params, mask, mType);
             // program->updateShaderStorageBlock(params, mask, mType);
 
+        }
+        catch (InvalidParametersException& e)
+        {
+            LogManager::getSingleton().logError("binding shared parameters failed: " +
+                                                e.getDescription());
         }
         catch (Exception&) {}
     }
