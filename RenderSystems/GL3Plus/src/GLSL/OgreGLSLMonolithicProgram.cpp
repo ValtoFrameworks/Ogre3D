@@ -63,12 +63,14 @@ namespace Ogre {
     {
         if (!mLinked)
         {
+            uint32 hash = getCombinedHash();
+
             OGRE_CHECK_GL_ERROR(mGLProgramHandle = glCreateProgram());
 
             if ( GpuProgramManager::getSingleton().canGetCompiledShaderBuffer() &&
-                 GpuProgramManager::getSingleton().isMicrocodeAvailableInCache(getCombinedName()) )
+                 GpuProgramManager::getSingleton().isMicrocodeAvailableInCache(hash) )
             {
-                getMicrocodeFromCache();
+                getMicrocodeFromCache(hash);
             }
             else
             {
@@ -98,8 +100,9 @@ namespace Ogre {
         // attach remaining Programs
         for (auto shader : {mFragmentShader, mGeometryShader, mHullShader, mDomainShader, mComputeShader})
         {
-        	if(shader)
-        		shader->attachToProgramObject(mGLProgramHandle);
+        	if(!shader) continue;
+
+            shader->attachToProgramObject(mGLProgramHandle);
         }
 
         bindFixedAttributes(mGLProgramHandle);
@@ -121,8 +124,6 @@ namespace Ogre {
             if ( GpuProgramManager::getSingleton().getSaveMicrocodesToCache() )
             {
                 // add to the microcode to the cache
-                String name;
-                name = getCombinedName();
 
                 // get buffer size
                 GLint binaryLength = 0;
@@ -136,7 +137,7 @@ namespace Ogre {
                 OGRE_CHECK_GL_ERROR(glGetProgramBinary(mGLProgramHandle, binaryLength, NULL, (GLenum *)newMicrocode->getPtr(), newMicrocode->getPtr() + sizeof(GLenum)));
 
                 // add to the microcode to the cache
-                GpuProgramManager::getSingleton().addMicrocodeToCache(name, newMicrocode);
+                GpuProgramManager::getSingleton().addMicrocodeToCache(getCombinedHash(), newMicrocode);
             }
         }
     }
@@ -178,7 +179,7 @@ namespace Ogre {
         GLUniformReferenceIterator endUniform = mGLUniformReferences.end();
 
         // determine if we need to transpose matrices when binding
-        int transpose = GL_TRUE;
+        bool transpose = GL_TRUE;
         if ((fromProgType == GPT_FRAGMENT_PROGRAM && mVertexShader && (!getVertexShader()->getColumnMajorMatrices())) ||
             (fromProgType == GPT_VERTEX_PROGRAM && mFragmentShader && (!mFragmentShader->getColumnMajorMatrices())) ||
             (fromProgType == GPT_GEOMETRY_PROGRAM && mGeometryShader && (!mGeometryShader->getColumnMajorMatrices())) ||

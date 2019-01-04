@@ -39,6 +39,16 @@ namespace Ogre
     /** \addtogroup Math
     *  @{
     */
+
+    /** A pair structure where the first element indicates whether
+        an intersection occurs
+
+        if true, the second element will
+        indicate the distance along the ray at which it intersects.
+        This can be converted to a point in space by calling Ray::getPoint().
+     */
+    typedef std::pair<bool, Real> RayTestResult;
+
     /** Wrapper class which indicates a given angle value is in Radians.
     @remarks
         Radian values are interchangeable with Degree values, and conversions
@@ -247,8 +257,8 @@ namespace Ogre
         ~Math();
 
         static inline int IAbs (int iValue) { return ( iValue >= 0 ? iValue : -iValue ); }
-        static inline int ICeil (float fValue) { return int(ceil(fValue)); }
-        static inline int IFloor (float fValue) { return int(floor(fValue)); }
+        static inline int ICeil (float fValue) { return int(std::ceil(fValue)); }
+        static inline int IFloor (float fValue) { return int(std::floor(fValue)); }
         static int ISign (int iValue) {
             return ( iValue > 0 ? +1 : ( iValue < 0 ? -1 : 0 ) );
         }
@@ -257,19 +267,19 @@ namespace Ogre
             @param
                 fValue The value whose absolute value will be returned.
         */
-        static inline Real Abs (Real fValue) { return Real(fabs(fValue)); }
+        static inline Real Abs (Real fValue) { return std::abs(fValue); }
 
         /** Absolute value function
             @param dValue
                 The value, in degrees, whose absolute value will be returned.
          */
-        static inline Degree Abs (const Degree& dValue) { return Degree(fabs(dValue.valueDegrees())); }
+        static inline Degree Abs (const Degree& dValue) { return Degree(std::abs(dValue.valueDegrees())); }
 
         /** Absolute value function
             @param rValue
                 The value, in radians, whose absolute value will be returned.
          */
-        static inline Radian Abs (const Radian& rValue) { return Radian(fabs(rValue.valueRadians())); }
+        static inline Radian Abs (const Radian& rValue) { return Radian(std::abs(rValue.valueRadians())); }
 
         /** Arc cosine function
             @param fValue
@@ -287,7 +297,7 @@ namespace Ogre
             @param fValue
                 The value whose arc tangent will be returned.
          */
-        static inline Radian ATan (Real fValue) { return Radian(atan(fValue)); }
+        static inline Radian ATan (Real fValue) { return Radian(std::atan(fValue)); }
 
         /** Arc tangent between two values function
             @param fY
@@ -295,7 +305,7 @@ namespace Ogre
             @param fX
                 The second value to calculate the arc tangent with.
          */
-        static inline Radian ATan2 (Real fY, Real fX) { return Radian(atan2(fY,fX)); }
+        static inline Radian ATan2 (Real fY, Real fX) { return Radian(std::atan2(fY,fX)); }
 
         /** Ceiling function
             Returns the smallest following integer. (example: Ceil(1.1) = 2)
@@ -303,7 +313,7 @@ namespace Ogre
             @param fValue
                 The value to round up to the nearest integer.
          */
-        static inline Real Ceil (Real fValue) { return Real(ceil(fValue)); }
+        static inline Real Ceil (Real fValue) { return std::ceil(fValue); }
         static inline bool isNaN(Real f)
         {
             // std::isnan() is C99, not supported by all compilers
@@ -319,7 +329,7 @@ namespace Ogre
                 calculation - faster but less accurate.
         */
         static inline Real Cos (const Radian& fValue, bool useTables = false) {
-            return (!useTables) ? Real(cos(fValue.valueRadians())) : SinTable(fValue.valueRadians() + HALF_PI);
+            return (!useTables) ? std::cos(fValue.valueRadians()) : SinTable(fValue.valueRadians() + HALF_PI);
         }
         /** Cosine function.
             @param fValue
@@ -329,10 +339,10 @@ namespace Ogre
                 calculation - faster but less accurate.
         */
         static inline Real Cos (Real fValue, bool useTables = false) {
-            return (!useTables) ? Real(cos(fValue)) : SinTable(fValue + HALF_PI);
+            return (!useTables) ? std::cos(fValue) : SinTable(fValue + HALF_PI);
         }
 
-        static inline Real Exp (Real fValue) { return Real(exp(fValue)); }
+        static inline Real Exp (Real fValue) { return std::exp(fValue); }
 
         /** Floor function
             Returns the largest previous integer. (example: Floor(1.9) = 1)
@@ -340,20 +350,28 @@ namespace Ogre
             @param fValue
                 The value to round down to the nearest integer.
          */
-        static inline Real Floor (Real fValue) { return Real(floor(fValue)); }
+        static inline Real Floor (Real fValue) { return std::floor(fValue); }
 
-        static inline Real Log (Real fValue) { return Real(log(fValue)); }
+        static inline Real Log (Real fValue) { return std::log(fValue); }
 
         /// Stored value of log(2) for frequent use
         static const Real LOG2;
 
-        static inline Real Log2 (Real fValue) { return Real(log(fValue)/LOG2); }
+        static inline Real Log2 (Real fValue) { return std::log(fValue)/LOG2; }
 
-        static inline Real LogN (Real base, Real fValue) { return Real(log(fValue)/log(base)); }
+        static inline Real LogN (Real base, Real fValue) { return std::log(fValue)/std::log(base); }
 
-        static inline Real Pow (Real fBase, Real fExponent) { return Real(pow(fBase,fExponent)); }
+        static inline Real Pow (Real fBase, Real fExponent) { return std::pow(fBase,fExponent); }
 
-        static Real Sign (Real fValue);
+        static Real Sign(Real fValue)
+        {
+            if (fValue > 0.0)
+                return 1.0;
+            if (fValue < 0.0)
+                return -1.0;
+            return 0.0;
+        }
+
         static inline Radian Sign ( const Radian& rValue )
         {
             return Radian(Sign(rValue.valueRadians()));
@@ -366,6 +384,9 @@ namespace Ogre
         /// Simulate the shader function saturate that clamps a parameter value between 0 and 1
         static inline float saturate(float t) { return (t < 0) ? 0 : ((t > 1) ? 1 : t); }
         static inline double saturate(double t) { return (t < 0) ? 0 : ((t > 1) ? 1 : t); }
+
+        /// saturated cast of size_t to uint16
+        static inline uint16 uint16Cast(size_t t) { return t < UINT16_MAX ? uint16(t) : UINT16_MAX; }
 
         /** Simulate the shader function lerp which performers linear interpolation
 
@@ -386,7 +407,7 @@ namespace Ogre
                 calculation - faster but less accurate.
         */
         static inline Real Sin (const Radian& fValue, bool useTables = false) {
-            return (!useTables) ? Real(sin(fValue.valueRadians())) : SinTable(fValue.valueRadians());
+            return (!useTables) ? std::sin(fValue.valueRadians()) : SinTable(fValue.valueRadians());
         }
         /** Sine function.
             @param fValue
@@ -396,7 +417,7 @@ namespace Ogre
                 calculation - faster but less accurate.
         */
         static inline Real Sin (Real fValue, bool useTables = false) {
-            return (!useTables) ? Real(sin(fValue)) : SinTable(fValue);
+            return (!useTables) ? std::sin(fValue) : SinTable(fValue);
         }
 
         /** Squared function.
@@ -409,7 +430,7 @@ namespace Ogre
             @param fValue
                 The value whose square root will be calculated.
          */
-        static inline Real Sqrt (Real fValue) { return Real(sqrt(fValue)); }
+        static inline Real Sqrt (Real fValue) { return std::sqrt(fValue); }
 
         /** Square root function.
             @param fValue
@@ -417,7 +438,7 @@ namespace Ogre
             @return
                 The square root of the angle in radians.
          */
-        static inline Radian Sqrt (const Radian& fValue) { return Radian(sqrt(fValue.valueRadians())); }
+        static inline Radian Sqrt (const Radian& fValue) { return Radian(std::sqrt(fValue.valueRadians())); }
 
         /** Square root function.
             @param fValue
@@ -425,7 +446,7 @@ namespace Ogre
             @return
                 The square root of the angle in degrees.
          */
-        static inline Degree Sqrt (const Degree& fValue) { return Degree(sqrt(fValue.valueDegrees())); }
+        static inline Degree Sqrt (const Degree& fValue) { return Degree(std::sqrt(fValue.valueDegrees())); }
 
         /** Inverse square root i.e. 1 / Sqrt(x), good for vector
             normalisation.
@@ -472,7 +493,7 @@ namespace Ogre
                 calculation - faster but less accurate.
         */
         static inline Real Tan (const Radian& fValue, bool useTables = false) {
-            return (!useTables) ? Real(tan(fValue.valueRadians())) : TanTable(fValue.valueRadians());
+            return (!useTables) ? std::tan(fValue.valueRadians()) : TanTable(fValue.valueRadians());
         }
         /** Tangent function.
             @param fValue
@@ -482,7 +503,7 @@ namespace Ogre
                 calculation - faster but less accurate.
         */
         static inline Real Tan (Real fValue, bool useTables = false) {
-            return (!useTables) ? Real(tan(fValue)) : TanTable(fValue);
+            return (!useTables) ? std::tan(fValue) : TanTable(fValue);
         }
 
         static inline Real DegreesToRadians(Real degrees) { return degrees * fDeg2Rad; }
@@ -557,15 +578,12 @@ namespace Ogre
         */
         static bool pointInTri3D(const Vector3& p, const Vector3& a, 
             const Vector3& b, const Vector3& c, const Vector3& normal);
-        /** Ray / plane intersection, returns boolean result and distance. */
-        static std::pair<bool, Real> intersects(const Ray& ray, const Plane& plane);
-
-        /** Ray / sphere intersection, returns boolean result and distance. */
-        static std::pair<bool, Real> intersects(const Ray& ray, const Sphere& sphere, 
-            bool discardInside = true);
-        
-        /** Ray / box intersection, returns boolean result and distance. */
-        static std::pair<bool, Real> intersects(const Ray& ray, const AxisAlignedBox& box);
+        /** Ray / plane intersection */
+        static inline RayTestResult intersects(const Ray& ray, const Plane& plane);
+        /** Ray / sphere intersection */
+        static RayTestResult intersects(const Ray& ray, const Sphere& sphere, bool discardInside = true);
+        /** Ray / box intersection */
+        static RayTestResult intersects(const Ray& ray, const AxisAlignedBox& box);
 
         /** Ray / box intersection, returns boolean result and two intersection distance.
         @param ray
@@ -609,14 +627,8 @@ namespace Ogre
             Intersect with "positive side" of the triangle
         @param negativeSide
             Intersect with "negative side" of the triangle
-        @return
-            If the ray is intersects the triangle, a pair of <b>true</b> and the
-            distance between intersection point and ray origin returned.
-        @par
-            If the ray isn't intersects the triangle, a pair of <b>false</b> and
-            <b>0</b> returned.
         */
-        static std::pair<bool, Real> intersects(const Ray& ray, const Vector3& a,
+        static RayTestResult intersects(const Ray& ray, const Vector3& a,
             const Vector3& b, const Vector3& c, const Vector3& normal,
             bool positiveSide = true, bool negativeSide = true);
 
@@ -633,14 +645,8 @@ namespace Ogre
             Intersect with "positive side" of the triangle
         @param negativeSide
             Intersect with "negative side" of the triangle
-        @return
-            If the ray is intersects the triangle, a pair of <b>true</b> and the
-            distance between intersection point and ray origin returned.
-        @par
-            If the ray isn't intersects the triangle, a pair of <b>false</b> and
-            <b>0</b> returned.
         */
-        static std::pair<bool, Real> intersects(const Ray& ray, const Vector3& a,
+        static RayTestResult intersects(const Ray& ray, const Vector3& a,
             const Vector3& b, const Vector3& c,
             bool positiveSide = true, bool negativeSide = true);
 
@@ -655,17 +661,10 @@ namespace Ogre
         @param planeList List of planes which form a convex volume
         @param normalIsOutside Does the normal point outside the volume
         */
-        static std::pair<bool, Real> intersects(
-            const Ray& ray, const std::vector<Plane>& planeList, 
-            bool normalIsOutside);
-        /** Ray / convex plane list intersection test. 
-        @param ray The ray to test with
-        @param planeList List of planes which form a convex volume
-        @param normalIsOutside Does the normal point outside the volume
-        */
-        static std::pair<bool, Real> intersects(
-            const Ray& ray, const std::list<Plane>& planeList, 
-            bool normalIsOutside);
+        static RayTestResult intersects(const Ray& ray, const std::vector<Plane>& planeList, bool normalIsOutside);
+        /// @deprecated migrate to @ref PlaneList
+        OGRE_DEPRECATED static RayTestResult intersects(const Ray& ray, const std::list<Plane>& planeList,
+                                                             bool normalIsOutside);
 
         /** Sphere / plane intersection test. 
         @remarks NB just do a plane.getDistance(sphere.getCenter()) for more detail!
@@ -708,8 +707,34 @@ namespace Ogre
             return std::max(std::min(val, maxval), minval);
         }
 
+        /** This creates a view matrix
+
+            [ Lx  Uy  Dz  Tx  ]
+            [ Lx  Uy  Dz  Ty  ]
+            [ Lx  Uy  Dz  Tz  ]
+            [ 0   0   0   1   ]
+
+            Where T = -(Transposed(Rot) * Pos)
+         */
         static Affine3 makeViewMatrix(const Vector3& position, const Quaternion& orientation,
             const Affine3* reflectMatrix = 0);
+
+        /** This creates 'uniform' perspective projection matrix,
+            which depth range [-1,1], right-handed rules
+
+           [ A   0   C   0  ]
+           [ 0   B   D   0  ]
+           [ 0   0   q   qn ]
+           [ 0   0   -1  0  ]
+
+           A = 2 * near / (right - left)
+           B = 2 * near / (top - bottom)
+           C = (right + left) / (right - left)
+           D = (top + bottom) / (top - bottom)
+           q = - (far + near) / (far - near)
+           qn = - 2 * (far * near) / (far - near)
+         */
+        static Matrix4 makePerspectiveMatrix(Real left, Real right, Real bottom, Real top, Real zNear, Real zFar);
 
         /** Get the radius of the origin-centered bounding sphere from the bounding box. */
         static Real boundingRadiusFromAABB(const AxisAlignedBox& aabb);

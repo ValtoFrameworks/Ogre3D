@@ -33,13 +33,6 @@ THE SOFTWARE
 #include <memory>
 
 namespace Ogre {
-    // Define ogre version
-    #define OGRE_VERSION_MAJOR 1
-    #define OGRE_VERSION_MINOR 11
-    #define OGRE_VERSION_PATCH 3
-    #define OGRE_VERSION_SUFFIX ""
-    #define OGRE_VERSION_NAME "Rhagorthua"
-
     #define OGRE_VERSION    ((OGRE_VERSION_MAJOR << 16) | (OGRE_VERSION_MINOR << 8) | OGRE_VERSION_PATCH)
 
     // define the real number values to be used
@@ -255,7 +248,9 @@ namespace Ogre {
     class UserObjectBindings;
     template <int dims, typename T> class Vector;
     typedef Vector<2, Real> Vector2;
+    typedef Vector<2, int> Vector2i;
     typedef Vector<3, Real> Vector3;
+    typedef Vector<3, int> Vector3i;
     typedef Vector<4, Real> Vector4;
     class Viewport;
     class VertexAnimationTrack;
@@ -286,7 +281,8 @@ namespace Ogre {
     typedef SharedPtr<GpuNamedConstants> GpuNamedConstantsPtr;
     typedef SharedPtr<GpuLogicalBufferStruct> GpuLogicalBufferStructPtr;
     typedef SharedPtr<GpuSharedParameters> GpuSharedParametersPtr;
-    typedef SharedPtr<GpuProgramParameters> GpuProgramParametersSharedPtr;
+    typedef SharedPtr<GpuProgramParameters> GpuProgramParametersPtr;
+    typedef GpuProgramParametersPtr GpuProgramParametersSharedPtr; //!< @deprecated
     typedef SharedPtr<HardwareCounterBuffer> HardwareCounterBufferSharedPtr;
     typedef SharedPtr<HardwareIndexBuffer> HardwareIndexBufferSharedPtr;
     typedef SharedPtr<HardwarePixelBuffer> HardwarePixelBufferSharedPtr;

@@ -56,16 +56,17 @@ namespace Ogre
         OGRE_CHECK_GL_ERROR(glGenProgramPipelinesEXT(1, &mGLProgramHandle));
         //OGRE_CHECK_GL_ERROR(glBindProgramPipelineEXT(mGLProgramHandle));
 
+        uint32 vhash = 0, fhash = 0;
+
         // Compile and attach Vertex Program
         if(getVertexProgram())
         {
+            vhash = mVertexShader->_getHash();
             if(getVertexProgram()->isLinked())
             {
                 mLinked |= VERTEX_PROGRAM_LINKED;
             }
-            else if(getMicrocodeFromCache(
-                    getVertexProgram()->getName(),
-                    getVertexProgram()->createGLProgramHandle()))
+            else if (getMicrocodeFromCache(vhash, getVertexProgram()->createGLProgramHandle()))
             {
                 getVertexProgram()->setLinked(true);
                 mLinked |= VERTEX_PROGRAM_LINKED;
@@ -96,13 +97,12 @@ namespace Ogre
         // Compile and attach Fragment Program
         if(mFragmentProgram)
         {
+            fhash = mFragmentProgram->_getHash();
             if(mFragmentProgram->isLinked())
             {
                 mLinked |= FRAGMENT_PROGRAM_LINKED;
             }
-            else if(getMicrocodeFromCache(
-                    mFragmentProgram->getName(),
-                    mFragmentProgram->createGLProgramHandle()))
+            else if (getMicrocodeFromCache(fhash, mFragmentProgram->createGLProgramHandle()))
             {
                 mFragmentProgram->setLinked(true);
                 mLinked |= FRAGMENT_PROGRAM_LINKED;
@@ -130,12 +130,12 @@ namespace Ogre
             if(getVertexProgram() && getVertexProgram()->isLinked())
             {
                 OGRE_CHECK_GL_ERROR(glUseProgramStagesEXT(mGLProgramHandle, GL_VERTEX_SHADER_BIT_EXT, getVertexProgram()->getGLProgramHandle()));
-                _writeToCache(getVertexProgram()->getName(), getVertexProgram()->getGLProgramHandle());
+                _writeToCache(vhash, getVertexProgram()->getGLProgramHandle());
             }
             if(mFragmentProgram && mFragmentProgram->isLinked())
             {
                 OGRE_CHECK_GL_ERROR(glUseProgramStagesEXT(mGLProgramHandle, GL_FRAGMENT_SHADER_BIT_EXT, mFragmentProgram->getGLProgramHandle()));
-                _writeToCache(mFragmentProgram->getName(), mFragmentProgram->getGLProgramHandle());
+                _writeToCache(fhash, mFragmentProgram->getGLProgramHandle());
             }
 
             // Validate pipeline
@@ -232,15 +232,19 @@ namespace Ogre
         GLUniformReferenceIterator endUniform = mGLUniformReferences.end();
         GLuint progID = 0;
         GLUniformCache* uniformCache=0;
-        if(fromProgType == GPT_VERTEX_PROGRAM)
+        if(fromProgType == GPT_VERTEX_PROGRAM && getVertexProgram())
         {
             progID = getVertexProgram()->getGLProgramHandle();
             uniformCache = getVertexProgram()->getUniformCache();
         }
-        else if(fromProgType == GPT_FRAGMENT_PROGRAM)
+        else if(fromProgType == GPT_FRAGMENT_PROGRAM && mFragmentProgram)
         {
             progID = mFragmentProgram->getGLProgramHandle();
             uniformCache = mFragmentProgram->getUniformCache();
+        }
+        else
+        {
+            OGRE_EXCEPT(Exception::ERR_INVALIDPARAMS, "invalid program type");
         }
 
         for (;currentUniform != endUniform; ++currentUniform)

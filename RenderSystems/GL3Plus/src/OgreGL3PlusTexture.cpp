@@ -262,6 +262,13 @@ namespace Ogre {
                 case TEX_TYPE_3D:
                     OGRE_CHECK_GL_ERROR(glTexStorage3D(GL_TEXTURE_3D, GLsizei(mNumMipmaps+1), format, GLsizei(width), GLsizei(height), GLsizei(depth)));
                     break;
+                case TEX_TYPE_EXTERNAL_OES:
+                    OGRE_EXCEPT(
+                        Exception::ERR_RENDERINGAPI_ERROR,
+                        "Attempt to store texture for unsupported TEX_TYPE_EXTERNAL_OES, should never happen",
+                        "GL3PlusTexture::createInternalResourcesImpl"
+                    );
+                    break;
                 }
             }
             else
@@ -322,6 +329,13 @@ namespace Ogre {
                                                              originFormat, datatype, NULL));
                         }
                         break;
+                    case TEX_TYPE_EXTERNAL_OES:
+                        OGRE_EXCEPT(
+                            Exception::ERR_RENDERINGAPI_ERROR,
+                            "Attempt to create mipmaps for unsupported TEX_TYPE_EXTERNAL_OES, should never happen",
+                            "GL3PlusTexture::createInternalResourcesImpl"
+                        );
+                        break;
                     default:
                         break;
                     };
@@ -358,34 +372,8 @@ namespace Ogre {
         mFormat = getBuffer(0,0)->getFormat();
     }
 
-    void GL3PlusTexture::loadImpl()
-    {
-        if (mUsage & TU_RENDERTARGET)
-        {
-            createRenderTexture();
-            return;
-        }
-
-        LoadedImages loadedImages;
-        // Now the only copy is on the stack and will be cleaned in case of
-        // exceptions being thrown from _loadImages
-        std::swap(loadedImages, mLoadedImages);
-
-        // Call internal _loadImages, not loadImage since that's external and
-        // will determine load status etc again
-        ConstImagePtrList imagePtrs;
-
-        for (size_t i = 0; i < loadedImages.size(); ++i)
-        {
-            imagePtrs.push_back(&loadedImages[i]);
-        }
-
-        _loadImages(imagePtrs);
-    }
-
     void GL3PlusTexture::freeInternalResourcesImpl()
     {
-        mSurfaceList.clear();
         if (GL3PlusStateCacheManager* stateCacheManager = mRenderSystem->_getStateCacheManager())
         {
             OGRE_CHECK_GL_ERROR(glDeleteTextures(1, &mTextureID));
@@ -421,7 +409,7 @@ namespace Ogre {
 
     void GL3PlusTexture::createShaderAccessPoint(uint bindPoint, TextureAccess access, 
                                                  int mipmapLevel, int textureArrayIndex, 
-                                                 PixelFormat* format)
+                                                 PixelFormat format)
     {
         GLenum GlAccess = 0;
 
@@ -436,25 +424,11 @@ namespace Ogre {
         case TA_READ_WRITE:
             GlAccess = GL_READ_WRITE;
             break;
-        default:
-            //TODO error handling
-            break;
         }
 
-        if (!format) format = &mFormat;
-        GLenum GlFormat = GL3PlusPixelUtil::getClosestGLImageInternalFormat(*format);
-
-        GLboolean isArrayTexture;
-
-        switch(mTextureType)
-        {
-        case TEX_TYPE_2D_ARRAY:
-            isArrayTexture = GL_TRUE;
-            break;
-        default:
-            isArrayTexture = GL_FALSE;
-            break;
-        }
+        if (format == PF_UNKNOWN) format = mFormat;
+        GLenum GlFormat = GL3PlusPixelUtil::getClosestGLImageInternalFormat(format);
+        GLboolean isArrayTexture = mTextureType == TEX_TYPE_2D_ARRAY;
 
         // TODO
         // * add memory barrier

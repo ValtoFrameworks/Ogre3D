@@ -11,8 +11,6 @@
 # Paging optional component
 ############################################################
 
-project(OgreBites)
-
 if(ANDROID)
     include_directories(${ANDROID_NDK}/sources/android/native_app_glue)
 endif()
@@ -22,8 +20,8 @@ if(EMSCRIPTEN)
 endif()
 
 if (OGRE_STATIC)
-  include_directories(${OGRE_SOURCE_DIR}/RenderSystems/Direct3D9/include ${DirectX9_INCLUDE_DIR})
-  include_directories(${OGRE_SOURCE_DIR}/RenderSystems/Direct3D11/include)
+  include_directories(${PROJECT_SOURCE_DIR}/RenderSystems/Direct3D9/include ${DirectX9_INCLUDE_DIR})
+  include_directories(${PROJECT_SOURCE_DIR}/RenderSystems/Direct3D11/include)
 
   # Link to all enabled plugins
   if (OGRE_BUILD_PLUGIN_OCTREE)
@@ -66,16 +64,24 @@ endif ()
 
 # define header and source files for the library
 file(GLOB HEADER_FILES "${CMAKE_CURRENT_SOURCE_DIR}/include/*.h")
-list(APPEND HEADER_FILES ${CMAKE_BINARY_DIR}/include/OgreBitesPrerequisites.h)
+list(APPEND HEADER_FILES
+  ${PROJECT_BINARY_DIR}/include/OgreBitesPrerequisites.h
+  ${CMAKE_CURRENT_SOURCE_DIR}/include/OgreBites.i)
 set(SOURCES 
   "${CMAKE_CURRENT_SOURCE_DIR}/src/OgreAdvancedRenderControls.cpp"
-  "${CMAKE_CURRENT_SOURCE_DIR}/src/OgreApplicationContext.cpp"
+  "${CMAKE_CURRENT_SOURCE_DIR}/src/OgreApplicationContextBase.cpp"
   "${CMAKE_CURRENT_SOURCE_DIR}/src/OgreBitesConfigDialog.cpp"
   "${CMAKE_CURRENT_SOURCE_DIR}/src/OgreCameraMan.cpp"
   "${CMAKE_CURRENT_SOURCE_DIR}/src/OgreSGTechniqueResolverListener.cpp"
   "${CMAKE_CURRENT_SOURCE_DIR}/src/OgreStaticPluginLoader.cpp"
   "${CMAKE_CURRENT_SOURCE_DIR}/src/OgreTrays.cpp"
   "${CMAKE_CURRENT_SOURCE_DIR}/src/OgreWindowEventUtilities.cpp")
+
+if(SDL2_FOUND OR EMSCRIPTEN)
+  list(APPEND SOURCES  "${CMAKE_CURRENT_SOURCE_DIR}/src/OgreApplicationContextSDL.cpp")
+elseif(ANDROID)
+  list(APPEND SOURCES  "${CMAKE_CURRENT_SOURCE_DIR}/src/OgreApplicationContextAndroid.cpp")
+endif()
 
 if(ANDROID OR EMSCRIPTEN OR APPLE_IOS OR WINDOWS_STORE OR WINDOWS_PHONE)
   # no config dialog available
@@ -130,7 +136,7 @@ endif()
 
 generate_export_header(OgreBites 
     EXPORT_MACRO_NAME _OgreBitesExport
-    EXPORT_FILE_NAME ${CMAKE_BINARY_DIR}/include/OgreBitesPrerequisites.h)
+    EXPORT_FILE_NAME ${PROJECT_BINARY_DIR}/include/OgreBitesPrerequisites.h)
 
 # install 
 ogre_config_framework(OgreBites)

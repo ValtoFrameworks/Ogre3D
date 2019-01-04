@@ -38,11 +38,8 @@ namespace Ogre {
 
 
     GL3PlusFrameBufferObject::GL3PlusFrameBufferObject(GL3PlusFBOManager *manager, uint fsaa):
-        mManager(manager), mContext(NULL), mNumSamples(fsaa)
+        GLFrameBufferObjectCommon(fsaa), mManager(manager)
     {
-        GLRenderSystemCommon* rs = static_cast<GLRenderSystemCommon*>(Root::getSingleton().getRenderSystem());
-        mContext = rs->_getCurrentContext();
-
         // Generate framebuffer object
         OGRE_CHECK_GL_ERROR(glGenFramebuffers(1, &mFB));
 
@@ -62,14 +59,6 @@ namespace Ogre {
         {
             mMultisampleFB = 0;
         }
-
-        // Initialise state
-        mDepth.buffer=0;
-        mStencil.buffer=0;
-        for(size_t x=0; x<OGRE_MAX_MULTIPLE_RENDER_TARGETS; ++x)
-        {
-            mColour[x].buffer=0;
-        }
     }
     
     GL3PlusFrameBufferObject::~GL3PlusFrameBufferObject()
@@ -86,24 +75,6 @@ namespace Ogre {
             if (mMultisampleFB)
                 rs->_destroyFbo(mContext, mMultisampleFB);
         }
-    }
-    
-    void GL3PlusFrameBufferObject::bindSurface(size_t attachment, const GLSurfaceDesc &target)
-    {
-        assert(attachment < OGRE_MAX_MULTIPLE_RENDER_TARGETS);
-        mColour[attachment] = target;
-        // Re-initialise
-        if(mColour[0].buffer)
-            initialise();
-    }
-    
-    void GL3PlusFrameBufferObject::unbindSurface(size_t attachment)
-    {
-        assert(attachment < OGRE_MAX_MULTIPLE_RENDER_TARGETS);
-        mColour[attachment].buffer = 0;
-        // Re-initialise if buffer 0 still bound
-        if(mColour[0].buffer)
-            initialise();
     }
     
     void GL3PlusFrameBufferObject::initialise()
@@ -136,6 +107,8 @@ namespace Ogre {
         // Bind simple buffer to add colour attachments
         mManager->getStateCacheManager()->bindGLFrameBuffer( GL_FRAMEBUFFER, mFB );
 
+        bool isDepth = PixelUtil::isDepth(getFormat());
+
         // Bind all attachment points to frame buffer
         for(unsigned int x = 0; x < maxSupportedMRTs; ++x)
         {
@@ -157,10 +130,8 @@ namespace Ogre {
                     ss << "Attachment " << x << " has incompatible format.";
                     OGRE_EXCEPT(Exception::ERR_INVALIDPARAMS, ss.str(), "GL3PlusFrameBufferObject::initialise");
                 }
-                if(getFormat() == PF_DEPTH)
-                    mColour[x].buffer->bindToFramebuffer(GL_DEPTH_ATTACHMENT, mColour[x].zoffset);
-                else
-                    mColour[x].buffer->bindToFramebuffer(GL_COLOR_ATTACHMENT0+x, mColour[x].zoffset);
+                mColour[x].buffer->bindToFramebuffer(
+                    isDepth ? GL_DEPTH_ATTACHMENT : (GL_COLOR_ATTACHMENT0 + x), mColour[x].zoffset);
             }
             else
             {
@@ -199,10 +170,7 @@ namespace Ogre {
             // Fill attached colour buffers
             if(mColour[x].buffer)
             {
-                if(getFormat() == PF_DEPTH)
-                    bufs[x] = GL_DEPTH_ATTACHMENT;
-                else
-                    bufs[x] = GL_COLOR_ATTACHMENT0 + x;
+                bufs[x] = isDepth ? GL_DEPTH_ATTACHMENT : (GL_COLOR_ATTACHMENT0 + x);
                 // Keep highest used buffer + 1
                 n = x+1;
             }
@@ -213,7 +181,7 @@ namespace Ogre {
         }
 
         // Drawbuffer extension supported, use it
-        if(getFormat() != PF_DEPTH)
+        if(!isDepth)
             OGRE_CHECK_GL_ERROR(glDrawBuffers(n, bufs));
 
         if (mMultisampleFB)
@@ -354,26 +322,6 @@ namespace Ogre {
             OGRE_CHECK_GL_ERROR(glFramebufferRenderbuffer( GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_RENDERBUFFER, 0 ));
             OGRE_CHECK_GL_ERROR(glFramebufferRenderbuffer( GL_FRAMEBUFFER, GL_STENCIL_ATTACHMENT, GL_RENDERBUFFER, 0 ));
         }
-    }
-
-    uint32 GL3PlusFrameBufferObject::getWidth()
-    {
-        assert(mColour[0].buffer);
-        return mColour[0].buffer->getWidth();
-    }
-    uint32 GL3PlusFrameBufferObject::getHeight()
-    {
-        assert(mColour[0].buffer);
-        return mColour[0].buffer->getHeight();
-    }
-    PixelFormat GL3PlusFrameBufferObject::getFormat()
-    {
-        assert(mColour[0].buffer);
-        return mColour[0].buffer->getFormat();
-    }
-    GLsizei GL3PlusFrameBufferObject::getFSAA()
-    {
-        return mNumSamples;
     }
 
 }

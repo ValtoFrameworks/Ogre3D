@@ -276,25 +276,29 @@ namespace Ogre {
         {
             // delegate to cubic texture implementation
             setCubicTexture(&texPtr, true);
+            return;
         }
-        else
+        
+        if (texPtr->getTextureType() == TEX_TYPE_EXTERNAL_OES || texPtr->getTextureType() == TEX_TYPE_2D_RECT)
         {
-            mFramePtrs.resize(1);
-            mFramePtrs[0] = texPtr;
+            setTextureAddressingMode( TAM_CLAMP );
+        }
 
-            mCurrentFrame = 0;
-            mCubic = false;
+        mFramePtrs.resize(1);
+        mFramePtrs[0] = texPtr;
 
-            // Load immediately ?
-            if (isLoaded())
-            {
-                _load(); // reload
-            }
-            // Tell parent to recalculate hash
-            if( Pass::getHashFunction() == Pass::getBuiltinHashFunction( Pass::MIN_TEXTURE_CHANGE ) )
-            {
-                mParent->_dirtyHash();
-            }
+        mCurrentFrame = 0;
+        mCubic = false;
+
+        // Load immediately ?
+        if (isLoaded())
+        {
+            _load(); // reload
+        }
+        // Tell parent to recalculate hash
+        if( Pass::getHashFunction() == Pass::getBuiltinHashFunction( Pass::MIN_TEXTURE_CHANGE ) )
+        {
+            mParent->_dirtyHash();
         }
     }
     //-----------------------------------------------------------------------
@@ -821,6 +825,7 @@ namespace Ogre {
     void TextureUnitState::setBlank(void)
     {
         mFramePtrs.clear();
+        mFramePtrs.push_back(TexturePtr()); // insert nullptr to show warning tex
     }
     //-----------------------------------------------------------------------
     void TextureUnitState::setTextureTransform(const Matrix4& xform)
@@ -860,9 +865,10 @@ namespace Ogre {
     void TextureUnitState::recalcTextureMatrix() const
     {
         // Assumption: 2D texture coords
-        Matrix4 xform;
+        // that would make this Affine2(Matrix3), but we lack such a class
+        // Matrix3 is horribly unoptimized ATM
+        Affine3 xform = Affine3::IDENTITY;
 
-        xform = Matrix4::IDENTITY;
         if (mUScale != 1 || mVScale != 1)
         {
             // Offset to center of texture
@@ -875,17 +881,12 @@ namespace Ogre {
 
         if (mUMod || mVMod)
         {
-            Matrix4 xlate = Matrix4::IDENTITY;
-
-            xlate[0][3] = mUMod;
-            xlate[1][3] = mVMod;
-
-            xform = xlate * xform;
+            xform = Affine3::getTrans(mUMod, mVMod, 0) * xform;
         }
 
         if (mRotate != Radian(0))
         {
-            Matrix4 rot = Matrix4::IDENTITY;
+            Affine3 rot = Affine3::IDENTITY;
             Radian theta ( mRotate );
             Real cosTheta = Math::Cos(theta);
             Real sinTheta = Math::Sin(theta);
@@ -1113,7 +1114,7 @@ namespace Ogre {
         catch (Exception& e)
         {
             String msg = "preparing texture '" + tex->getName() +
-                         "'. Texture layer will be blank: " + e.getFullDescription();
+                         "'. Texture layer will be blank: " + e.getDescription();
             LogManager::getSingleton().logError(msg);
             mTextureLoadFailed = true;
         }
@@ -1133,7 +1134,7 @@ namespace Ogre {
         catch (Exception& e)
         {
             String msg = "loading texture '" + tex->getName() +
-                         "'. Texture layer will be blank: " + e.getFullDescription();
+                         "'. Texture layer will be blank: " + e.getDescription();
             LogManager::getSingleton().logError(msg);
             mTextureLoadFailed = true;
         }

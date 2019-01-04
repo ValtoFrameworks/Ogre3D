@@ -76,8 +76,7 @@ void CompositorChain::destroyResources(void)
 //-----------------------------------------------------------------------
 const String CompositorChain::getCompositorName() const
 {
-    static const String compositorPrefix = String("Ogre/Scene/");
-    return compositorPrefix + StringConverter::toString((size_t)mViewport);
+    return StringUtil::format("Ogre/Scene/%zu", (size_t)mViewport);
 }
 //-----------------------------------------------------------------------
 void CompositorChain::createOriginalScene()
@@ -115,29 +114,17 @@ void CompositorChain::createOriginalScene()
     if (!scene)
     {
         scene = CompositorManager::getSingleton().create(compName, ResourceGroupManager::INTERNAL_RESOURCE_GROUP_NAME);
-        CompositionTechnique *t = scene->createTechnique();
-        t->setSchemeName(BLANKSTRING);
-        CompositionTargetPass *tp = t->getOutputTargetPass();
-        tp->setVisibilityMask(0xFFFFFFFF);
-        {
-            CompositionPass *pass = tp->createPass();
-            pass->setType(CompositionPass::PT_CLEAR);
-        }
-        {
-            CompositionPass *pass = tp->createPass();
-            pass->setType(CompositionPass::PT_RENDERSCENE);
-            /// Render everything, including skies
-            pass->setFirstRenderQueue(RENDER_QUEUE_BACKGROUND);
-            pass->setLastRenderQueue(RENDER_QUEUE_SKIES_LATE);
-        }
+        CompositionTargetPass *tp = scene->createTechnique()->getOutputTargetPass();
+        tp->createPass(CompositionPass::PT_CLEAR);
 
+        /// Render everything, including skies
+        CompositionPass *pass = tp->createPass(CompositionPass::PT_RENDERSCENE);
+        pass->setFirstRenderQueue(RENDER_QUEUE_BACKGROUND);
+        pass->setLastRenderQueue(RENDER_QUEUE_SKIES_LATE);
 
         /// Create base "original scene" compositor
         scene = static_pointer_cast<Compositor>(CompositorManager::getSingleton().load(compName,
             ResourceGroupManager::INTERNAL_RESOURCE_GROUP_NAME));
-
-
-
     }
     mOriginalScene = OGRE_NEW CompositorInstance(scene->getSupportedTechnique(), this);
 }
@@ -488,7 +475,7 @@ void CompositorChain::_compile()
     // force default scheme so materials for compositor quads will determined correctly
     MaterialManager& matMgr = MaterialManager::getSingleton();
     String prevMaterialScheme = matMgr.getActiveScheme();
-    matMgr.setActiveScheme(MaterialManager::DEFAULT_SCHEME_NAME);
+    matMgr.setActiveScheme(Root::getSingleton().getRenderSystem()->_getDefaultViewportMaterialScheme());
     
     /// Set previous CompositorInstance for each compositor in the list
     CompositorInstance *lastComposition = mOriginalScene;
@@ -561,10 +548,13 @@ void CompositorChain::_notifyViewport(Viewport* vp)
         if (vp != NULL) 
             vp->addListener(this);
         
-        if (vp->getTarget() != mViewport->getTarget())
+        if (!vp || !mViewport || vp->getTarget() != mViewport->getTarget())
         {
-            mViewport->getTarget()->removeListener(this);
-            vp->getTarget()->addListener(this);
+            if(mViewport)
+                mViewport->getTarget()->removeListener(this);
+
+            if(vp)
+                vp->getTarget()->addListener(this);
         }
         mOurListener.notifyViewport(vp);
         mViewport = vp;

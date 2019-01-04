@@ -37,13 +37,17 @@ elseif("$ENV{TRAVIS_OS_NAME}" STREQUAL "osx")
 endif()
 
 if(DEFINED ENV{APPVEYOR})
-    set(CMAKE_BUILD_TYPE Release)
-    set(GENERATOR -G "Visual Studio 15")
+    if("$ENV{APPVEYOR_BUILD_WORKER_IMAGE}" STREQUAL "Visual Studio 2017")
+        set(CMAKE_BUILD_TYPE Release)
+        set(GENERATOR -G "Visual Studio 15")
+    else()
+        set(GENERATOR -G "Visual Studio 12")
+    endif()
     set(RENDERSYSTEMS
         -DOGRE_BUILD_RENDERSYSTEM_D3D9=TRUE
         -DOGRE_BUILD_RENDERSYSTEM_GL=TRUE
         -DOGRE_BUILD_RENDERSYSTEM_GL3PLUS=TRUE)
-        
+
     set(OTHER
         "-DCMAKE_CXX_FLAGS=-WX -EHsc"
         -DCMAKE_GENERATOR_PLATFORM=x64

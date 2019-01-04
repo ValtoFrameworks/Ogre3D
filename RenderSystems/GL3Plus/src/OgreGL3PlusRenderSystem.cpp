@@ -675,8 +675,7 @@ namespace Ogre {
         {
             // Unlike D3D9, OGL doesn't allow sharing the main depth buffer, so keep them separate.
             // Only Copy does, but Copy means only one depth buffer...
-            GL3PlusContext *windowContext = 0;
-            win->getCustomAttribute( GLRenderTexture::CustomAttributeString_GLCONTEXT, &windowContext );
+            GL3PlusContext *windowContext = dynamic_cast<GLRenderTarget*>(win)->getContext();
             GL3PlusDepthBuffer *depthBuffer = new GL3PlusDepthBuffer( DepthBuffer::POOL_DEFAULT, this,
                                                                       windowContext, 0, 0,
                                                                       win->getWidth(), win->getHeight(),
@@ -698,10 +697,8 @@ namespace Ogre {
         // Only FBOs support different depth buffers, so everything
         // else creates dummy (empty) containers
         // retVal = mRTTManager->_createDepthBufferFor( renderTarget );
-        GL3PlusFrameBufferObject *fbo = 0;
-        renderTarget->getCustomAttribute(GLRenderTexture::CustomAttributeString_FBO, &fbo);
 
-        if ( fbo )
+        if ( auto fbo = dynamic_cast<GLRenderTarget*>(renderTarget)->getFBO() )
         {
             // Presence of an FBO means the manager is an FBO Manager, that's why it's safe to downcast.
             // Find best depth & stencil format suited for the RT's format.
@@ -751,8 +748,7 @@ namespace Ogre {
         RenderTarget* pWin = detachRenderTarget(name);
         OgreAssert(pWin, "unknown RenderWindow name");
 
-        GL3PlusContext *windowContext = 0;
-        pWin->getCustomAttribute(GLRenderTexture::CustomAttributeString_GLCONTEXT, &windowContext);
+        GL3PlusContext *windowContext = dynamic_cast<GLRenderTarget*>(pWin)->getContext();
 
         // 1 Window <-> 1 Context, should be always true.
         assert( windowContext );
@@ -799,8 +795,7 @@ namespace Ogre {
 
         if (enabled)
         {
-            GL3PlusTexturePtr tex = static_pointer_cast<GL3PlusTexture>(
-                texPtr ? texPtr : mTextureManager->_getWarningTexture());
+            GL3PlusTexturePtr tex = static_pointer_cast<GL3PlusTexture>(texPtr);
 
             // Note used
             tex->touch();
@@ -929,43 +924,6 @@ namespace Ogre {
         return GL_ONE;
     }
 
-    void GL3PlusRenderSystem::_setSceneBlending(SceneBlendFactor sourceFactor, SceneBlendFactor destFactor, SceneBlendOperation op)
-    {
-        GLenum sourceBlend = getBlendMode(sourceFactor);
-        GLenum destBlend = getBlendMode(destFactor);
-        if (sourceFactor == SBF_ONE && destFactor == SBF_ZERO)
-        {
-            mStateCacheManager->setEnabled(GL_BLEND, false);
-        }
-        else
-        {
-            mStateCacheManager->setEnabled(GL_BLEND, true);
-            mStateCacheManager->setBlendFunc(sourceBlend, destBlend);
-        }
-
-        GLint func = GL_FUNC_ADD;
-        switch(op)
-        {
-        case SBO_ADD:
-            func = GL_FUNC_ADD;
-            break;
-        case SBO_SUBTRACT:
-            func = GL_FUNC_SUBTRACT;
-            break;
-        case SBO_REVERSE_SUBTRACT:
-            func = GL_FUNC_REVERSE_SUBTRACT;
-            break;
-        case SBO_MIN:
-            func = GL_MIN;
-            break;
-        case SBO_MAX:
-            func = GL_MAX;
-            break;
-        }
-
-        mStateCacheManager->setBlendEquation(func);
-    }
-
     void GL3PlusRenderSystem::_setSeparateSceneBlending(
         SceneBlendFactor sourceFactor, SceneBlendFactor destFactor,
         SceneBlendFactor sourceFactorAlpha, SceneBlendFactor destFactorAlpha,
@@ -984,7 +942,7 @@ namespace Ogre {
         else
         {
             mStateCacheManager->setEnabled(GL_BLEND, true);
-            OGRE_CHECK_GL_ERROR(glBlendFuncSeparate(sourceBlend, destBlend, sourceBlendAlpha, destBlendAlpha));
+            mStateCacheManager->setBlendFunc(sourceBlend, destBlend, sourceBlendAlpha, destBlendAlpha);
         }
 
         GLint func = GL_FUNC_ADD, alphaFunc = GL_FUNC_ADD;
@@ -1368,6 +1326,20 @@ namespace Ogre {
         mStateCacheManager->setTexParameteri(mTextureTypes[unit], GL_TEXTURE_MAX_ANISOTROPY_EXT, maxAnisotropy);
     }
 
+    void GL3PlusRenderSystem::_dispatchCompute(const Vector3i& workgroupDim)
+    {
+        // if(mComputeProgramExecutions <= compute_execution_cap)
+
+        //FIXME give user control over when and what memory barriers are created
+        // if (mPreComputeMemoryBarrier)
+        OGRE_CHECK_GL_ERROR(glMemoryBarrier(GL_ALL_BARRIER_BITS));
+        OGRE_CHECK_GL_ERROR(glDispatchCompute(workgroupDim[0], workgroupDim[1], workgroupDim[2]));
+        // if (mPostComputeMemoryBarrier)
+        //     OGRE_CHECK_GL_ERROR(glMemoryBarrier(toGL(MB_TEXTURE)));
+        // if (compute_execution_cap > 0)
+        //     mComputeProgramExecutions++;
+    }
+
     void GL3PlusRenderSystem::_render(const RenderOperation& op)
     {
         // Call super class.
@@ -1420,22 +1392,6 @@ namespace Ogre {
                 const VertexElement & elem = *elemIter;
                 bindVertexElementToGpu(elem, globalInstanceVertexBuffer, 0);
             }
-        }
-
-        // Launch compute shader job(s).
-        if (mCurrentComputeShader) // && mComputeProgramPosition == CP_PRERENDER && mComputeProgramExecutions <= compute_execution_cap)
-        {
-            //FIXME give user control over when and what memory barriers are created
-            // if (mPreComputeMemoryBarrier)
-            OGRE_CHECK_GL_ERROR(glMemoryBarrier(GL_ALL_BARRIER_BITS));
-            Vector3 workgroupDim = mCurrentComputeShader->getComputeGroupDimensions();
-            OGRE_CHECK_GL_ERROR(glDispatchCompute(int(workgroupDim[0]),
-                                                  int(workgroupDim[1]),
-                                                  int(workgroupDim[2])));
-            // if (mPostComputeMemoryBarrier)
-            //     OGRE_CHECK_GL_ERROR(glMemoryBarrier(toGL(MB_TEXTURE)));
-            // if (compute_execution_cap > 0)
-            //     mComputeProgramExecutions++;
         }
 
         int operationType = op.operationType;
@@ -1615,7 +1571,7 @@ namespace Ogre {
         //  GL measures from the bottom, not the top
         size_t targetHeight = mActiveRenderTarget->getHeight();
         // Calculate the "lower-left" corner of the viewport
-        uint64 x = 0, y = 0, w = 0, h = 0;
+        int x = 0, y = 0, w = 0, h = 0;
 
         if (enabled)
         {
@@ -1818,12 +1774,9 @@ namespace Ogre {
 
         for(RenderTargetMap::iterator it = mRenderTargets.begin(); it!=mRenderTargets.end(); ++it)
         {
-            RenderTarget* target = it->second;
-            if(target)
+            if(auto target = dynamic_cast<GLRenderTarget*>(it->second))
             {
-                GL3PlusFrameBufferObject *fbo = 0;
-                target->getCustomAttribute("FBO", &fbo);
-                if(fbo)
+                if(auto fbo = target->getFBO())
                     fbo->notifyContextDestroyed(context);
             }
         }
@@ -1937,8 +1890,7 @@ namespace Ogre {
     void GL3PlusRenderSystem::initialiseContext(RenderWindow* primary)
     {
         // Set main and current context
-        mMainContext = 0;
-        primary->getCustomAttribute(GLRenderTexture::CustomAttributeString_GLCONTEXT, &mMainContext);
+        mMainContext = dynamic_cast<GLRenderTarget*>(primary)->getContext();
         mCurrentContext = mMainContext;
 
         // Set primary context as active
@@ -1972,8 +1924,7 @@ namespace Ogre {
         if (target)
         {
             // Switch context if different from current one
-            GL3PlusContext *newContext = 0;
-            target->getCustomAttribute(GLRenderTexture::CustomAttributeString_GLCONTEXT, &newContext);
+            GL3PlusContext *newContext = dynamic_cast<GLRenderTarget*>(target)->getContext();
             if (newContext && mCurrentContext != newContext)
             {
                 _switchContext(newContext);
@@ -2198,7 +2149,7 @@ namespace Ogre {
         RenderSystem::unbindGpuProgram(gptype);
     }
 
-    void GL3PlusRenderSystem::bindGpuProgramParameters(GpuProgramType gptype, GpuProgramParametersSharedPtr params, uint16 mask)
+    void GL3PlusRenderSystem::bindGpuProgramParameters(GpuProgramType gptype, const GpuProgramParametersPtr& params, uint16 mask)
     {
         if (mask & (uint16)GPV_GLOBAL)
         {
@@ -2299,10 +2250,6 @@ namespace Ogre {
         default:
             break;
         }
-    }
-
-    void GL3PlusRenderSystem::setClipPlanesImpl(const PlaneList& planeList)
-    {
     }
 
     void GL3PlusRenderSystem::registerThread()

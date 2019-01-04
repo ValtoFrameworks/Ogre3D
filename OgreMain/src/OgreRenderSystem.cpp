@@ -38,7 +38,7 @@ THE SOFTWARE.
 #include "OgreHardwareOcclusionQuery.h"
 
 #ifdef OGRE_BUILD_COMPONENT_RTSHADERSYSTEM
-#include <OgreRTShaderConfig.h>
+#include "OgreRTShaderConfig.h"
 #endif
 
 namespace Ogre {
@@ -55,7 +55,6 @@ namespace Ogre {
         // This means CULL clockwise vertices, i.e. front of poly is counter-clockwise
         // This makes it the same as OpenGL and other right-handed systems
         , mCullingMode(CULL_CLOCKWISE)
-        , mWBuffer(false)
         , mBatchCount(0)
         , mFaceCount(0)
         , mVertexCount(0)
@@ -312,7 +311,9 @@ namespace Ogre {
     {
         // This method is only ever called to set a texture unit to valid details
         // The method _disableTextureUnit is called to turn a unit off
-        const TexturePtr& tex = tl._getTexturePtr();
+        TexturePtr tex = tl._getTexturePtr();
+        if(!tex || tl.isTextureLoadFailing())
+            tex = mTextureManager->_getWarningTexture();
 
         // Vertex texture binding (D3D9 only)
         if (mCurrentCapabilities->hasCapability(RSC_VERTEX_TEXTURE_FETCH) &&
@@ -505,12 +506,13 @@ namespace Ogre {
     }
     bool RenderSystem::getWBufferEnabled(void) const
     {
-        return mWBuffer;
+        return mCurrentCapabilities->hasCapability(RSC_WBUFFER);
     }
     //-----------------------------------------------------------------------
     void RenderSystem::setWBufferEnabled(bool enabled)
     {
-        mWBuffer = enabled;
+        enabled ? mCurrentCapabilities->setCapability(RSC_WBUFFER)
+                : mCurrentCapabilities->unsetCapability(RSC_WBUFFER);
     }
     //-----------------------------------------------------------------------
     void RenderSystem::shutdown(void)

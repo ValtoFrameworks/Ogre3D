@@ -19,8 +19,8 @@ macro_log_feature(HLSL2GLSL_FOUND "HLSL2GLSL" "HLSL2GLSL" "http://hlsl2glslfork.
 
 file(GLOB HEADER_FILES "include/*.h")
 list(APPEND HEADER_FILES
-    ${CMAKE_BINARY_DIR}/include/OgreGLES2Exports.h
-    ${CMAKE_BINARY_DIR}/include/OgreGLES2Config.h)
+    ${PROJECT_BINARY_DIR}/include/OgreGLES2Exports.h
+    ${PROJECT_BINARY_DIR}/include/OgreGLES2Config.h)
 file(GLOB SOURCE_FILES "src/*.cpp")
 list(APPEND SOURCE_FILES "${CMAKE_CURRENT_SOURCE_DIR}/src/glesw.c")
 
@@ -47,6 +47,7 @@ endif (OGRE_CONFIG_ENABLE_GLES2_CG_SUPPORT)
 
 # Add system specific settings
 if (APPLE)
+  add_definitions(-DGLES_SILENCE_DEPRECATION)
   file(GLOB PLATFORM_HEADERS "include/EAGL/*.h")
   file(GLOB PLATFORM_SOURCES "src/EAGL/*.mm")
 
@@ -68,6 +69,7 @@ if (OGRE_CONFIG_ENABLE_GLES2_GLSL_OPTIMISER)
 endif ()
 
 if (OGRE_CONFIG_ENABLE_GLES2_CG_SUPPORT)
+  target_include_directories(RenderSystem_GLES2 PUBLIC ${HLSL2GLSL_INCLUDE_DIRS})
   target_link_libraries(RenderSystem_GLES2 ${HLSL2GLSL_LIBRARIES})
 endif ()
 
@@ -83,7 +85,7 @@ endif ()
 
 generate_export_header(RenderSystem_GLES2 
     EXPORT_MACRO_NAME _OgreGLES2Export
-    EXPORT_FILE_NAME ${CMAKE_BINARY_DIR}/include/OgreGLES2Exports.h)
+    EXPORT_FILE_NAME ${PROJECT_BINARY_DIR}/include/OgreGLES2Exports.h)
 
 ogre_config_plugin(RenderSystem_GLES2)
 

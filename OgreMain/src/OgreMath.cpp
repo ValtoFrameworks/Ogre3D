@@ -37,7 +37,7 @@ namespace Ogre
     const Real Math::HALF_PI = Real( 0.5 * PI );
     const Real Math::fDeg2Rad = PI / Real(180.0);
     const Real Math::fRad2Deg = Real(180.0) / PI;
-    const Real Math::LOG2 = log(Real(2.0));
+    const Real Math::LOG2 = std::log(Real(2.0));
 
     int Math::mTrigTableSize;
    Math::AngleUnit Math::msAngleUnit;
@@ -78,9 +78,9 @@ namespace Ogre
         Real angle;
         for (int i = 0; i < mTrigTableSize; ++i)
         {
-            angle = Math::TWO_PI * i / mTrigTableSize;
-            mSinTable[i] = sin(angle);
-            mTanTable[i] = tan(angle);
+            angle = Math::TWO_PI * i / Real(mTrigTableSize);
+            mSinTable[i] = std::sin(angle);
+            mTanTable[i] = std::tan(angle);
         }
     }
     //-----------------------------------------------------------------------   
@@ -136,18 +136,6 @@ namespace Ogre
             return Radian(-HALF_PI);
         }
     }
-    //-----------------------------------------------------------------------
-    Real Math::Sign (Real fValue)
-    {
-        if ( fValue > 0.0 )
-            return 1.0;
-
-        if ( fValue < 0.0 )
-            return -1.0;
-
-        return 0.0;
-    }
-
     //-----------------------------------------------------------------------
     Real Math::UnitRandom ()
     {
@@ -305,39 +293,22 @@ namespace Ogre
         return true;
     }
     //-----------------------------------------------------------------------
-    std::pair<bool, Real> Math::intersects(const Ray& ray, const Plane& plane)
+    std::pair<bool, Real> Math::intersects(const Ray& ray, 
+        const std::list<Plane>& planes, bool normalIsOutside)
     {
-
-        Real denom = plane.normal.dotProduct(ray.getDirection());
-        if (Math::Abs(denom) < std::numeric_limits<Real>::epsilon())
+        std::vector<Plane> planesVec;
+        planesVec.reserve(planes.size());
+        for (std::list<Plane>::const_iterator i = planes.begin(); i != planes.end(); ++i)
         {
-            // Parallel
-            return std::pair<bool, Real>(false, (Real)0);
+            planesVec.push_back(*i);
         }
-        else
-        {
-            Real nom = plane.normal.dotProduct(ray.getOrigin()) + plane.d;
-            Real t = -(nom/denom);
-            return std::pair<bool, Real>(t >= 0, (Real)t);
-        }
-        
+        return intersects(ray, planesVec, normalIsOutside);
     }
     //-----------------------------------------------------------------------
     std::pair<bool, Real> Math::intersects(const Ray& ray, 
         const std::vector<Plane>& planes, bool normalIsOutside)
     {
-        std::list<Plane> planesList;
-        for (std::vector<Plane>::const_iterator i = planes.begin(); i != planes.end(); ++i)
-        {
-            planesList.push_back(*i);
-        }
-        return intersects(ray, planesList, normalIsOutside);
-    }
-    //-----------------------------------------------------------------------
-    std::pair<bool, Real> Math::intersects(const Ray& ray, 
-        const std::list<Plane>& planes, bool normalIsOutside)
-    {
-        std::list<Plane>::const_iterator planeit, planeitend;
+        std::vector<Plane>::const_iterator planeit, planeitend;
         planeitend = planes.end();
         bool allInside = true;
         std::pair<bool, Real> ret;
@@ -415,48 +386,6 @@ namespace Ogre
             }
         }
         return ret;
-    }
-    //-----------------------------------------------------------------------
-    std::pair<bool, Real> Math::intersects(const Ray& ray, const Sphere& sphere, 
-        bool discardInside)
-    {
-        const Vector3& raydir = ray.getDirection();
-        // Adjust ray origin relative to sphere center
-        const Vector3& rayorig = ray.getOrigin() - sphere.getCenter();
-        Real radius = sphere.getRadius();
-
-        // Check origin inside first
-        if (rayorig.squaredLength() <= radius*radius && discardInside)
-        {
-            return std::pair<bool, Real>(true, (Real)0);
-        }
-
-        // Mmm, quadratics
-        // Build coeffs which can be used with std quadratic solver
-        // ie t = (-b +/- sqrt(b*b + 4ac)) / 2a
-        Real a = raydir.dotProduct(raydir);
-        Real b = 2 * rayorig.dotProduct(raydir);
-        Real c = rayorig.dotProduct(rayorig) - radius*radius;
-
-        // Calc determinant
-        Real d = (b*b) - (4 * a * c);
-        if (d < 0)
-        {
-            // No intersection
-            return std::pair<bool, Real>(false, (Real)0);
-        }
-        else
-        {
-            // BTW, if d=0 there is one intersection, if d > 0 there are 2
-            // But we only want the closest one, so that's ok, just use the 
-            // '-' version of the solver
-            Real t = ( -b - Math::Sqrt(d) ) / (2 * a);
-            if (t < 0)
-                t = ( -b + Math::Sqrt(d) ) / (2 * a);
-            return std::pair<bool, Real>(true, (Real)t);
-        }
-
-
     }
     //-----------------------------------------------------------------------
     std::pair<bool, Real> Math::intersects(const Ray& ray, const AxisAlignedBox& box)
@@ -794,18 +723,6 @@ namespace Ogre
 
     }
     //-----------------------------------------------------------------------
-    bool Math::intersects(const Plane& plane, const AxisAlignedBox& box)
-    {
-        return (plane.getSide(box) == Plane::BOTH_SIDE);
-    }
-    //-----------------------------------------------------------------------
-    bool Math::intersects(const Sphere& sphere, const Plane& plane)
-    {
-        return (
-            Math::Abs(plane.getDistance(sphere.getCenter()))
-            <= sphere.getRadius() );
-    }
-    //-----------------------------------------------------------------------
     Vector3 Math::calculateTangentSpaceVector(
         const Vector3& position1, const Vector3& position2, const Vector3& position3,
         Real u1, Real v1, Real u2, Real v2, Real u3, Real v3)
@@ -852,33 +769,6 @@ namespace Ogre
             -2 * p.normal.z * p.normal.x,       -2 * p.normal.z * p.normal.y,       -2 * p.normal.z * p.normal.z + 1,   -2 * p.normal.z * p.d);
     }
     //-----------------------------------------------------------------------
-    Vector4 Math::calculateFaceNormal(const Vector3& v1, const Vector3& v2, const Vector3& v3)
-    {
-        Vector3 normal = calculateBasicFaceNormal(v1, v2, v3);
-        // Now set up the w (distance of tri from origin
-        return Vector4(normal.x, normal.y, normal.z, -(normal.dotProduct(v1)));
-    }
-    //-----------------------------------------------------------------------
-    Vector3 Math::calculateBasicFaceNormal(const Vector3& v1, const Vector3& v2, const Vector3& v3)
-    {
-        Vector3 normal = (v2 - v1).crossProduct(v3 - v1);
-        normal.normalise();
-        return normal;
-    }
-    //-----------------------------------------------------------------------
-    Vector4 Math::calculateFaceNormalWithoutNormalize(const Vector3& v1, const Vector3& v2, const Vector3& v3)
-    {
-        Vector3 normal = calculateBasicFaceNormalWithoutNormalize(v1, v2, v3);
-        // Now set up the w (distance of tri from origin)
-        return Vector4(normal.x, normal.y, normal.z, -(normal.dotProduct(v1)));
-    }
-    //-----------------------------------------------------------------------
-    Vector3 Math::calculateBasicFaceNormalWithoutNormalize(const Vector3& v1, const Vector3& v2, const Vector3& v3)
-    {
-        Vector3 normal = (v2 - v1).crossProduct(v3 - v1);
-        return normal;
-    }
-    //-----------------------------------------------------------------------
     Real Math::gaussianDistribution(Real x, Real offset, Real scale)
     {
         Real nom = Math::Exp(
@@ -892,17 +782,6 @@ namespace Ogre
     Affine3 Math::makeViewMatrix(const Vector3& position, const Quaternion& orientation,
         const Affine3* reflectMatrix)
     {
-        Affine3 viewMatrix;
-
-        // View matrix is:
-        //
-        //  [ Lx  Uy  Dz  Tx  ]
-        //  [ Lx  Uy  Dz  Ty  ]
-        //  [ Lx  Uy  Dz  Tz  ]
-        //  [ 0   0   0   1   ]
-        //
-        // Where T = -(Transposed(Rot) * Pos)
-
         // This is most efficiently done using 3x3 Matrices
         Matrix3 rot;
         orientation.ToRotationMatrix(rot);
@@ -912,7 +791,7 @@ namespace Ogre
         Vector3 trans = -rotT * position;
 
         // Make final matrix
-        viewMatrix = Affine3::IDENTITY;
+        Affine3 viewMatrix = Affine3::IDENTITY;
         viewMatrix = rotT; // fills upper 3x3
         viewMatrix[0][3] = trans.x;
         viewMatrix[1][3] = trans.y;
@@ -926,6 +805,48 @@ namespace Ogre
 
         return viewMatrix;
 
+    }
+
+    Matrix4 Math::makePerspectiveMatrix(Real left, Real right, Real bottom, Real top, Real zNear, Real zFar)
+    {
+        // The code below will dealing with general projection
+        // parameters, similar glFrustum.
+        // Doesn't optimise manually except division operator, so the
+        // code more self-explaining.
+
+        Real inv_w = 1 / (right - left);
+        Real inv_h = 1 / (top - bottom);
+        Real inv_d = 1 / (zFar - zNear);
+
+        // Calc matrix elements
+        Real A = 2 * zNear * inv_w;
+        Real B = 2 * zNear * inv_h;
+        Real C = (right + left) * inv_w;
+        Real D = (top + bottom) * inv_h;
+        Real q, qn;
+
+        if (zFar == 0)
+        {
+            // Infinite far plane
+            q = Frustum::INFINITE_FAR_PLANE_ADJUST - 1;
+            qn = zNear * (Frustum::INFINITE_FAR_PLANE_ADJUST - 2);
+        }
+        else
+        {
+            q = - (zFar + zNear) * inv_d;
+            qn = -2 * (zFar * zNear) * inv_d;
+        }
+
+        Matrix4 ret = Matrix4::ZERO;
+        ret[0][0] = A;
+        ret[0][2] = C;
+        ret[1][1] = B;
+        ret[1][2] = D;
+        ret[2][2] = q;
+        ret[2][3] = qn;
+        ret[3][2] = -1;
+
+        return ret;
     }
     //---------------------------------------------------------------------
     Real Math::boundingRadiusFromAABB(const AxisAlignedBox& aabb)

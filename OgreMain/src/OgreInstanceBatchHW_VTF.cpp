@@ -170,7 +170,8 @@ namespace Ogre
             HardwareBuffer::HBU_STATIC_WRITE_ONLY );
         thisVertexData->vertexBufferBinding->setBinding( newSource, vertexBuffer );
 
-        float *thisFloat = static_cast<float*>(vertexBuffer->lock(HardwareBuffer::HBL_DISCARD));
+        HardwareBufferLockGuard vertexLock(vertexBuffer, HardwareBuffer::HBL_DISCARD);
+        float *thisFloat = static_cast<float*>(vertexLock.pData);
 
         //Create the UVs to sample from the right bone/matrix
         for( size_t j=0; j < baseVertexData->vertexCount * mWeightCount; j += mWeightCount)
@@ -221,7 +222,7 @@ namespace Ogre
             }
         }
 
-        vertexBuffer->unlock();
+        vertexLock.unlock();
 
         //Now create the instance buffer that will be incremented per instance, contains UV offsets
         newSource = thisVertexData->vertexDeclaration->getMaxSource() + 1;
@@ -276,7 +277,8 @@ namespace Ogre
             texelOffsets.x = /*renderSystem->getHorizontalTexelOffset()*/ -0.5f / texWidth;
             texelOffsets.y = /*renderSystem->getHorizontalTexelOffset()*/ -0.5f / texHeight;
 
-            float *thisVec = static_cast<float*>(mInstanceVertexBuffer->lock(HardwareBuffer::HBL_DISCARD));
+            HardwareBufferLockGuard instanceVertexLock(mInstanceVertexBuffer, HardwareBuffer::HBL_DISCARD);
+            float *thisVec = static_cast<float*>(instanceVertexLock.pData);
 
             const size_t maxPixelsPerLine = std::min( static_cast<size_t>(mMatrixTexture->getWidth()), mMaxFloatsPerLine >> 2 );
 
@@ -324,8 +326,6 @@ namespace Ogre
                     ++visibleEntityCount;
                 }
             }
-
-            mInstanceVertexBuffer->unlock();
         }
         else
         {
@@ -415,7 +415,7 @@ namespace Ogre
         mDirtyAnimation = false;
 
         //Now lock the texture and copy the 4x3 matrices!
-        mMatrixTexture->getBuffer()->lock( HardwareBuffer::HBL_DISCARD );
+        HardwareBufferLockGuard matTexLock(mMatrixTexture->getBuffer(), HardwareBuffer::HBL_DISCARD);
         const PixelBox &pixelBox = mMatrixTexture->getBuffer()->getCurrentLock();
 
         float *pSource = reinterpret_cast<float*>(pixelBox.data);
@@ -430,11 +430,11 @@ namespace Ogre
         size_t instanceCount = mInstancedEntities.size();
         size_t updatedInstances = 0;
 
-        float* transforms = NULL;
+        Matrix3x4f* transforms = NULL;
         //If using dual quaternions, write 3x4 matrices to a temporary buffer, then convert to dual quaternions
         if(mUseBoneDualQuaternions)
         {
-            transforms = mTempTransformsArray3x4;
+            transforms = (Matrix3x4f*)mTempTransformsArray3x4;
         }
         
         for(size_t i = 0 ; i < instanceCount ; ++i)
@@ -457,7 +457,7 @@ namespace Ogre
 
                 if(!mUseBoneDualQuaternions)
                 {
-                    transforms = pDest;
+                    transforms = (Matrix3x4f*)pDest;
                 }
                 
                 if( mMeshReference->hasSkeleton() )
@@ -466,7 +466,7 @@ namespace Ogre
                 size_t floatsWritten = entity->getTransforms3x4( transforms );
 
                 if( !useMatrixLookup && mManager->getCameraRelativeRendering() )
-                    makeMatrixCameraRelative3x4( transforms, floatsWritten );
+                    makeMatrixCameraRelative3x4( transforms, floatsWritten / 12 );
 
                 if(mUseBoneDualQuaternions)
                 {
@@ -490,8 +490,6 @@ namespace Ogre
         {
             renderedInstances = updatedInstances;
         }
-
-        mMatrixTexture->getBuffer()->unlock();
 
         return renderedInstances;
     }

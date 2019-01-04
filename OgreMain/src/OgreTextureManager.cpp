@@ -155,7 +155,6 @@ namespace Ogre {
         uint fsaa, const String& fsaaHint)
     {
         TexturePtr ret;
-        ret.reset();
 
         // Check for 3D texture support
         const RenderSystemCapabilities* caps =
@@ -169,6 +168,10 @@ namespace Ogre {
             usage = (usage & ~(int)TU_STATIC) | (int)TU_DYNAMIC;
         }
         ret = create(name, group, true, loader);
+
+        if(!ret)
+            return ret;
+
         ret->setTextureType(texType);
         ret->setWidth(width);
         ret->setHeight(height);
@@ -286,6 +289,19 @@ namespace Ogre {
         // Assume that same or greater number of bits means quality not degraded
         return PixelUtil::getNumElemBits(supportedFormat) >= PixelUtil::getNumElemBits(format);
         
+    }
+
+    bool TextureManager::isHardwareFilteringSupported(TextureType ttype, PixelFormat format,
+                                                      int usage, bool preciseFormatOnly)
+    {
+        if (format == PF_UNKNOWN)
+            return false;
+
+        // Check native format
+        if (preciseFormatOnly && !isFormatSupported(ttype, format, usage))
+            return false;
+
+        return true;
     }
 
     const TexturePtr& TextureManager::_getWarningTexture()

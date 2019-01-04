@@ -522,7 +522,6 @@ namespace Ogre {
         uint8 mWorldGeometryRenderQueue;
         
         unsigned long mLastFrameNumber;
-        Affine3 mTempXform[256];
         bool mResetIdentityView;
         bool mResetIdentityProj;
 
@@ -625,8 +624,8 @@ namespace Ogre {
             HardwareIndexBufferSharedPtr mShadowIndexBuffer;
             size_t mShadowIndexBufferSize;
             size_t mShadowIndexBufferUsedSize;
-            GpuProgramParametersSharedPtr mInfiniteExtrusionParams;
-            GpuProgramParametersSharedPtr mFiniteExtrusionParams;
+            static GpuProgramParametersSharedPtr msInfiniteExtrusionParams;
+            static GpuProgramParametersSharedPtr msFiniteExtrusionParams;
 
             Pass* mShadowTextureCustomCasterPass;
             Pass* mShadowTextureCustomReceiverPass;
@@ -1049,7 +1048,6 @@ namespace Ogre {
         /// Whether to use camera-relative rendering
         bool mCameraRelativeRendering;
         Affine3 mCachedViewMatrix;
-        Vector3 mCameraRelativePosition;
 
         /// Last light sets
         uint32 mLastLightHash;
@@ -2162,7 +2160,7 @@ namespace Ogre {
         */
         void setFog(
             FogMode mode = FOG_NONE, const ColourValue& colour = ColourValue::White,
-            Real expDensity = 0.001, Real linearStart = 0.0, Real linearEnd = 1.0);
+            Real expDensity = 0.001f, Real linearStart = 0.0f, Real linearEnd = 1.0f);
 
         /** Returns the fog mode for the scene.
         */
@@ -2820,7 +2818,7 @@ namespace Ogre {
 
         /** Sets the proportional distance which a texture shadow which is generated from a
             directional light will be offset into the camera view to make best use of texture space.
-        @remarks
+
             When generating a shadow texture from a directional light, an approximation is used
             since it is not possible to render the entire scene to one texture. 
             The texture is projected onto an area centred on the camera, and is
@@ -3447,6 +3445,8 @@ namespace Ogre {
         void _handleLodEvents();
 
         IlluminationRenderStage _getCurrentRenderStage() {return mIlluminationStage;}
+
+        const AutoParamDataSource* _getAutoParamDataSource() { return mAutoParamDataSource.get(); }
     };
 
     /** Default implementation of IntersectionSceneQuery. */

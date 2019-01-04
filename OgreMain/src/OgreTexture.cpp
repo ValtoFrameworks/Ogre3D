@@ -244,14 +244,14 @@ namespace Ogre {
         
         if (TextureManager::getSingleton().getVerbose()) {
             // Say what we're doing
-            StringStream str;
+            Log::Stream str = LogManager::getSingleton().stream();
             str << "Texture: " << mName << ": Loading " << faces << " faces"
-                << "(" << PixelUtil::getFormatName(images[0]->getFormat()) << "," <<
-                images[0]->getWidth() << "x" << images[0]->getHeight() << "x" << images[0]->getDepth() <<
-                ")";
+                << "(" << PixelUtil::getFormatName(images[0]->getFormat()) << ","
+                << images[0]->getWidth() << "x" << images[0]->getHeight() << "x"
+                << images[0]->getDepth() << ")";
             if (!(mMipmapsHardwareGenerated && mNumMipmaps == 0))
             {
-                str << " with " << static_cast<int>(mNumMipmaps);
+                str << " with " << mNumMipmaps;
                 if(mUsage & TU_AUTOMIPMAP)
                 {
                     if (mMipmapsHardwareGenerated)
@@ -269,15 +269,10 @@ namespace Ogre {
                     str << " from Image.";
             }
 
-            // Scoped
-            {
-                // Print data about first destination surface
-                HardwarePixelBufferSharedPtr buf = getBuffer(0, 0); 
-                str << " Internal format is " << PixelUtil::getFormatName(buf->getFormat()) << 
-                "," << buf->getWidth() << "x" << buf->getHeight() << "x" << buf->getDepth() << ".";
-            }
-            LogManager::getSingleton().logMessage( 
-                    LML_NORMAL, str.str());
+            // Print data about first destination surface
+            const auto& buf = getBuffer(0, 0);
+            str << " Internal format is " << PixelUtil::getFormatName(buf->getFormat()) << ","
+                << buf->getWidth() << "x" << buf->getHeight() << "x" << buf->getDepth() << ".";
         }
         
         // Main loading loop
@@ -344,6 +339,7 @@ namespace Ogre {
     {
         if (mInternalResourcesCreated)
         {
+            mSurfaceList.clear();
             freeInternalResourcesImpl();
             mInternalResourcesCreated = false;
         }
@@ -420,6 +416,23 @@ namespace Ogre {
         return BLANKSTRING;
 
     }
+    const HardwarePixelBufferSharedPtr& Texture::getBuffer(size_t face, size_t mipmap)
+    {
+        if (face >= getNumFaces())
+        {
+            OGRE_EXCEPT(Exception::ERR_INVALIDPARAMS, "Face index out of range", "Texture::getBuffer");
+        }
+
+        if (mipmap > mNumMipmaps)
+        {
+            OGRE_EXCEPT(Exception::ERR_INVALIDPARAMS, "Mipmap index out of range", "Texture::getBuffer");
+        }
+
+        unsigned long idx = face * (mNumMipmaps + 1) + mipmap;
+        assert(idx < mSurfaceList.size());
+        return mSurfaceList[idx];
+    }
+
     //---------------------------------------------------------------------
     void Texture::convertToImage(Image& destImage, bool includeMipMaps)
     {
@@ -463,6 +476,125 @@ namespace Ogre {
     //--------------------------------------------------------------------------
     void Texture::getCustomAttribute(const String&, void*)
     {
-    } 
+    }
 
+    void Texture::readImage(LoadedImages& imgs, const String& name, const String& ext, bool haveNPOT)
+    {
+        imgs.push_back(Image());
+        Image& img = imgs.back();
+
+        DataStreamPtr dstream = ResourceGroupManager::getSingleton().openResource(name, mGroup, this);
+        img.load(dstream, ext);
+
+        if( haveNPOT )
+            return;
+
+        // Scale to nearest power of 2
+        uint32 w = Bitwise::firstPO2From(img.getWidth());
+        uint32 h = Bitwise::firstPO2From(img.getHeight());
+        if((img.getWidth() != w) || (img.getHeight() != h))
+            img.resize(w, h);
+    }
+
+    void Texture::prepareImpl(void)
+    {
+        if (mUsage & TU_RENDERTARGET)
+            return;
+
+        const RenderSystemCapabilities* renderCaps =
+            Root::getSingleton().getRenderSystem()->getCapabilities();
+
+        bool haveNPOT = renderCaps->hasCapability(RSC_NON_POWER_OF_2_TEXTURES) ||
+                        (renderCaps->getNonPOW2TexturesLimited() && mNumMipmaps == 0);
+
+        String baseName, ext;
+        StringUtil::splitBaseFilename(mName, baseName, ext);
+
+        LoadedImages loadedImages;
+
+        if (mTextureType == TEX_TYPE_1D || mTextureType == TEX_TYPE_2D ||
+            mTextureType == TEX_TYPE_2D_RECT || mTextureType == TEX_TYPE_2D_ARRAY ||
+            mTextureType == TEX_TYPE_3D)
+        {
+            readImage(loadedImages, mName, ext, haveNPOT);
+
+            // If this is a volumetric texture set the texture type flag accordingly.
+            // If this is a cube map, set the texture type flag accordingly.
+            if (loadedImages[0].hasFlag(IF_CUBEMAP))
+                mTextureType = TEX_TYPE_CUBE_MAP;
+            // If this is a volumetric texture set the texture type flag accordingly.
+            if (loadedImages[0].getDepth() > 1 && mTextureType != TEX_TYPE_2D_ARRAY)
+                mTextureType = TEX_TYPE_3D;
+
+            // If compressed and 0 custom mipmap, disable auto mip generation and
+            // disable software mipmap creation.
+            // Not supported by GLES.
+            if (PixelUtil::isCompressed(loadedImages[0].getFormat()) &&
+                !renderCaps->hasCapability(RSC_AUTOMIPMAP_COMPRESSED) &&
+                loadedImages[0].getNumMipmaps() == 0)
+            {
+                mNumMipmaps = mNumRequestedMipmaps = 0;
+                // Disable flag for auto mip generation
+                mUsage &= ~TU_AUTOMIPMAP;
+            }
+        }
+        else if (mTextureType == TEX_TYPE_CUBE_MAP)
+        {
+            if (getSourceFileType() == "dds")
+            {
+                // XX HACK there should be a better way to specify whether
+                // all faces are in the same file or not
+                readImage(loadedImages, mName, ext, haveNPOT);
+            }
+            else
+            {
+                for (size_t i = 0; i < 6; i++)
+                {
+                    String fullName = baseName + CUBEMAP_SUFFIXES[i];
+                    if (!ext.empty())
+                        fullName = fullName + "." + ext;
+                    // find & load resource data intro stream to allow resource
+                    // group changes if required
+                    readImage(loadedImages, fullName, ext, haveNPOT);
+                }
+            }
+        }
+        else
+        {
+            OGRE_EXCEPT(Exception::ERR_NOT_IMPLEMENTED, "Unknown texture type");
+        }
+
+        // avoid copying Image data
+        std::swap(mLoadedImages, loadedImages);
+    }
+
+    void Texture::unprepareImpl()
+    {
+        mLoadedImages.clear();
+    }
+
+    void Texture::loadImpl()
+    {
+        if (mUsage & TU_RENDERTARGET)
+        {
+            createInternalResources();
+            return;
+        }
+
+        LoadedImages loadedImages;
+        // Now the only copy is on the stack and will be cleaned in case of
+        // exceptions being thrown from _loadImages
+        std::swap(loadedImages, mLoadedImages);
+
+        // Call internal _loadImages, not loadImage since that's external and
+        // will determine load status etc again
+        ConstImagePtrList imagePtrs;
+
+        for (size_t i = 0; i < loadedImages.size(); ++i)
+        {
+            imagePtrs.push_back(&loadedImages[i]);
+        }
+
+        _loadImages(imagePtrs);
+    }
 }

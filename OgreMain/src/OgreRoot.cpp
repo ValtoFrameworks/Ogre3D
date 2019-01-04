@@ -260,7 +260,6 @@ namespace Ogre {
         Pass::processPendingPassUpdates(); // make sure passes are cleaned
 
         mAutoWindow = 0;
-        mFirstTimePostWindowInit = false;
 
         StringInterface::cleanupDictionary();
 
@@ -498,7 +497,8 @@ namespace Ogre {
 
         mActiveRenderer = system;
         // Tell scene managers
-        SceneManagerEnumerator::getSingleton().setRenderSystem(system);
+        if(mSceneManagerEnum)
+            mSceneManagerEnum->setRenderSystem(system);
 
         if(RenderSystem::Listener* ls = RenderSystem::getSharedListener())
             ls->eventOccurred("RenderSystemChanged");
@@ -913,7 +913,11 @@ namespace Ogre {
         if(mSceneManagerEnum)
             mSceneManagerEnum->shutdownAll();
         if(mFirstTimePostWindowInit)
+        {
             shutdownPlugins();
+            mParticleManager->removeAllTemplates(true);
+            mFirstTimePostWindowInit = false;
+        }
         mSceneManagerEnum.reset();
         mShadowTextureManager.reset();
 
@@ -1050,7 +1054,7 @@ namespace Ogre {
             {
                 OGRE_DELETE_T(fs, basic_fstream, MEMCATEGORY_GENERAL);
                 OGRE_EXCEPT(Exception::ERR_CANNOT_WRITE_TO_FILE,
-                "Can't open " + filename + " for writing", __FUNCTION__);
+                            "Can't open " + filename + " for writing");
             }
 
             stream = DataStreamPtr(OGRE_NEW FileStreamDataStream(filename, fs));
@@ -1076,8 +1080,7 @@ namespace Ogre {
         if(!*ifs)
         {
             OGRE_DELETE_T(ifs, basic_ifstream, MEMCATEGORY_GENERAL);
-            OGRE_EXCEPT(
-                Exception::ERR_FILE_NOT_FOUND, "'" + filename + "' file not found!", __FUNCTION__);
+            OGRE_EXCEPT(Exception::ERR_FILE_NOT_FOUND, "'" + filename + "' file not found!");
         }
         return DataStreamPtr(OGRE_NEW FileStreamDataStream(filename, ifs));
     }

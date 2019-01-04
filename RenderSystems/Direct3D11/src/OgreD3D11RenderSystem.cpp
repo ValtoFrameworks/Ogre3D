@@ -68,7 +68,7 @@ THE SOFTWARE.
 #endif
 //---------------------------------------------------------------------
 #include <d3d10.h>
-#include <OgreNsightChecker.h>
+#include "OgreNsightChecker.h"
 
 #if OGRE_PLATFORM == OGRE_PLATFORM_WINRT &&  defined(_WIN32_WINNT_WINBLUE) && _WIN32_WINNT >= _WIN32_WINNT_WINBLUE
 #include <dxgi1_3.h> // for IDXGIDevice3::Trim
@@ -755,18 +755,7 @@ namespace Ogre
             miscParams["vsyncInterval"] = opt->second.currentValue;
 
             autoWindow = this->_createRenderWindow( windowTitle, width, height, 
-                fullScreen, &miscParams );
-
-            // If we have 16bit depth buffer enable w-buffering.
-            assert( autoWindow );
-            if ( autoWindow->getColourDepth() == 16 ) 
-            { 
-                mWBuffer = true;
-            } 
-            else 
-            {
-                mWBuffer = false;
-            }           
+                fullScreen, &miscParams );         
         }
 
         LogManager::getSingleton().logMessage("***************************************");
@@ -950,7 +939,6 @@ namespace Ogre
         rsc->setNumTextureUnits(OGRE_MAX_TEXTURE_LAYERS);
         rsc->setNumVertexAttributes(D3D11_STANDARD_VERTEX_ELEMENT_COUNT);
         rsc->setCapability(RSC_ANISOTROPY);
-        rsc->setCapability(RSC_AUTOMIPMAP_COMPRESSED);
         rsc->setCapability(RSC_DOT3);
         // Cube map
         if (mFeatureLevel >= D3D_FEATURE_LEVEL_10_0)
@@ -1286,11 +1274,6 @@ namespace Ogre
         return true;
     }
     //-----------------------------------------------------------------------
-    bool D3D11RenderSystem::_checkTextureFilteringSupported(TextureType ttype, PixelFormat format, int usage)
-    {
-        return true;
-    }
-    //-----------------------------------------------------------------------
     MultiRenderTarget * D3D11RenderSystem::createMultiRenderTarget(const String & name)
     {
         MultiRenderTarget *retval;
@@ -1320,7 +1303,7 @@ namespace Ogre
         if ( mFeatureLevel < D3D_FEATURE_LEVEL_10_0)
             descDepth.Format            = DXGI_FORMAT_D24_UNORM_S8_UINT;
         else
-            descDepth.Format            = DXGI_FORMAT_R32_TYPELESS;
+            descDepth.Format            = DXGI_FORMAT_R24G8_TYPELESS;
 
         descDepth.SampleDesc.Count      = BBDesc.SampleDesc.Count;
         descDepth.SampleDesc.Quality    = BBDesc.SampleDesc.Quality;
@@ -1357,7 +1340,7 @@ namespace Ogre
         if(!mReadBackAsTexture && mFeatureLevel >= D3D_FEATURE_LEVEL_10_0 && BBDesc.SampleDesc.Count == 1)
         {
             D3D11_SHADER_RESOURCE_VIEW_DESC viewDesc;
-            viewDesc.Format = DXGI_FORMAT_R32_FLOAT;
+            viewDesc.Format = DXGI_FORMAT_R24_UNORM_X8_TYPELESS;
             viewDesc.ViewDimension = D3D11_SRV_DIMENSION_TEXTURE2D;
             viewDesc.Texture2D.MostDetailedMip = 0;
             viewDesc.Texture2D.MipLevels = 1;
@@ -1376,11 +1359,7 @@ namespace Ogre
         D3D11_DEPTH_STENCIL_VIEW_DESC descDSV;
         ZeroMemory( &descDSV, sizeof(D3D11_DEPTH_STENCIL_VIEW_DESC) );
 
-        if (mFeatureLevel < D3D_FEATURE_LEVEL_10_0)
-            descDSV.Format = DXGI_FORMAT_D24_UNORM_S8_UINT;
-        else
-            descDSV.Format = DXGI_FORMAT_D32_FLOAT;
-
+        descDSV.Format = DXGI_FORMAT_D24_UNORM_S8_UINT;
         descDSV.ViewDimension = (BBDesc.SampleDesc.Count > 1) ? D3D11_DSV_DIMENSION_TEXTURE2DMS : D3D11_DSV_DIMENSION_TEXTURE2D;
         descDSV.Flags = 0 /* D3D11_DSV_READ_ONLY_DEPTH | D3D11_DSV_READ_ONLY_STENCIL */;    // TODO: Allows bind depth buffer as depth view AND texture simultaneously.
                                                                                             // TODO: Decide how to expose this feature
@@ -1794,35 +1773,10 @@ namespace Ogre
         mSamplerStatesChanged = true;
     }
     //---------------------------------------------------------------------
-    void D3D11RenderSystem::_setSceneBlending( SceneBlendFactor sourceFactor, SceneBlendFactor destFactor, SceneBlendOperation op /*= SBO_ADD*/ )
-    {
-        if( sourceFactor == SBF_ONE && destFactor == SBF_ZERO)
-        {
-            mBlendDesc.RenderTarget[0].BlendEnable = FALSE;
-        }
-        else
-        {
-            mBlendDesc.RenderTarget[0].BlendEnable = TRUE;
-            mBlendDesc.RenderTarget[0].SrcBlend = D3D11Mappings::get(sourceFactor, false);
-            mBlendDesc.RenderTarget[0].DestBlend = D3D11Mappings::get(destFactor, false);
-            mBlendDesc.RenderTarget[0].SrcBlendAlpha = D3D11Mappings::get(sourceFactor, true);
-            mBlendDesc.RenderTarget[0].DestBlendAlpha = D3D11Mappings::get(destFactor, true);
-            mBlendDesc.RenderTarget[0].BlendOp = mBlendDesc.RenderTarget[0].BlendOpAlpha = D3D11Mappings::get(op);
-            
-            // feature level 9 and below does not support alpha to coverage.
-            if (mFeatureLevel < D3D_FEATURE_LEVEL_10_0)
-                mBlendDesc.AlphaToCoverageEnable = false;
-            else
-                mBlendDesc.AlphaToCoverageEnable = mSceneAlphaToCoverage;
-
-            mBlendDesc.RenderTarget[0].RenderTargetWriteMask = 0x0F;
-        }
-        mBlendDescChanged = true;
-    }
-    //---------------------------------------------------------------------
     void D3D11RenderSystem::_setSeparateSceneBlending( SceneBlendFactor sourceFactor, SceneBlendFactor destFactor, SceneBlendFactor sourceFactorAlpha, SceneBlendFactor destFactorAlpha, SceneBlendOperation op /*= SBO_ADD*/, SceneBlendOperation alphaOp /*= SBO_ADD*/ )
     {
-        if( sourceFactor == SBF_ONE && destFactor == SBF_ZERO)
+        if( sourceFactor == SBF_ONE && destFactor == SBF_ZERO && 
+            sourceFactorAlpha == SBF_ONE && destFactorAlpha == SBF_ZERO)
         {
             mBlendDesc.RenderTarget[0].BlendEnable = FALSE;
         }
@@ -2214,6 +2168,19 @@ namespace Ogre
     };
 
     //---------------------------------------------------------------------
+    void D3D11RenderSystem::_dispatchCompute(const Vector3i& workgroupDim)
+    {
+        // Bound unordered access views
+        mDevice.GetImmediateContext()->Dispatch(workgroupDim[0], workgroupDim[1], workgroupDim[2]);
+
+        // unbind
+        ID3D11UnorderedAccessView* views[] = { 0 };
+        ID3D11ShaderResourceView* srvs[] = { 0 };
+        mDevice.GetImmediateContext()->CSSetShaderResources( 0, 1, srvs );
+        mDevice.GetImmediateContext()->CSSetUnorderedAccessViews( 0, 1, views, NULL );
+        mDevice.GetImmediateContext()->CSSetShader( NULL, NULL, 0 );
+    }
+
     void D3D11RenderSystem::_render(const RenderOperation& op)
     {
 
@@ -2650,21 +2617,7 @@ namespace Ogre
         D3D11_PRIMITIVE_TOPOLOGY primType = D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST;
         DWORD primCount = 0;
 
-        // Handle computing
-        if(mBoundComputeProgram)
-        {
-            // Bound unordered access views
-            mDevice.GetImmediateContext()->Dispatch(1, 1, 1);
-
-            ID3D11UnorderedAccessView* views[] = { 0 };
-            ID3D11ShaderResourceView* srvs[] = { 0 };
-            mDevice.GetImmediateContext()->CSSetShaderResources( 0, 1, srvs );
-            mDevice.GetImmediateContext()->CSSetUnorderedAccessViews( 0, 1, views, NULL );
-            mDevice.GetImmediateContext()->CSSetShader( NULL, NULL, 0 );
-
-            return;
-        }
-        else if(mBoundTessellationHullProgram && mBoundTessellationDomainProgram)
+        if(mBoundTessellationHullProgram && mBoundTessellationDomainProgram)
         {
             // useful primitives for tessellation
             switch( op.operationType )
@@ -3137,7 +3090,7 @@ namespace Ogre
         RenderSystem::unbindGpuProgram(gptype);
     }
     //---------------------------------------------------------------------
-    void D3D11RenderSystem::bindGpuProgramParameters(GpuProgramType gptype, GpuProgramParametersSharedPtr params, uint16 mask)
+    void D3D11RenderSystem::bindGpuProgramParameters(GpuProgramType gptype, const GpuProgramParametersPtr& params, uint16 mask)
     {
         if (mask & (uint16)GPV_GLOBAL)
         {
@@ -3391,10 +3344,6 @@ namespace Ogre
         
         // Set subroutine for slot
         setSubroutine(gptype, slotIdx, subroutineName);
-    }
-    //---------------------------------------------------------------------
-    void D3D11RenderSystem::setClipPlanesImpl(const PlaneList& clipPlanes)
-    {
     }
     //---------------------------------------------------------------------
     void D3D11RenderSystem::setScissorTest(bool enabled, size_t left, size_t top, size_t right,

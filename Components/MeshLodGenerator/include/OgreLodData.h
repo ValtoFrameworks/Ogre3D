@@ -98,10 +98,10 @@ struct _OgreLodExport LodData {
 
     struct Vertex {
         Vector3 position;
+        Vector3 normal;
         VEdges edges;
         VTriangles triangles;
         
-        Vector3 normal;
         Vertex* collapseTo;
         bool seam;
         CollapseCostHeap::iterator costHeapPosition; /// Iterator pointing to the position in the mCollapseCostSet, which allows fast remove.
@@ -114,11 +114,19 @@ struct _OgreLodExport LodData {
         Vertex* vertex[3];
         Vector3 normal;
         bool isRemoved;
-        size_t submeshID; /// ID of the submesh. Usable with mMesh.getSubMesh() function.
+        unsigned short submeshID; /// ID of the submesh. Usable with mMesh.getSubMesh() function.
         unsigned int vertexID[3]; /// Vertex ID in the buffer associated with the submeshID.
 
-        void computeNormal();
-        bool hasVertex(const Vertex* v) const;
+        void computeNormal()
+        {
+            normal = Math::calculateBasicFaceNormal(vertex[0]->position, vertex[1]->position,
+                                                    vertex[2]->position);
+        }
+        bool hasVertex(const Vertex* v) const
+        {
+            return (v == vertex[0] || v == vertex[1] || v == vertex[2]);
+        }
+
         unsigned int getVertexID(const Vertex* v) const;
         bool isMalformed();
     };

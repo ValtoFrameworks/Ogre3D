@@ -65,13 +65,8 @@ namespace Ogre {
         {
             if (mDeltaInput)
             {
-                mDeltaCount += input;
                 // Wrap
-                while (mDeltaCount >= 1.0)
-                    mDeltaCount -= 1.0;
-                while (mDeltaCount < 0.0)
-                    mDeltaCount += 1.0;
-
+                mDeltaCount = std::fmod(mDeltaCount + input, 1.0f);
                 return mDeltaCount;
             }
             else
@@ -83,8 +78,7 @@ namespace Ogre {
     public:
         /** Constructor.
             @param
-                deltaInput If true, signifies that the input will be a delta value such that the function should
-                add it to an internal counter before calculating the output.
+                deltaInput If true, function will add input values together and wrap at 1.0 before evaluating
         */
         ControllerFunction(bool deltaInput)
         {

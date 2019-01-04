@@ -333,14 +333,16 @@ bool ProgramManager::createGpuPrograms(ProgramSet* programSet)
 //-----------------------------------------------------------------------------
 void ProgramManager::bindUniformParameters(Program* pCpuProgram, const GpuProgramParametersSharedPtr& passParams)
 {
-    const UniformParameterList& progParams = pCpuProgram->getParameters();
-    UniformParameterConstIterator itParams = progParams.begin();
-    UniformParameterConstIterator itParamsEnd = progParams.end();
+    // samplers are bound via registers in HLSL & Cg
+    bool samplersBound = ShaderGenerator::getSingleton().getTargetLanguage()[0] != 'g';
 
     // Bind each uniform parameter to its GPU parameter.
-    for (; itParams != itParamsEnd; ++itParams)
-    {           
-        (*itParams)->bind(passParams);                  
+    for (const auto& param : pCpuProgram->getParameters())
+    {
+        if((samplersBound && param->isSampler()) || !param->isUsed()) continue;
+
+        param->bind(passParams);
+        param->setUsed(false); // reset for shader regen
     }
 }
 
@@ -359,7 +361,7 @@ GpuProgramPtr ProgramManager::createGpuProgram(Program* shaderProgram,
     String source = sourceCodeStringStream.str();
 
     // Generate program name.
-    String programName = generateHash(source);
+    String programName = generateHash(source, shaderProgram->getPreprocessorDefines());
 
     if (shaderProgram->getType() == GPT_VERTEX_PROGRAM)
     {
@@ -415,7 +417,7 @@ GpuProgramPtr ProgramManager::createGpuProgram(Program* shaderProgram,
     }
 
     pGpuProgram->setSource(source);
-
+    pGpuProgram->setPreprocessorDefines(shaderProgram->getPreprocessorDefines());
     pGpuProgram->setParameter("entry_point", shaderProgram->getEntryPointFunction()->getName());
 
     if (language == "hlsl")
@@ -464,11 +466,12 @@ GpuProgramPtr ProgramManager::createGpuProgram(Program* shaderProgram,
 
 
 //-----------------------------------------------------------------------------
-String ProgramManager::generateHash(const String& programString)
+String ProgramManager::generateHash(const String& programString, const String& defines)
 {
     //Different programs must have unique hash values.
     uint32_t hash[4];
-    MurmurHash3_128(programString.c_str(), programString.size(), 0, hash);
+    uint32_t seed = FastHash(defines.c_str(), defines.size());
+    MurmurHash3_128(programString.c_str(), programString.size(), seed, hash);
 
     //Generate the string
     return StringUtil::format("%08x%08x%08x%08x", hash[0], hash[1], hash[2], hash[3]);
@@ -573,7 +576,7 @@ void ProgramManager::synchronizePixelnToBeVertexOut( ProgramSet* programSet )
             for (it=outParams.begin(); it != outParams.end(); ++it)
             {
                 ParameterPtr curOutParemter = *it;
-                ParameterPtr paramToAdd = Function::getParameterBySemantic(
+                ParameterPtr paramToAdd = Function::_getParameterBySemantic(
                     pixelOriginalInParams, 
                     curOutParemter->getSemantic(), 
                     curOutParemter->getIndex());

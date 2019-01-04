@@ -26,7 +26,7 @@
  -----------------------------------------------------------------------------
  */
 
-#include <OgreZip.h>
+#include "OgreZip.h"
 
 #include "SamplePlugin.h"
 #include "CharacterSample.h"
@@ -160,11 +160,8 @@ void Context::clearScene()
 {
     if (mBuffer != NULL)
     {
-        auto it = mNode->getAttachedObjectIterator();
-        while (it.hasMoreElements())
-        {
-            //mSceneMgr->destroyMovableObject(it.getNext());
-        }
+        //for (auto mo : mNode->getAttachedObjects())
+        //    mSceneMgr->destroyMovableObject(mo);
         mNode->detachAllObjects();
 
         Ogre::MaterialManager* matMgr = Ogre::MaterialManager::getSingletonPtr();

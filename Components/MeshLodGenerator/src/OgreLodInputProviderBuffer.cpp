@@ -50,7 +50,7 @@ namespace Ogre
         size_t vertexCount = 0;
         size_t vertexLookupSize = 0;
         size_t sharedVertexLookupSize = 0;
-        unsigned short submeshCount = ushort(mBuffer.submesh.size());
+        ushort submeshCount = Math::uint16Cast(mBuffer.submesh.size());
         for (unsigned short i = 0; i < submeshCount; i++) {
             const LodInputBuffer::Submesh& submesh = mBuffer.submesh[i];
             trianglesCount += submesh.indexBuffer.indexCount/3; //assume mBuffer provide triangle list only
@@ -82,7 +82,7 @@ namespace Ogre
         data->mMeshName = mBuffer.meshName;
 #endif
         data->mMeshBoundingSphereRadius = mBuffer.boundingSphereRadius;
-        unsigned short submeshCount = ushort(mBuffer.submesh.size());
+        ushort submeshCount = Math::uint16Cast(mBuffer.submesh.size());
         for (unsigned short i = 0; i < submeshCount; ++i) {
             LodInputBuffer::Submesh& submesh = mBuffer.submesh[i];
             LodVertexBuffer& vertexBuffer =
@@ -104,16 +104,18 @@ namespace Ogre
         VertexLookupList& lookup = useSharedVertexLookup ? mSharedVertexLookup : mVertexLookup;
         lookup.clear();
 
-        Vector3* pNormalOut = vertexBuffer.vertexNormalBuffer.get();
+        const Vector3* pNormalOut = vertexBuffer.vertexNormalBuffer.get();
         data->mUseVertexNormals = data->mUseVertexNormals && (pNormalOut != NULL);
+
+        if(!data->mUseVertexNormals)
+            pNormalOut = &Vector3::ZERO;
 
         // Loop through all vertices and insert them to the Unordered Map.
         Vector3* pOut = vertexBuffer.vertexBuffer.get();
         Vector3* pEnd = pOut + vertexBuffer.vertexCount;
         for (; pOut < pEnd; pOut++) {
-            data->mVertexList.push_back(LodData::Vertex());
+            data->mVertexList.push_back({*pOut, *pNormalOut});
             LodData::Vertex* v = &data->mVertexList.back();
-            v->position = *pOut;
             std::pair<LodData::UniqueVertexSet::iterator, bool> ret;
             ret = data->mUniqueVertexSet.insert(v);
             if (!ret.second) {
@@ -137,7 +139,6 @@ namespace Ogre
 #endif
                 v->seam = false;
                 if(data->mUseVertexNormals){
-                    v->normal = *pNormalOut;
                     v->normal.normalise();
                     pNormalOut++;
                 }

@@ -177,7 +177,7 @@ vertex_program Examples/BumpMapVPGLSLES glsles
 vertex_program Examples/BumpMapVPGLSL glsl
 {
 	source Example_BumpMappingVp.glsl
-	syntax glsl150
+	syntax glsl
 }
 
 vertex_program Examples/BumpMapVP unified
@@ -205,7 +205,7 @@ vertex_program Examples/BumpMapVPTangentParityGLSLES glsles
 vertex_program Examples/BumpMapVPTangentParityGLSL glsl
 {
 	source BumpMapVPTangentParity.glsl
-	syntax glsl150
+	syntax glsl
 }
 
 vertex_program Examples/BumpMapVPTangentParity unified
@@ -237,7 +237,7 @@ fragment_program Examples/BumpMapFPGLSLES glsles
 fragment_program Examples/BumpMapFPGLSL glsl
 {
 	source Example_BumpMappingFp.glsl
-	syntax glsl150
+	syntax glsl
 	default_params
 	{
 		// assign samplers as required by GLSL
@@ -270,7 +270,7 @@ vertex_program Examples/BumpMapVPShadowRcvGLSLES glsles
 vertex_program Examples/BumpMapVPShadowRcvGLSL glsl
 {
 	source Example_BumpMappingShadowRcvVp.glsl
-	syntax glsl150
+	syntax glsl
 }
 
 vertex_program Examples/BumpMapVPShadowRcv unified
@@ -304,7 +304,7 @@ fragment_program Examples/BumpMapFPShadowRcvGLSLES glsles
 fragment_program Examples/BumpMapFPShadowRcvGLSL glsl
 {
 	source Example_BumpMappingShadowRcvFp.glsl
-	syntax glsl150
+	syntax glsl
 	default_params
 	{
 		// assign samplers as required by GLSL
@@ -338,7 +338,7 @@ vertex_program Examples/BumpMapVPSpecularGLSLES glsles
 vertex_program Examples/BumpMapVPSpecularGLSL glsl
 {
 	source Example_BumpMappingSpecularVp.glsl
-	syntax glsl150
+	syntax glsl
 }
 
 vertex_program Examples/BumpMapVPSpecular unified
@@ -371,7 +371,7 @@ fragment_program Examples/BumpMapFPSpecularGLSLES glsles
 fragment_program Examples/BumpMapFPSpecularGLSL glsl
 {
 	source Example_BumpMappingSpecularFp.glsl
-	syntax glsl150
+	syntax glsl
 	default_params
 	{
 		// assign samplers as required by GLSL
@@ -386,12 +386,10 @@ fragment_program Examples/BumpMapFPSpecular unified
 	delegate Examples/BumpMapFPSpecularCg
 }
 
-// Any number of lights, diffuse
+//![normal_map_multipass]
+// Per-pixel normal mapping. Any number of lights, diffuse only
 material Examples/BumpMapping/MultiLight
 {
-
-	// This is the preferred technique which uses both vertex and
-	// fragment programs, supports coloured lights
 	technique
 	{
 		// Base ambient pass
@@ -399,35 +397,19 @@ material Examples/BumpMapping/MultiLight
 		{
 			// base colours, not needed for rendering, but as information
 			// to lighting pass categorisation routine
-			ambient 1 1 1
-			diffuse 0 0 0 
-			specular 0 0 0 0 
-			// Really basic vertex program
-			// NB we don't use fixed function here because GL does not like
-			// mixing fixed function and vertex programs, depth fighting can
-			// be an issue
-			vertex_program_ref Ogre/BasicVertexPrograms/AmbientOneTextureUnified
-			{
-				param_named_auto ambient ambient_light_colour
-			}
-			fragment_program_ref Ogre/BasicFragmentPrograms/PassthroughFP
-			{
-			}
-			
+			diffuse 0 0 0
 		}
 		// Now do the lighting pass
 		// NB we don't do decal texture here because this is repeated per light
 		pass perlight
 		{
-			// base colours, not needed for rendering, but as information
-			// to lighting pass categorisation routine
-			ambient 0 0 0 
-			
 			// do this for each light
 			iteration once_per_light
-
-		
 			scene_blend add
+
+			// base colours, not needed for rendering, but as information
+			// to lighting pass categorisation routine
+			ambient 0 0 0
 
 			// Vertex program reference
 			vertex_program_ref Examples/BumpMapVP
@@ -467,31 +449,17 @@ material Examples/BumpMapping/MultiLight
 		// Decal pass
 		pass decal
 		{
-			// base colours, not needed for rendering, but as information
-			// to lighting pass categorisation routine
+			// hint to pass categorisation routine, that this is decal only
 			lighting off
-			// Really basic vertex program
-			// NB we don't use fixed function here because GL does not like
-			// mixing fixed function and vertex programs, depth fighting can
-			// be an issue
-			vertex_program_ref Ogre/BasicVertexPrograms/AmbientOneTextureUnified
-			{
-				param_named ambient float4 1 1 1 1
-			}
-			fragment_program_ref Ogre/BasicFragmentPrograms/PassthroughFP
-			{
-			}
 			scene_blend dest_colour zero
 			texture_unit decalmap
 			{
 				texture RustedMetal.jpg 
 			}
-			
 		}
 	}
-
-
 }
+//![normal_map_multipass]
 
 // Any number of lights, diffuse and specular.
 material Examples/BumpMapping/MultiLightSpecular : Examples/BumpMapping/MultiLight
@@ -614,22 +582,15 @@ vertex_program Examples/FresnelRefractReflectVPCg cg
 	entry_point main_vp
 	profiles vs_4_0 vs_4_0_level_9_1 vs_4_0_level_9_3 vs_1_1 arbvp1
 }
-vertex_program Examples/FresnelRefractReflectVPold cg
-{
-	source Example_Fresnel.cg
-	entry_point main_vp_old
-	profiles vs_1_1 arbvp1
-}
 vertex_program Examples/FresnelRefractReflectVPGLSLES glsles
 {
 	source Example_FresnelVp.glsles
-	entry_point main
 	profiles glsles
 }
 vertex_program Examples/FresnelRefractReflectVPGLSL glsl
 {
 	source Example_FresnelVp.glsl
-	syntax glsl150
+	syntax glsl
 }
 
 vertex_program Examples/FresnelRefractReflectVP unified
@@ -647,17 +608,9 @@ fragment_program Examples/FresnelRefractReflectFPCg cg
 	profiles ps_4_0 ps_4_0_level_9_1 ps_4_0_level_9_3 ps_2_0 arbfp1
 }
 
-// fragment_program Examples/FresnelRefractReflectPS asm
-// {
-// 	source Example_FresnelPS.asm
-// 	// sorry, only for ps_1_4 :)
-// 	syntax ps_1_4
-// }
-
 fragment_program Examples/FresnelRefractReflectFPGLSLES glsles
 {
 	source Example_FresnelFp.glsles
-	entry_point main
 	profiles glsles
 	default_params
 	{
@@ -671,7 +624,7 @@ fragment_program Examples/FresnelRefractReflectFPGLSLES glsles
 fragment_program Examples/FresnelRefractReflectFPGLSL glsl
 {
 	source Example_FresnelFp.glsl
-	syntax glsl150
+	syntax glsl
 	default_params
 	{
 		// assign samplers as required by GLSL
@@ -736,61 +689,6 @@ material Examples/FresnelReflectionRefraction
 		
 			
 	}
-
-        // Please test this code on OpenGL before reenabling it
-	// ATI 8500 +
-	// technique
-	// {
-	// 	pass
-	// 	{
-	// 		vertex_program_ref Examples/FresnelRefractReflectVPold
-	// 		{
-	// 			param_named_auto worldViewProjMatrix worldviewproj_matrix
-	// 			param_named_auto eyePosition camera_position_object_space
-	// 			param_named fresnelBias float -0.3
-	// 			param_named fresnelScale float 1.4
-	// 			param_named fresnelPower float 8
-	// 			param_named_auto timeVal time_0_1 20
-	// 			param_named scroll float 1 
-	// 			param_named scale float 4 
-	// 			param_named noise float 1
-	// 			// scroll and noisePos will need updating per frame
-	// 		}
-
-	// 		// for ATI RADEON 8500 - 9200
-	// 		fragment_program_ref Examples/FresnelRefractReflectPS
-	// 		{
-	// 			// distortionRange
-	// 			param_indexed 0  float 0.025  
-	// 			// tintColour
-	// 			param_indexed 1  float4 0.05 0.12 0.15 1
-	// 		}
-
-	// 		// Noise
-	// 		texture_unit
-	// 		{
-	// 			// Perlin noise volume
-	// 			texture perlinvolume.dds 3d
-	// 			// min / mag filtering, no mip
-	// 			filtering linear linear none
-	// 		}
-	// 		// Reflection
-	// 		texture_unit
-	// 		{
-	// 			// Will be filled in at runtime
-	// 			texture Reflection
-	// 			tex_address_mode clamp
-	// 		}
-	// 		// Refraction
-	// 		texture_unit
-	// 		{
-	// 			// Will be filled in at runtime
-	// 			texture Refraction
-	// 			tex_address_mode clamp
-	// 		}
-	// 	}
-	// }
-
 }
 
 // Normal-mapped Athene statue

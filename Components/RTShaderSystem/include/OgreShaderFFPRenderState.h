@@ -91,6 +91,7 @@ enum FFPShaderStage
 #define FFP_FUNC_TRANSFORM                          "FFP_Transform"
 
 // Fixed Function Library: Lighting functions
+/// @deprecated use SGX_LIB_PERPIXELLIGHTING
 #define FFP_LIB_LIGHTING                            "FFPLib_Lighting"
 #define FFP_FUNC_LIGHT_DIRECTIONAL_DIFFUSE          "FFP_Light_Directional_Diffuse"
 #define FFP_FUNC_LIGHT_DIRECTIONAL_DIFFUSESPECULAR  "FFP_Light_Directional_DiffuseSpecular"
@@ -106,6 +107,8 @@ enum FFPShaderStage
 #define FFP_FUNC_GENERATE_TEXCOORD_ENV_SPHERE       "FFP_GenerateTexCoord_EnvMap_Sphere"
 #define FFP_FUNC_GENERATE_TEXCOORD_ENV_REFLECT      "FFP_GenerateTexCoord_EnvMap_Reflect"
 #define FFP_FUNC_GENERATE_TEXCOORD_PROJECTION       "FFP_GenerateTexCoord_Projection"
+
+/// @deprecated use SampleTextureAtom
 #define FFP_FUNC_SAMPLE_TEXTURE                     "FFP_SampleTexture"
 
 #define FFP_FUNC_SAMPLE_TEXTURE_PROJ                "FFP_SampleTextureProj"

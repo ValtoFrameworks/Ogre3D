@@ -237,30 +237,6 @@ namespace Ogre {
         return format;
     }
 
-    bool GL3PlusTextureManager::isHardwareFilteringSupported(TextureType ttype, PixelFormat format, int usage,
-                                                             bool preciseFormatOnly)
-    {
-        if (format == PF_UNKNOWN)
-        {
-            return false;
-        }
-
-        // Check native format
-        PixelFormat nativeFormat = getNativeFormat(ttype, format, usage);
-        if (preciseFormatOnly && format != nativeFormat)
-        {
-            return false;
-        }
-
-        // Assume non-floating point is supported always
-        if (!PixelUtil::isFloatingPoint(nativeFormat))
-        {
-            return true;
-        }
-
-        return false;
-    }
-
     // void GL3PlusTextureManager::registerImage(TexturePtr texture)
     // {
     //     mImages.push_back(texture);

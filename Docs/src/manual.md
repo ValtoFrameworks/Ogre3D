@@ -3,6 +3,7 @@ Manual {#manual}
 
 - @subpage Introduction
 - @subpage The-Core-Objects
+- @subpage Resource-Management
 - @subpage Scripts
 - @subpage High-level-Programs
 - @subpage Runtime-Shader-Generation
@@ -143,7 +144,10 @@ ResourceManagers ensure that resources are only loaded once and shared throughou
 
 Most of the time you won’t interact with resource managers directly. Resource managers will be called by other parts of the OGRE system as required, for example when you request for a texture to be added to a Material, the Ogre::TextureManager will be called for you. If you like, you can call the appropriate resource manager directly to preload resources (if for example you want to prevent disk access later on) but most of the time it’s ok to let OGRE decide when to do it.
 
-One thing you will want to do is to tell the resource managers where to look for resources. You do this via Root::getSingleton().addResourceLocation, which actually passes the information on to Ogre::ResourceGroupManager. 
+One thing you will want to do is to tell the resource managers where to look for resources. You do this via Ogre::ResourceGroupManager::addResourceLocation. 
+
+As its name already tells, the ResourceGroupManager keeps resources organized in Groups. These define a set of Resources that shall be loaded / unloaded as a unit. For example, it might be all the resources used for the level of a game.
+By default the "General" group is used, which will only be unloaded on shutdown. To define your own groups use Ogre::ResourceGroupManager::createResourceGroup.
 
 Because there is only ever 1 instance of each resource manager in the engine, if you do want to get a reference to a resource manager use the following syntax:
 
@@ -187,24 +191,9 @@ Materials can either be set up programmatically, by calling Ogre::MaterialManage
 
 Basically everything about the appearance of an object apart from it’s shape is controlled by the Material class.
 
-The SceneManager class manages the master list of materials available to the scene. The list can be added to by the application by calling Ogre::MaterialManager::create, or by loading a Mesh (which will in turn load material properties). Whenever materials are added to the SceneManager, they start off with a default set of properties; these are defined by OGRE as the following:
+The Ogre::MaterialManager class manages the master list of materials available to the scene. The list can be added to by the application by calling Ogre::MaterialManager::create, or by loading a Mesh (which will in turn load material properties).
 
--   ambient reflectance = ColourValue::White (full)
--   diffuse reflectance = ColourValue::White (full)
--   specular reflectance = ColourValue::Black (none)
--   emissive = ColourValue::Black (none)
--   shininess = 0 (not shiny)
--   No texture layers (& hence no textures)
--   SourceBlendFactor = SBF\_ONE, DestBlendFactor = SBF\_ZERO (opaque)
--   Depth buffer checking on
--   Depth buffer writing on
--   Depth buffer comparison function = CMPF\_LESS\_EQUAL
--   Culling mode = CULL\_CLOCKWISE
--   Ambient lighting in scene = ColourValue(0.5, 0.5, 0.5) (mid-grey)
--   Dynamic lighting enabled
--   Gourad shading mode
--   Solid polygon mode
--   Bilinear texture filtering
+@copydetails Ogre::MaterialManager::getDefaultSettings()
 
 You can alter these settings by calling Ogre::MaterialManager::getDefaultSettings() and making the required changes to the Material which is returned.
 
@@ -286,11 +275,11 @@ There are a number of mesh tools available with OGRE to help you manipulate your
 
 For getting data out of modellers and into OGRE.
 
-</dd> <dt>[XMLConverter](#XMLConverter)</dt> <dd>
+</dd> <dt>[XMLConverter](@ref XMLConverter)</dt> <dd>
 
 For converting meshes and skeletons to/from XML.
 
-</dd> <dt>[MeshUpgrader](#MeshUpgrader)</dt> <dd>
+</dd> <dt>[MeshUpgrader](@ref MeshUpgrader)</dt> <dd>
 
 For upgrading binary meshes from one version of OGRE to another.
 
@@ -302,11 +291,11 @@ For upgrading binary meshes from one version of OGRE to another.
 
 Exporters are plugins to 3D modelling tools which write meshes and skeletal animation to file formats which OGRE can use for realtime rendering. The files the exporters write end in .mesh and .skeleton respectively.
 
-Each exporter has to be written specifically for the modeller in question, although they all use a common set of facilities provided by the classes MeshSerializer and SkeletonSerializer. They also normally require you to own the modelling tool.
+Each exporter has to be written specifically for the modeller in question, although they all use a common set of facilities provided by  Ogre::MeshSerializer and Ogre::SkeletonSerializer. They also normally require you to own the modelling tool.
 
 All the exporters here can be built from the source code, or you can download precompiled versions from the OGRE web site.
 
-# A Note About Modelling / Animation For OGRE
+## A Note About Modelling / Animation For OGRE
 
 There are a few rules when creating an animated model for OGRE:
 
@@ -316,7 +305,7 @@ There are a few rules when creating an animated model for OGRE:
 
 If you’re creating non-animated meshes, then you do not need to be concerned with the above.
 
-Full documentation for each exporter is provided along with the exporter itself, and there is a list of the currently supported modelling tools in the OGRE Wiki at <http://www.ogre3d.org/tikiwiki/tiki-index.php?page=OGRE+Exporters&structure=Tools>.
+Full documentation for each exporter is provided along with the exporter itself, and there is a [selection of the currently supported modelling tools at OGRECave](https://github.com/OGRECave).
 
 
 
@@ -327,14 +316,15 @@ The OgreXMLConverter tool can converter binary .mesh and .skeleton files to XML 
 Syntax:
 
 ```
-Usage: OgreXMLConverter sourcefile [destfile]
-sourcefile = name of file to convert
-destfile   = optional name of file to write to. If you don't
-             specify this OGRE works it out through the extension
-             and the XML contents if the source is XML. For example
-             test.mesh becomes test.xml, test.xml becomes test.mesh
-             if the XML document root is <mesh> etc.
+OgreXMLConverter [options] sourcefile [destfile] 
 ```
+
+@param sourcefile name of file to convert
+@param destfile optional name of file to write to. If you don't
+specify this OGRE works it out through the extension
+and the XML contents if the source is XML. For example
+test.mesh becomes test.xml, test.xml becomes test.mesh
+if the XML document root is mesh etc.
 
 When converting XML to .mesh, you will be prompted to (re)generate level-of-detail(LOD) information for the mesh - you can choose to skip this part if you wish, but doing it will allow you to make your mesh reduce in detail automatically when it is loaded into the engine. The engine uses a complex algorithm to determine the best parts of the mesh to reduce in detail depending on many factors such as the curvature of the surface, the edges of the mesh and seams at the edges of textures and smoothing groups - taking advantage of it is advised to make your meshes more scalable in real scenes.
 
@@ -344,8 +334,8 @@ When converting XML to .mesh, you will be prompted to (re)generate level-of-deta
 
 This tool is provided to allow you to upgrade your meshes when the binary format changes - sometimes we alter it to add new features and as such you need to keep your own assets up to date. This tools has a very simple syntax:
 
-```cpp
-OgreMeshUpgrader <oldmesh> <newmesh>
+```
+OgreMeshUpgrader [options] sourcefile [destfile]
 ```
 
 The OGRE release notes will notify you when this is necessary with a new release.
@@ -354,7 +344,15 @@ The OGRE release notes will notify you when this is necessary with a new release
 
 Shadows are clearly an important part of rendering a believable scene - they provide a more tangible feel to the objects in the scene, and aid the viewer in understanding the spatial relationship between objects. Unfortunately, shadows are also one of the most challenging aspects of 3D rendering, and they are still very much an active area of research. Whilst there are many techniques to render shadows, none is perfect and they all come with advantages and disadvantages. For this reason, Ogre provides multiple shadow implementations, with plenty of configuration settings, so you can choose which technique is most appropriate for your scene.
 
-Shadow implementations fall into basically 2 broad categories: [Stencil Shadows](#Stencil-Shadows) and [Texture-based Shadows](#Texture_002dbased-Shadows). This describes the method by which the shape of the shadow is generated. In addition, there is more than one way to render the shadow into the scene: [Modulative Shadows](#Modulative-Shadows), which darkens the scene in areas of shadow, and [Additive Light Masking](#Additive-Light-Masking) which by contrast builds up light contribution in areas which are not in shadow. You also have the option of [Integrated Texture Shadows](#Integrated-Texture-Shadows) which gives you complete control over texture shadow application, allowing for complex single-pass shadowing shaders. Ogre supports all these combinations.
+Shadow implementations fall into basically 2 broad categories:
+1. @ref Stencil-Shadows
+2. @ref Texture_002dbased-Shadows.
+
+This describes the method by which the shape of the shadow is generated. In addition, there is more than one way to render the shadow into the scene:
+- @ref Modulative-Shadows, which darkens the scene in areas of shadow, and
+- @ref Additive-Light-Masking, which by contrast builds up light contribution in areas which are not in shadow.
+
+You also have the option of @ref Integrated-Texture-Shadows which gives you complete control over texture shadow application, allowing for complex single-pass shadowing shaders. Ogre supports all these combinations.
 
 @tableofcontents
 
@@ -398,11 +396,11 @@ Calling `RenderQueueGroup::setShadowsEnabled(false)` will turn off both shadow c
 
 Stencil shadows are a method by which a ’mask’ is created for the screen using a feature called the stencil buffer. This mask can be used to exclude areas of the screen from subsequent renders, and thus it can be used to either include or exclude areas in shadow. They are enabled by calling Ogre::SceneManager::setShadowTechnique with a parameter of either `SHADOWTYPE_STENCIL_ADDITIVE` or `SHADOWTYPE_STENCIL_MODULATIVE`. Because the stencil can only mask areas to be either ’enabled’ or ’disabled’, stencil shadows have ’hard’ edges, that is to say clear dividing lines between light and shadow - it is not possible to soften these edges.
 
-In order to generate the stencil, ’shadow volumes’ are rendered by extruding the silhouette of the shadow caster away from the light. Where these shadow volumes intersect other objects (or the caster, since self-shadowing is supported using this technique), the stencil is updated, allowing subsequent operations to differentiate between light and shadow. How exactly this is used to render the shadows depends on whether [Modulative Shadows](#Modulative-Shadows) or [Additive Light Masking](#Additive-Light-Masking) is being used. Objects can both cast and receive stencil shadows, so self-shadowing is inbuilt. 
+In order to generate the stencil, ’shadow volumes’ are rendered by extruding the silhouette of the shadow caster away from the light. Where these shadow volumes intersect other objects (or the caster, since self-shadowing is supported using this technique), the stencil is updated, allowing subsequent operations to differentiate between light and shadow. How exactly this is used to render the shadows depends on whether @ref Modulative-Shadows or @ref Additive-Light-Masking is being used. Objects can both cast and receive stencil shadows, so self-shadowing is inbuilt.
 
-The advantage of stencil shadows is that they can do self-shadowing simply on low-end hardware, provided you keep your poly count under control. In contrast doing self-shadowing with texture shadows requires a fairly modern machine (See [Texture-based Shadows](#Texture_002dbased-Shadows)). For this reason, you’re likely to pick stencil shadows if you need an accurate shadowing solution for an application aimed at older or lower-spec machines.
+The advantage of stencil shadows is that they can do self-shadowing simply on low-end hardware, provided you keep your poly count under control. In contrast doing self-shadowing with @ref Texture_002dbased-Shadows requires a fairly modern machine. For this reason, you’re likely to pick stencil shadows if you need an accurate shadowing solution for an application aimed at older or lower-spec machines.
 
-The disadvantages of stencil shadows are numerous though, especially on more modern hardware. Because stencil shadows are a geometric technique, they are inherently more costly the higher the number of polygons you use, meaning you are penalized the more detailed you make your meshes. The fillrate cost, which comes from having to render shadow volumes, also escalates the same way. Since more modern applications are likely to use higher polygon counts, stencil shadows can start to become a bottleneck. In addition, the visual aspects of stencil shadows are pretty primitive - your shadows will always be hard-edged, and you have no possibility of doing clever things with shaders since the stencil is not available for manipulation there. Therefore, if your application is aimed at higher-end machines you should definitely consider switching to texture shadows (See [Texture-based Shadows](#Texture_002dbased-Shadows)).
+The disadvantages of stencil shadows are numerous though, especially on more modern hardware. Because stencil shadows are a geometric technique, they are inherently more costly the higher the number of polygons you use, meaning you are penalized the more detailed you make your meshes. The fillrate cost, which comes from having to render shadow volumes, also escalates the same way. Since more modern applications are likely to use higher polygon counts, stencil shadows can start to become a bottleneck. In addition, the visual aspects of stencil shadows are pretty primitive - your shadows will always be hard-edged, and you have no possibility of doing clever things with shaders since the stencil is not available for manipulation there. Therefore, if your application is aimed at higher-end machines you should definitely consider switching to @ref Texture_002dbased-Shadows.
 
 There are a number of issues to consider which are specific to stencil shadows:
 
@@ -418,7 +416,7 @@ There are a number of issues to consider which are specific to stencil shadows:
 
 ## CPU Overhead
 
-Calculating the shadow volume for a mesh can be expensive, and it has to be done on the CPU, it is not a hardware accelerated feature. Therefore, you can find that if you overuse this feature, you can create a CPU bottleneck for your application. Ogre quite aggressively eliminates objects which cannot be casting shadows on the frustum, but there are limits to how much it can do, and large, elongated shadows (e.g. representing a very low sun position) are very difficult to cull efficiently. Try to avoid having too many shadow casters around at once, and avoid long shadows if you can. Also, make use of the ’shadow far distance’ parameter on the SceneManager, this can eliminate distant shadow casters from the shadow volume construction and save you some time, at the expense of only having shadows for closer objects. Lastly, make use of Ogre’s Level-Of-Detail (LOD) features; you can generate automatically calculated LODs for your meshes in code (see the Mesh API docs) or when using the mesh tools such as OgreXMLConverter and OgreMeshUpgrader. Alternatively, you can assign your own manual LODs by providing alternative mesh files at lower detail levels. Both methods will cause the shadow volume complexity to decrease as the object gets further away, which saves you valuable volume calculation time.
+Calculating the shadow volume for a mesh can be expensive, and it has to be done on the CPU, it is not a hardware accelerated feature. Therefore, you can find that if you overuse this feature, you can create a CPU bottleneck for your application. Ogre quite aggressively eliminates objects which cannot be casting shadows on the frustum, but there are limits to how much it can do, and large, elongated shadows (e.g. representing a very low sun position) are very difficult to cull efficiently. Try to avoid having too many shadow casters around at once, and avoid long shadows if you can. Also, make use of the ’shadow far distance’ parameter on the SceneManager, this can eliminate distant shadow casters from the shadow volume construction and save you some time, at the expense of only having shadows for closer objects. Lastly, make use of Ogre’s Level-Of-Detail (LOD) features; you can generate automatically calculated LODs for your meshes in code (see the Mesh API docs) or when using the mesh tools such as @ref XMLConverter and @ref MeshUpgrader. Alternatively, you can assign your own manual LODs by providing alternative mesh files at lower detail levels. Both methods will cause the shadow volume complexity to decrease as the object gets further away, which saves you valuable volume calculation time.
 
 <a name="Extrusion-distance"></a><a name="Extrusion-distance-1"></a>
 
@@ -436,7 +434,7 @@ Stencil shadow volumes rely very much on not being clipped by the far plane. Whe
 
 ## Mesh edge lists
 
-Stencil shadows can only be calculated when an ’edge list’ has been built for all the geometry in a mesh. The official exporters and tools automatically build this for you (or have an option to do so), but if you create your own meshes, you must remember to build edge lists for them before using them with stencil shadows - you can do that by using OgreMeshUpgrade or OgreXmlConverter, or by calling Mesh::buildEdgeList before you export or use the mesh. If a mesh doesn’t have edge lists, OGRE assumes that it is not supposed to cast stencil shadows.
+Stencil shadows can only be calculated when an ’edge list’ has been built for all the geometry in a mesh. The official exporters and tools automatically build this for you (or have an option to do so), but if you create your own meshes, you must remember to build edge lists for them before using them with stencil shadows - you can do that by using @ref MeshUpgrader, or by calling Ogre::Mesh::buildEdgeList before you export or use the mesh. If a mesh doesn’t have edge lists, OGRE assumes that it is not supposed to cast stencil shadows.
 
 <a name="The-Silhouette-Edge"></a><a name="The-Silhouette-Edge-1"></a>
 
@@ -458,14 +456,14 @@ Don’t expect to be able to throw any scene using any hardware at the stencil s
 
  <a name="Stencil-Optimisations-Performed-By-Ogre"></a><a name="Stencil-Optimisations-Performed-By-Ogre-1"></a>
 
-## Stencil Optimisations Performed By Ogre
+## Stencil Optimisations Performed By %Ogre
 
 Despite all that, stencil shadows can look very nice (especially with [Additive Light Masking](#Additive-Light-Masking)) and can be fast if you respect the rules above. In addition, Ogre comes pre-packed with a lot of optimisations which help to make this as quick as possible. This section is more for developers or people interested in knowing something about the ’under the hood’ behaviour of Ogre.
 
 <dl compact="compact">
 <dt>Vertex program extrusion</dt> <dd>
 
-As previously mentioned, Ogre performs the extrusion of shadow volumes in hardware on vertex program-capable hardware (e.g. GeForce3, Radeon 8500 or better). This has 2 major benefits; the obvious one being speed, but secondly that vertex programs can extrude points to infinity, which the fixed-function pipeline cannot, at least not without performing all calculations in software. This leads to more robust volumes, and also eliminates more than half the volume triangles on directional lights since all points are projected to a single point at infinity.
+As previously mentioned, Ogre performs the extrusion of shadow volumes in hardware on vertex program-capable hardware. This has 2 major benefits; the obvious one being speed, but secondly that vertex programs can extrude points to infinity, which the fixed-function pipeline cannot, at least not without performing all calculations in software. This leads to more robust volumes, and also eliminates more than half the volume triangles on directional lights since all points are projected to a single point at infinity.
 
 </dd> <dt>Scissor test optimisation</dt> <dd>
 
@@ -487,14 +485,18 @@ Ogre is pretty good at detecting which lights could be affecting the frustum, an
 
 # Texture-based Shadows {#Texture_002dbased-Shadows}
 
-Texture shadows involve rendering shadow casters from the point of view of the light into a texture, which is then projected onto shadow receivers. The main advantage of texture shadows as opposed to [Stencil Shadows](#Stencil-Shadows) is that the overhead of increasing the geometric detail is far lower, since there is no need to perform per-triangle calculations. Most of the work in rendering texture shadows is done by the graphics card, meaning the technique scales well when taking advantage of the latest cards, which are at present outpacing CPUs in terms of their speed of development. In addition, texture shadows are **much** more customisable - you can pull them into shaders to apply as you like (particularly with [Integrated Texture Shadows](#Integrated-Texture-Shadows), you can perform filtering to create softer shadows or perform other special effects on them. Basically, most modern engines use texture shadows as their primary shadow technique simply because they are more powerful, and the increasing speed of GPUs is rapidly amortizing the fillrate / texture access costs of using them.
+Texture shadows involve rendering shadow casters from the point of view of the light into a texture, which is then projected onto shadow receivers. The main advantage of texture shadows as opposed to @ref Stencil-Shadows is that the overhead of increasing the geometric detail is far lower, since there is no need to perform per-triangle calculations. Most of the work in rendering texture shadows is done by the graphics card, meaning the technique scales well when taking advantage of the latest cards, which are at present outpacing CPUs in terms of their speed of development. In addition, texture shadows are **much** more customisable - you can pull them into shaders to apply as you like (particularly with [Integrated Texture Shadows](#Integrated-Texture-Shadows), you can perform filtering to create softer shadows or perform other special effects on them. Basically, most modern engines use texture shadows as their primary shadow technique simply because they are more powerful, and the increasing speed of GPUs is rapidly amortizing the fillrate / texture access costs of using them.
 
 The main disadvantage to texture shadows is that, because they are simply a texture, they have a fixed resolution which means if stretched, the pixellation of the texture can become obvious. There are ways to combat this though:
 
 <dl compact="compact">
 <dt>Choosing a projection basis</dt> <dd>
 
-The simplest projection is just to render the shadow casters from the lights perspective using a regular camera setup. This can look bad though, so there are many other projections which can help to improve the quality from the main camera’s perspective. OGRE supports pluggable projection bases via it’s ShadowCameraSetup class, and comes with several existing options - **Uniform** (which is the simplest), **Uniform Focussed** (which is still a normal camera projection, except that the camera is focussed into the area that the main viewing camera is looking at), LiSPSM (Light Space Perspective Shadow Mapping - which both focusses and distorts the shadow frustum based on the main view camera) and Plan Optimal (which seeks to optimise the shadow fidelity for a single receiver plane).
+The simplest projection is just to render the shadow casters from the lights perspective using a regular camera setup. This can look bad though, so there are many other projections which can help to improve the quality from the main camera’s perspective. OGRE supports pluggable projection bases via it’s ShadowCameraSetup class, and comes with several existing options
+- **Uniform**, which is the simplest,
+- **Uniform Focussed**, which is still a normal camera projection, except that the camera is focussed into the area that the main viewing camera is looking at
+- **Light Space Perspective Shadow Mapping** (LiSPSM), which both focusses and distorts the shadow frustum based on the main view camera and
+- **Plane Optimal**, which seeks to optimise the shadow fidelity for a single receiver plane.
 
 </dd> <dt>Filtering</dt> <dd>
 
@@ -514,7 +516,7 @@ The other issue is with point lights. Because texture shadows require a render t
 
 ## Directional Lights
 
-Directional lights in theory shadow the entire scene from an infinitely distant light. Now, since we only have a finite texture which will look very poor quality if stretched over the entire scene, clearly a simplification is required. Ogre places a shadow texture over the area immediately in front of the camera, and moves it as the camera moves (although it rounds this movement to multiples of texels so that the slight ’swimming shadow’ effect caused by moving the texture is minimised). The range to which this shadow extends, and the offset used to move it in front of the camera, are configurable (See [Configuring Texture Shadows](#Configuring-Texture-Shadows)). At the far edge of the shadow, Ogre fades out the shadow based on other configurable parameters so that the termination of the shadow is softened.
+Directional lights in theory shadow the entire scene from an infinitely distant light. Now, since we only have a finite texture which will look very poor quality if stretched over the entire scene, clearly a simplification is required. Ogre places a shadow texture over the area immediately in front of the camera, and moves it as the camera moves (although it rounds this movement to multiples of texels so that the slight ’swimming shadow’ effect caused by moving the texture is minimised). The range to which this shadow extends, and the offset used to move it in front of the camera, are configurable (See @ref Configuring-Texture-Shadows). At the far edge of the shadow, Ogre fades out the shadow based on other configurable parameters so that the termination of the shadow is softened.
 
 <a name="Spotlights"></a>
 
@@ -551,13 +553,15 @@ There are a number of settings which will help you configure your texture-based 
 
 ## Maximum number of shadow textures
 
-Shadow textures take up texture memory, and to avoid stalling the rendering pipeline Ogre does not reuse the same shadow texture for multiple lights within the same frame. This means that each light which is to cast shadows must have its own shadow texture. In practice, if you have a lot of lights in your scene you would not wish to incur that sort of texture overhead. You can adjust this manually by simply turning off shadow casting for lights you do not wish to cast shadows. In addition, you can set a maximum limit on the number of shadow textures Ogre is allowed to use by calling SceneManager::setShadowTextureCount. Each frame, Ogre determines the lights which could be affecting the frustum, and then allocates the number of shadow textures it is allowed to use to the lights on a first-come-first-served basis. Any additional lights will not cast shadows that frame. Note that you can set the number of shadow textures and their size at the same time by using the SceneManager::setShadowTextureSettings method; this is useful because both the individual calls require the potential creation / destruction of texture resources.
+Shadow textures take up texture memory, and to avoid stalling the rendering pipeline Ogre does not reuse the same shadow texture for multiple lights within the same frame. This means that each light which is to cast shadows must have its own shadow texture. In practice, if you have a lot of lights in your scene you would not wish to incur that sort of texture overhead. You can adjust this manually by simply turning off shadow casting for lights you do not wish to cast shadows. In addition, you can set a maximum limit on the number of shadow textures Ogre is allowed to use by calling Ogre::SceneManager::setShadowTextureCount. Each frame, Ogre determines the lights which could be affecting the frustum, and then allocates the number of shadow textures it is allowed to use to the lights on a first-come-first-served basis. Any additional lights will not cast shadows that frame. Note that you can set the number of shadow textures and their size at the same time by using the Ogre::SceneManager::setShadowTextureSettings method; this is useful because both the individual calls require the potential creation / destruction of texture resources.
 
 <a name="Shadow-texture-size"></a><a name="Shadow-texture-size-1"></a>
 
 ## Shadow texture size
 
-The size of the textures used for rendering the shadow casters into can be altered; clearly using larger textures will give you better quality shadows, but at the expense of greater memory usage. Changing the texture size is done by calling SceneManager::setShadowTextureSize - textures are assumed to be square and you must specify a texture size that is a power of 2. Be aware that each modulative shadow texture will take size\*size\*3 bytes of texture memory.  **Important**: if you use the GL render system your shadow texture size can only be larger (in either dimension) than the size of your primary window surface if the hardware supports the Frame Buffer Object (FBO) or Pixel Buffer Object (PBO) extensions. Most modern cards support this now, but be careful of older cards - you can check the ability of the hardware to manage this through ogreRoot-&gt;getRenderSystem()-&gt;getCapabilities()-&gt;hasCapability(RSC\_HWRENDER\_TO\_TEXTURE). If this returns false, if you create a shadow texture larger in any dimension than the primary surface, the rest of the shadow texture will be blank.
+The size of the textures used for rendering the shadow casters into can be altered; clearly using larger textures will give you better quality shadows, but at the expense of greater memory usage. Changing the texture size is done by calling Ogre::SceneManager::setShadowTextureSize - textures are assumed to be square and you must specify a texture size that is a power of 2. Be aware that each modulative shadow texture will take \f$size*size*3\f$ bytes of texture memory.
+
+@note if you use the GL render system your shadow texture size can only be larger (in either dimension) than the size of your primary window surface if the hardware supports the Frame Buffer Object (FBO) or Pixel Buffer Object (PBO) extensions. Most modern cards support this now, but be careful of older cards - you can check the ability of the hardware to manage this through Ogre::RSC_HWRENDER_TO_TEXTURE. If this is absent, if you create a shadow texture larger in any dimension than the primary surface, the rest of the shadow texture will be blank.
 
 <a name="Shadow-far-distance"></a><a name="Shadow-far-distance-1"></a>
 
@@ -569,23 +573,25 @@ This determines the distance at which shadows are terminated; it also determines
 
 ## Shadow texture offset (Directional Lights)
 
-As mentioned above in the directional lights section, the rendering of shadows for directional lights is an approximation that allows us to use a single render to cover a largish area with shadows. This offset parameter affects how far from the camera position the center of the shadow texture is offset, as a proportion of the shadow far distance. The greater this value, the more of the shadow texture is ’useful’ to you since it’s ahead of the camera, but also the further you offset it, the more chance there is of accidentally seeing the edge of the shadow texture at more extreme angles. You change this value by calling SceneManager::setShadowDirLightTextureOffset, the default is 0.6.
+@copydetails Ogre::SceneManager::setShadowDirLightTextureOffset
+
+You change this value by calling Ogre::SceneManager::setShadowDirLightTextureOffset.
 
 <a name="Shadow-fade-settings"></a><a name="Shadow-fade-settings-1"></a>
 
 ## Shadow fade settings
 
-Shadows fade out before the shadow far distance so that the termination of shadow is not abrupt. You can configure the start and end points of this fade by calling the SceneManager::setShadowTextureFadeStart and SceneManager::setShadowTextureFadeEnd methods, both take distances as a proportion of the shadow far distance. Because of the inaccuracies caused by using a square texture and a radial fade distance, you cannot use 1.0 as the fade end, if you do you’ll see artifacts at the extreme edges. The default values are 0.7 and 0.9, which serve most purposes but you can change them if you like.
+Shadows fade out before the shadow far distance so that the termination of shadow is not abrupt. You can configure the start and end points of this fade by calling the Ogre::SceneManager::setShadowTextureFadeStart and Ogre::SceneManager::setShadowTextureFadeEnd methods, both take distances as a proportion of the shadow far distance. Because of the inaccuracies caused by using a square texture and a radial fade distance, you cannot use 1.0 as the fade end, if you do you’ll see artifacts at the extreme edges. The default values are 0.7 and 0.9, which serve most purposes but you can change them if you like.
 
-# Texture shadows and vertex / fragment programs
+# Texture shadows and vertex / fragment programs {#texture_shadows_and_shaders}
 
-When rendering shadow casters into a modulative shadow texture, Ogre turns off all textures, and all lighting contributions except for ambient light, which it sets to the colour of the shadow ([Shadow Colour](#Shadow-Colour)). For additive shadows, it render the casters into a black & white texture instead. This is enough to render shadow casters for fixed-function material techniques, however where a vertex program is used Ogre doesn’t have so much control. If you use a vertex program in the **first pass** of your technique, then you must also tell ogre which vertex program you want it to use when rendering the shadow caster; see [Shadows and Vertex Programs](#Shadows-and-Vertex-Programs) for full details.
+When rendering shadow casters into a modulative shadow texture, Ogre turns off all textures, and all lighting contributions except for ambient light, which it sets to the colour of the shadow ([Shadow Colour](#Shadow-Colour)). For additive shadows, it render the casters into a black & white texture instead. This is enough to render shadow casters for fixed-function material techniques, however where a vertex program is used Ogre doesn’t have so much control. If you use a vertex program in the **first pass** of your technique, then you must also tell ogre which vertex program you want it to use when rendering the shadow caster; see @ref Shadows-and-Vertex-Programs for full details.
 
 <a name="Custom-shadow-camera-setups"></a><a name="Custom-shadow-camera-setups-1"></a>
 
 ## Custom shadow camera setups
 
-As previously mentioned, one of the downsides of texture shadows is that the texture resolution is finite, and it’s possible to get aliasing when the size of the shadow texel is larger than a screen pixel, due to the projection of the texture. In order to address this, you can specify alternative projection bases by using or creating subclasses of the ShadowCameraSetup class. The default version is called DefaultShadowCameraSetup and this sets up a simple regular frustum for point and spotlights, and an orthographic frustum for directional lights. There is also a PlaneOptimalShadowCameraSetup class which specialises the projection to a plane, thus giving you much better definition provided your shadow receivers exist mostly in a single plane. Other setup classes (e.g. you might create a perspective or trapezoid shadow mapping version) can be created and plugged in at runtime, either on individual lights or on the SceneManager as a whole.
+As previously mentioned, one of the downsides of texture shadows is that the texture resolution is finite, and it’s possible to get aliasing when the size of the shadow texel is larger than a screen pixel, due to the projection of the texture. In order to address this, you can specify alternative projection bases by using or creating subclasses of the Ogre::ShadowCameraSetup class. The default version is called DefaultShadowCameraSetup and this sets up a simple regular frustum for point and spotlights, and an orthographic frustum for directional lights. There is also a Ogre::PlaneOptimalShadowCameraSetup class which specialises the projection to a plane, thus giving you much better definition provided your shadow receivers exist mostly in a single plane. Other setup classes (e.g. you might create a perspective or trapezoid shadow mapping version) can be created and plugged in at runtime, either on individual lights or on the SceneManager as a whole.
 
 <a name="Shadow-texture-Depth-Buffer-sharing"></a><a name="Shadow-texture-Depth-Buffer-sharing-1"></a>
 
@@ -598,9 +604,9 @@ From Ogre 1.8 onwards the depth buffer usage & sharing can be flexible controlle
 However there are some reasons to put shadow textures in a separate pool. This holds specially true if the application depends on the previous contents from the depth buffer before the shadow pass, instead of doing a clear:
 
 -   In Direct3D9, the shadow texture is more likely to share the depth buffer with the render window at high resolutions (when the window is bigger than the shadow texture resolution), but at low resolutions it won’t be shared, thus causing two different behaviors. Also probably the shadow texture will share the depth buffers with most other RTTs (i.e. compositors)
--   In OpenGL 2.1, the shadow texture can’t be shared with the main render window; and most likely will NOT be shared with many other RTTs (i.e. compositors) since OGL 2.1 has a requirement that texture resolutions should exactly match, while D3D9 specifies depth buffers can be shared as long as the resolutions are equal or less.
+-   In OpenGL 2.1, the shadow texture can’t be shared with the main render window; and most likely will **not** be shared with many other RTTs (i.e. compositors) since OGL 2.1 has a requirement that texture resolutions should exactly match, while D3D9 specifies depth buffers can be shared as long as the resolutions are equal or less.
 
-For example, the DeferredShading sample suffers from this problem. If this is a problem for a particular effect you’re trying to achieve, you can specify a custom pool ID so that shadow textures get their own depth buffer(s), ensuring they aren’t shared with other RTs. You can set the poolId parameter from either SceneManager::setShadowTextureSettings or setShadowTextureConfig
+For example, the DeferredShading sample suffers from this problem. If this is a problem for a particular effect you’re trying to achieve, you can specify a custom pool ID so that shadow textures get their own depth buffer(s), ensuring they aren’t shared with other RTs. You can set the poolId parameter from either Ogre::SceneManager::setShadowTextureSettings or setShadowTextureConfig
 
 ```cpp
 mSceneMgr->setShadowTextureSettings( size, count, format, PoolId );
@@ -615,33 +621,37 @@ Texture shadows have one major advantage over stencil shadows - the data used to
 
 Here is where ’integrated’ texture shadows step in. Both of the texture shadow types above have alternative versions called SHADOWTYPE\_TEXTURE\_MODULATIVE\_INTEGRATED and SHADOWTYPE\_TEXTURE\_ADDITIVE\_INTEGRATED, where instead of rendering the shadows for you, it just creates the texture shadow and then expects you to use that shadow texture as you see fit when rendering receiver objects in the scene. The downside is that you have to take into account shadow receipt in every one of your materials if you use this option - the upside is that you have total control over how the shadow textures are used. The big advantage here is that you can can perform more complex shading, taking into account shadowing, than is possible using the generalised bolt-on approaches, AND you can probably write them in a smaller number of passes, since you know precisely what you need and can combine passes where possible. When you use one of these shadowing approaches, the only difference between additive and modulative is the colour of the casters in the shadow texture (the shadow colour for modulative, black for additive) - the actual calculation of how the texture affects the receivers is of course up to you. No separate modulative pass will be performed, and no splitting of your materials into ambient / per-light / decal etc will occur - absolutely everything is determined by your original material (which may have modulative passes or per-light iteration if you want of course, but it’s not required).
 
-You reference a shadow texture in a material which implements this approach by using the ’[content\_type](#content_005ftype) shadow’ directive in your [texture\_unit](#Texture-Units). It implicitly references a shadow texture based on the number of times you’ve used this directive in the same pass, and the light\_start option or light-based pass iteration, which might start the light index higher than 0.
+You reference a shadow texture in a material which implements this approach by using the `content_type shadow` directive in your @ref Texture-Units. It implicitly references a shadow texture based on the number of times you’ve used this directive in the same pass, and the light\_start option or light-based pass iteration, which might start the light index higher than 0.
 
 # Modulative Shadows {#Modulative-Shadows}
 
 Modulative shadows work by darkening an already rendered scene with a fixed colour. First, the scene is rendered normally containing all the objects which will be shadowed, then a modulative pass is done per light, which darkens areas in shadow. Finally, objects which do not receive shadows are rendered.
 
-There are 2 modulative shadow techniques; stencil-based (See [Stencil Shadows](#Stencil-Shadows) : SHADOWTYPE\_STENCIL\_MODULATIVE) and texture-based (See [Texture-based Shadows](#Texture_002dbased-Shadows) : SHADOWTYPE\_TEXTURE\_MODULATIVE). Modulative shadows are an inaccurate lighting model, since they darken the areas of shadow uniformly, irrespective of the amount of light which would have fallen on the shadow area anyway. However, they can give fairly attractive results for a much lower overhead than more ’correct’ methods like [Additive Light Masking](#Additive-Light-Masking), and they also combine well with pre-baked static lighting (such as pre-calculated lightmaps), which additive lighting does not. The main thing to consider is that using multiple light sources can result in overly dark shadows (where shadows overlap, which intuitively looks right in fact, but it’s not physically correct) and artifacts when using stencil shadows (See [The Silhouette Edge](#The-Silhouette-Edge)). 
+There are 2 modulative shadow techniques:
+1. @ref Stencil-Shadows, SHADOWTYPE\_STENCIL\_MODULATIVE and
+2. @ref Texture_002dbased-Shadows, SHADOWTYPE\_TEXTURE\_MODULATIVE.
+
+Modulative shadows are an inaccurate lighting model, since they darken the areas of shadow uniformly, irrespective of the amount of light which would have fallen on the shadow area anyway. However, they can give fairly attractive results for a much lower overhead than more ’correct’ methods like @ref Additive-Light-Masking, and they also combine well with pre-baked static lighting (such as pre-calculated lightmaps), which additive lighting does not. The main thing to consider is that using multiple light sources can result in overly dark shadows (where shadows overlap, which intuitively looks right in fact, but it’s not physically correct) and artifacts when using stencil shadows (See [The Silhouette Edge](#The-Silhouette-Edge)).
 
 <a name="Shadow-Colour"></a><a name="Shadow-Colour-1"></a>
 
 ## Shadow Colour
 
-The colour which is used to darken the areas in shadow is set by SceneManager::setShadowColour; it defaults to a dark grey (so that the underlying colour still shows through a bit).
+The colour which is used to darken the areas in shadow is set by Ogre::SceneManager::setShadowColour; it defaults to a dark grey (so that the underlying colour still shows through a bit).
 
-Note that if you’re using texture shadows you have the additional option of using [Integrated Texture Shadows](#Integrated-Texture-Shadows) rather than being forced to have a separate pass of the scene to render shadows. In this case the ’modulative’ aspect of the shadow technique just affects the colour of the shadow texture. 
+Note that if you’re using texture shadows you have the additional option of using @ref Integrated-Texture-Shadows rather than being forced to have a separate pass of the scene to render shadows. In this case the ’modulative’ aspect of the shadow technique just affects the colour of the shadow texture. 
 
 # Additive Light Masking {#Additive-Light-Masking}
 
 Additive light masking is about rendering the scene many times, each time representing a single light contribution whose influence is masked out in areas of shadow. Each pass is combined with (added to) the previous one such that when all the passes are complete, all the light contribution has correctly accumulated in the scene, and each light has been prevented from affecting areas which it should not be able to because of shadow casters. This is an effective technique which results in very realistic looking lighting, but it comes at a price: more rendering passes.
 
-As many technical papers (and game marketing) will tell you, rendering realistic lighting like this requires multiple passes. Being a friendly sort of engine, Ogre frees you from most of the hard work though, and will let you use the exact same material definitions whether you use this lighting technique or not (for the most part, see [Pass Classification and Vertex Programs](#Pass-Classification-and-Vertex-Programs)). In order to do this technique, Ogre automatically categorises the [Passes](#Passes) you define in your materials into 3 types:
+As many technical papers (and game marketing) will tell you, rendering realistic lighting like this requires multiple passes. Being a friendly sort of engine, Ogre frees you from most of the hard work though, and will let you use the exact same material definitions whether you use this lighting technique or not (for the most part, see @ref Pass-Classification-and-Vertex-Programs). In order to do this technique, Ogre automatically categorises the @ref Passes you define in your materials into 3 types:
 
 1.  ambient Passes categorised as ’ambient’ include any base pass which is not lit by any particular light, i.e. it occurs even if there is no ambient light in the scene. The ambient pass always happens first, and sets up the initial depth value of the fragments, and the ambient colour if applicable. It also includes any emissive / self illumination contribution. Only textures which affect ambient light (e.g. ambient occlusion maps) should be rendered in this pass.
 2.  diffuse/specular Passes categorised as ’diffuse/specular’ (or ’per-light’) are rendered once per light, and each pass contributes the diffuse and specular colour from that single light as reflected by the diffuse / specular terms in the pass. Areas in shadow from that light are masked and are thus not updated. The resulting masked colour is added to the existing colour in the scene. Again, no textures are used in this pass (except for textures used for lighting calculations such as normal maps).
 3.  decal Passes categorised as ’decal’ add the final texture colour to the scene, which is modulated by the accumulated light built up from all the ambient and diffuse/specular passes.
 
-In practice, [Passes](#Passes) rarely fall nicely into just one of these categories. For each Technique, Ogre compiles a list of ’Illumination Passes’, which are derived from the user defined passes, but can be split, to ensure that the divisions between illumination pass categories can be maintained. For example, if we take a very simple material definition:
+In practice, @ref Passes rarely fall nicely into just one of these categories. For each Technique, Ogre compiles a list of ’Illumination Passes’, which are derived from the user defined passes, but can be split, to ensure that the divisions between illumination pass categories can be maintained. For example, if we take a very simple material definition:
 
 ```cpp
 material TestIllumination
@@ -702,15 +712,11 @@ material TestIlluminationSplitIllumination
 
 So as you can see, even a simple material requires a minimum of 3 passes when using this shadow technique, and in fact it requires (num\_lights + 2) passes in the general sense. You can use more passes in your original material and Ogre will cope with that too, but be aware that each pass may turn into multiple ones if it uses more than one type of light contribution (ambient vs diffuse/specular) and / or has texture units. The main nice thing is that you get the full multipass lighting behaviour even if you don’t define your materials in terms of it, meaning that your material definitions can remain the same no matter what lighting approach you decide to use.
 
-<a name="Manually-Categorising-Illumination-Passes"></a><a name="Manually-Categorising-Illumination-Passes-1"></a>
+## Manually Categorising Illumination Passes {#Manually-Categorising-Illumination-Passes}
 
-## Manually Categorising Illumination Passes
+Alternatively, if you want more direct control over the categorisation of your passes, you can use the @ref illumination_005fstage option in your pass to explicitly assign a pass unchanged to an illumination stage. This way you can make sure you know precisely how your material will be rendered under additive lighting conditions.
 
-Alternatively, if you want more direct control over the categorisation of your passes, you can use the [illumination\_stage](#illumination_005fstage) option in your pass to explicitly assign a pass unchanged to an illumination stage. This way you can make sure you know precisely how your material will be rendered under additive lighting conditions.
-
-<a name="Pass-Classification-and-Vertex-Programs"></a><a name="Pass-Classification-and-Vertex-Programs-1"></a>
-
-## Pass Classification and Vertex Programs
+## Pass Classification and Vertex Programs {#Pass-Classification-and-Vertex-Programs}
 
 Ogre is pretty good at classifying and splitting your passes to ensure that the multipass rendering approach required by additive lighting works correctly without you having to change your material definitions. However, there is one exception; when you use vertex programs, the normal lighting attributes ambient, diffuse, specular etc are not used, because all of that is determined by the vertex program. Ogre has no way of knowing what you’re doing inside that vertex program, so you have to tell it.
 
@@ -720,126 +726,39 @@ Note that when classifying a diffuse/specular programmable pass, Ogre checks to 
 
 So clearly, when you use additive light masking as a shadow technique, you need to make sure that programmable passes you use are properly set up so that they can be classified correctly. However, also note that the changes you have to make to ensure the classification is correct does not affect the way the material renders when you choose not to use additive lighting, so the principle that you should be able to use the same material definitions for all lighting scenarios still holds. Here is an example of a programmable material which will be classified correctly by the illumination pass classifier:
 
-```cpp
-// Per-pixel normal mapping Any number of lights, diffuse and specular
-material Examples/BumpMapping/MultiLightSpecular
-{
-    technique
-    {
-        // Base ambient pass
-        pass
-        {
-            // ambient only, not needed for rendering, but as information
-            // to lighting pass categorisation routine
-            ambient 1 1 1
-            diffuse 0 0 0 
-            specular 0 0 0 0
-            // Really basic vertex program
-            vertex_program_ref Ogre/BasicVertexPrograms/AmbientOneTexture
-            {
-                param_named_auto worldViewProj worldviewproj_matrix
-                param_named_auto ambient ambient_light_colour
-            }
-        }
-        // Now do the lighting pass
-        // NB we don't do decal texture here because this is repeated per light
-        pass
-        {
-            // set ambient off, not needed for rendering, but as information
-            // to lighting pass categorisation routine
-            ambient 0 0 0 
-            // do this for each light
-            iteration once_per_light
-            scene_blend add
+@snippet Samples/Media/materials/scripts/Examples-Advanced.material normal_map_multipass
 
-            // Vertex program reference
-            vertex_program_ref Examples/BumpMapVPSpecular
-            {
-                param_named_auto lightPosition light_position_object_space 0
-                param_named_auto eyePosition camera_position_object_space
-                param_named_auto worldViewProj worldviewproj_matrix
-            }
-
-            // Fragment program
-            fragment_program_ref Examples/BumpMapFPSpecular
-            {
-                param_named_auto lightDiffuse light_diffuse_colour 0 
-                param_named_auto lightSpecular light_specular_colour 0
-            }
-            
-            // Base bump map
-            texture_unit
-            {
-                texture NMBumpsOut.png
-                colour_op replace
-            }
-            // Normalisation cube map
-            texture_unit
-            {
-                texture nm.png cubic
-                tex_coord_set 1
-                tex_address_mode clamp
-            }
-            // Normalisation cube map #2
-            texture_unit
-            {
-                texture nm.png cubic
-                tex_coord_set 1
-                tex_address_mode clamp
-            }
-        }
-        
-        // Decal pass
-        pass
-        {
-            lighting off
-            // Really basic vertex program
-            vertex_program_ref Ogre/BasicVertexPrograms/AmbientOneTexture
-            {
-                param_named_auto worldViewProj worldviewproj_matrix
-                param_named ambient float4 1 1 1 1
-            }
-            scene_blend dest_colour zero
-            texture_unit
-            {
-                texture RustedMetal.jpg 
-            }
-        }
-    }
-}
-```
-
-Note that if you’re using texture shadows you have the additional option of using [Integrated Texture Shadows](#Integrated-Texture-Shadows) rather than being forced to use this explicit sequence - allowing you to compress the number of passes into a much smaller number at the expense of defining an upper number of shadow casting lights. In this case the ’additive’ aspect of the shadow technique just affects the colour of the shadow texture and it’s up to you to combine the shadow textures in your receivers however you like. 
+Note that if you’re using texture shadows you have the additional option of using @ref Integrated-Texture-Shadows rather than being forced to use this explicit sequence - allowing you to compress the number of passes into a much smaller number at the expense of defining an upper number of shadow casting lights. In this case the ’additive’ aspect of the shadow technique just affects the colour of the shadow texture and it’s up to you to combine the shadow textures in your receivers however you like.
 
 <a name="Static-Lighting"></a>
 
-## Static Lighting
+## Static Lighting {#Static-Lighting}
 
-Despite their power, additive lighting techniques have an additional limitation; they do not combine well with pre-calculated static lighting in the scene. This is because they are based on the principle that shadow is an absence of light, but since static lighting in the scene already includes areas of light and shadow, additive lighting cannot remove light to create new shadows. Therefore, if you use the additive lighting technique you must either use it exclusively as your lighting solution (and you can combine it with per-pixel lighting to create a very impressive dynamic lighting solution), or you must use [Integrated Texture Shadows](#Integrated-Texture-Shadows) to combine the static lighting according to your chosen approach.
+Despite their power, additive lighting techniques have an additional limitation; they do not combine well with pre-calculated static lighting in the scene. This is because they are based on the principle that shadow is an absence of light, but since static lighting in the scene already includes areas of light and shadow, additive lighting cannot remove light to create new shadows. Therefore, if you use the additive lighting technique you must either use it exclusively as your lighting solution (and you can combine it with per-pixel lighting to create a very impressive dynamic lighting solution), or you must use @ref Integrated-Texture-Shadows to combine the static lighting according to your chosen approach.
 
 @page Animation Animation
 
 OGRE supports a pretty flexible animation system that allows you to script animation for several different purposes:
 
 <dl compact="compact">
-<dt>[Skeletal Animation](#Skeletal-Animation)</dt> <dd>
-
-Mesh animation using a skeletal structure to determine how the mesh deforms. <br>
-
-</dd> <dt>[Vertex Animation](#Vertex-Animation)</dt> <dd>
-
-Mesh animation using snapshots of vertex data to determine how the shape of the mesh changes.<br>
-
-</dd> <dt>[SceneNode Animation](#SceneNode-Animation)</dt> <dd>
-
-Animating SceneNodes automatically to create effects like camera sweeps, objects following predefined paths, etc.<br>
-
-</dd> <dt>[Numeric Value Animation](#Numeric-Value-Animation)</dt> <dd>
-
+<dt>@ref SceneNode-Animation</dt> <dd>
+Animating SceneNodes automatically to create effects like camera sweeps, objects following predefined paths, etc.
+</dd>
+<dt>@ref Skeletal-Animation</dt> <dd>
+Mesh animation using a skeletal structure to determine how the mesh deforms.
+</dd> <dt>@ref Vertex-Animation</dt> <dd>
+Mesh animation using snapshots of vertex data to determine how the shape of the mesh changes.
+</dd> <dt>@ref Numeric-Value-Animation</dt> <dd>
 Using OGRE’s extensible class structure to animate any value.
-
 </dd> </dl>
 
+@tableofcontents
+
+# Animation State {#Animation-State}
+
+When an entity containing animation of any type is created, it is given an ’animation state’ object per animation to allow you to specify the animation state of that single entity (you can animate multiple entities using the same animation definitions, OGRE sorts the reuse out internally).
+
+You can retrieve a pointer to the AnimationState object by calling Ogre::Entity::getAnimationState. You can then call methods on this returned object to update the animation, probably in the frameStarted event. Each AnimationState needs to be enabled using the setEnabled method before the animation it refers to will take effect, and you can set both the weight and the time position (where appropriate) to affect the application of the animation using correlating methods. AnimationState also has a very simple method ’addTime’ which allows you to alter the animation position incrementally, and it will automatically loop for you. addTime can take positive or negative values (so you can reverse the animation if you want).
 
 
 # Skeletal Animation {#Skeletal-Animation}
@@ -857,21 +776,15 @@ There are many grades of skeletal animation, and not all engines (or modellers f
 -   A vertex can be assigned to multiple bones and assigned weightings for smoother skinning
 -   Multiple animations can be applied to a mesh at the same time, again with a blend weighting
 
-<br>
+Skeletons and the animations which go with them are held in .skeleton files, which are produced by the OGRE exporters. These files are loaded automatically when you create an Entity based on a Mesh which is linked to the skeleton in question. You then use @ref Animation-State to set the use of animation on the entity in question.
 
-Skeletons and the animations which go with them are held in .skeleton files, which are produced by the OGRE exporters. These files are loaded automatically when you create an Entity based on a Mesh which is linked to the skeleton in question. You then use [Animation State](#Animation-State) to set the use of animation on the entity in question.
+Skeletal animation can be performed in software, or implemented in shaders (hardware skinning). Clearly the latter is preferable, since it takes some of the work away from the CPU and gives it to the graphics card, and also means that the vertex data does not need to be re-uploaded every frame. This is especially important for large, detailed models. You should try to use hardware skinning wherever possible; this basically means assigning a material which has a vertex program powered technique. See @ref Skeletal-Animation-in-Vertex-Programs for more details. Skeletal animation can be combined with vertex animation, See @ref Combining-Skeletal-and-Vertex-Animation.
 
-Skeletal animation can be performed in software, or implemented in shaders (hardware skinning). Clearly the latter is preferable, since it takes some of the work away from the CPU and gives it to the graphics card, and also means that the vertex data does not need to be re-uploaded every frame. This is especially important for large, detailed models. You should try to use hardware skinning wherever possible; this basically means assigning a material which has a vertex program powered technique. See [Skeletal Animation in Vertex Programs](#Skeletal-Animation-in-Vertex-Programs) for more details. Skeletal animation can be combined with vertex animation, See [Combining Skeletal and Vertex Animation](#Combining-Skeletal-and-Vertex-Animation).
+# SceneNode Animation {#SceneNode-Animation}
 
+SceneNode animation is created from the SceneManager in order to animate the movement of SceneNodes, to make any attached objects move around automatically. You can see this performing a camera swoop in the CameraTrack Sample, or controlling how the fish move around in the pond in the Fresnel Sample.
 
-<a name="Animation-State"></a>
-## Animation State
-
-When an entity containing animation of any type is created, it is given an ’animation state’ object per animation to allow you to specify the animation state of that single entity (you can animate multiple entities using the same animation definitions, OGRE sorts the reuse out internally).
-
-You can retrieve a pointer to the AnimationState object by calling Entity::getAnimationState. You can then call methods on this returned object to update the animation, probably in the frameStarted event. Each AnimationState needs to be enabled using the setEnabled method before the animation it refers to will take effect, and you can set both the weight and the time position (where appropriate) to affect the application of the animation using correlating methods. AnimationState also has a very simple method ’addTime’ which allows you to alter the animation position incrementally, and it will automatically loop for you. addTime can take positive or negative values (so you can reverse the animation if you want).
-
-
+At it’s heart, scene node animation is mostly the same code which animates the underlying skeleton in skeletal animation. After creating the main Animation using Ogre::SceneManager::createAnimation you can create a NodeAnimationTrack per SceneNode that you want to animate, and create keyframes which control its position, orientation and scale which can be interpolated linearly or via splines. You use @ref Animation-State in the same way as you do for skeletal/vertex animation, except you obtain the state from SceneManager instead of from an individual Entity. Animations are applied automatically every frame, or the state can be applied manually in advance using the \_applySceneAnimations() method on SceneManager. See the API reference for full details of the interface for configuring scene animations.
 
 # Vertex Animation {#Vertex-Animation}
 
@@ -880,11 +793,11 @@ Vertex animation is about using information about the movement of vertices direc
 There are actually two subtypes of vertex animation, for reasons which will be discussed in a moment.
 
 <dl compact="compact">
-<dt>[Morph Animation](#Morph-Animation)</dt> <dd>
+<dt>@ref Morph-Animation</dt> <dd>
 
 Morph animation is a very simple technique which interpolates mesh snapshots along a keyframe timeline. Morph animation has a direct correlation to old-school character animation techniques used before skeletal animation was widely used.<br>
 
-</dd> <dt>[Pose Animation](#Pose-Animation)</dt> <dd>
+</dd> <dt>@ref Pose-Animation</dt> <dd>
 
 Pose animation is about blending multiple discrete poses, expressed as offsets to the base vertex data, with different weights to provide a final result. Pose animation’s most obvious use is facial animation.
 
@@ -912,7 +825,7 @@ It’s important to note that the subtype in question is held at a track level, 
 
 For example, a common set-up for a complex character which needs both skeletal and facial animation might be to split the head into a separate SubMesh with its own geometry, then apply skeletal animation to both submeshes, and pose animation to just the head. 
 
-To see how to apply vertex animation, See [Animation State](#Animation-State).
+To see how to apply vertex animation, See @ref Animation-State.
 
 <a name="Vertex-buffer-arrangements"></a>
 
@@ -923,22 +836,15 @@ When using vertex animation in software, vertex buffers need to be arranged such
 To do this, you have a set of helper functions in Ogre::Mesh. See API Reference entries for Ogre::VertexData::reorganiseBuffers() and Ogre::VertexDeclaration::getAutoOrganisedDeclaration(). The latter will turn a vertex declaration into one which is recommended for the usage you’ve indicated, and the former will reorganise the contents of a set of buffers to conform to that layout.
 
 
-
-<a name="Morph-Animation"></a> <a name="Morph-Animation-1"></a>
-
-## Morph Animation
+## Morph Animation {#Morph-Animation}
 
 Morph animation works by storing snapshots of the absolute vertex positions in each keyframe, and interpolating between them. Morph animation is mainly useful for animating objects which could not be adequately handled using skeletal animation; this is mostly objects that have to radically change structure and shape as part of the animation such that a skeletal structure isn’t appropriate. 
 
 Because absolute positions are used, it is not possible to blend more than one morph animation on the same vertex data; you should use skeletal animation if you want to include animation blending since it is much more efficient. If you activate more than one animation which includes morph tracks for the same vertex data, only the last one will actually take effect. This also means that the ’weight’ option on the animation state is not used for morph animation. 
 
-Morph animation can be combined with skeletal animation if required See [Combining Skeletal and Vertex Animation](#Combining-Skeletal-and-Vertex-Animation). Morph animation can also be implemented in hardware using vertex shaders, See [Morph Animation in Vertex Programs](#Morph-Animation-in-Vertex-Programs).
+Morph animation can be combined with skeletal animation if required See @ref Combining-Skeletal-and-Vertex-Animation. Morph animation can also be implemented in hardware using vertex shaders, See @ref Morph-Animation-in-Vertex-Programs.
 
-
-
-<a name="Pose-Animation"></a> <a name="Pose-Animation-1"></a>
-
-## Pose Animation
+## Pose Animation {#Pose-Animation}
 
 Pose animation allows you to blend together potentially multiple vertex poses at different influence levels into final vertex state. A common use for this is facial animation, where each facial expression is placed in a separate animation, and influences used to either blend from one expression to another, or to combine full expressions if each pose only affects part of the face.
 
@@ -946,17 +852,13 @@ In order to do this, pose animation uses a set of reference poses defined in the
 
 Once you’ve defined the poses, you can refer to them in animations. Each pose animation track refers to a single set of geometry (either the shared geometry of the mesh, or dedicated geometry on a submesh), and each keyframe in the track can refer to one or more poses, each with its own influence level. The weight applied to the entire animation scales these influence levels too. You can define many keyframes which cause the blend of poses to change over time. The absence of a pose reference in a keyframe when it is present in a neighbouring one causes it to be treated as an influence of 0 for interpolation. 
 
-You should be careful how many poses you apply at once. When performing pose animation in hardware (See [Pose Animation in Vertex Programs](@ ref Pose-Animation-in-Vertex-Programs)), every active pose requires another vertex buffer to be added to the shader, and in when animating in software it will also take longer the more active poses you have. Bear in mind that if you have 2 poses in one keyframe, and a different 2 in the next, that actually means there are 4 active keyframes when interpolating between them. 
+You should be careful how many poses you apply at once. When performing pose animation in hardware (See @ref Pose-Animation-in-Vertex-Programs), every active pose requires another vertex buffer to be added to the shader, and in when animating in software it will also take longer the more active poses you have. Bear in mind that if you have 2 poses in one keyframe, and a different 2 in the next, that actually means there are 4 active keyframes when interpolating between them. 
 
-You can combine pose animation with skeletal animation, See [Combining Skeletal and Vertex Animation](#Combining-Skeletal-and-Vertex-Animation), and you can also hardware accelerate the application of the blend with a vertex shader, See [Pose Animation in Vertex Programs](@ref Pose-Animation-in-Vertex-Programs).
+You can combine pose animation with skeletal animation, See @ref Combining-Skeletal-and-Vertex-Animation, and you can also hardware accelerate the application of the blend with a vertex shader, See @ref Pose-Animation-in-Vertex-Programs.
 
+## Combining Skeletal and Vertex Animation {#Combining-Skeletal-and-Vertex-Animation}
 
-
-<a name="Combining-Skeletal-and-Vertex-Animation"></a> <a name="Combining-Skeletal-and-Vertex-Animation-1"></a>
-
-## Combining Skeletal and Vertex Animation
-
-Skeletal animation and vertex animation (of either subtype) can both be enabled on the same entity at the same time (See [Animation State](#Animation-State)). The effect of this is that vertex animation is applied first to the base mesh, then skeletal animation is applied to the result. This allows you, for example, to facially animate a character using pose vertex animation, whilst performing the main movement animation using skeletal animation.
+Skeletal animation and vertex animation (of either subtype) can both be enabled on the same entity at the same time (See @ref Animation-State). The effect of this is that vertex animation is applied first to the base mesh, then skeletal animation is applied to the result. This allows you, for example, to facially animate a character using pose vertex animation, whilst performing the main movement animation using skeletal animation.
 
 Combining the two is, from a user perspective, as simple as just enabling both animations at the same time. When it comes to using this feature efficiently though, there are a few points to bear in mind:
 
@@ -977,16 +879,6 @@ When combining animation types, your vertex programs must support both types of 
 
 If you only need to combine vertex and skeletal animation for a small part of your mesh, e.g. the face, you could split your mesh into 2 parts, one which needs the combination and one which does not, to reduce the calculation overhead. Note that it will also reduce vertex buffer usage since vertex keyframe / pose buffers will also be smaller. Note that if you use hardware skinning you should then implement 2 separate vertex programs, one which does only skeletal animation, and the other which does skeletal and vertex animation.
 
-
-
-# SceneNode Animation {#SceneNode-Animation}
-
-SceneNode animation is created from the SceneManager in order to animate the movement of SceneNodes, to make any attached objects move around automatically. You can see this performing a camera swoop in Demo\_CameraTrack, or controlling how the fish move around in the pond in Demo\_Fresnel.
-
-At it’s heart, scene node animation is mostly the same code which animates the underlying skeleton in skeletal animation. After creating the main Animation using SceneManager::createAnimation you can create a NodeAnimationTrack per SceneNode that you want to animate, and create keyframes which control its position, orientation and scale which can be interpolated linearly or via splines. You use [Animation State](#Animation-State) in the same way as you do for skeletal/vertex animation, except you obtain the state from SceneManager instead of from an individual Entity.Animations are applied automatically every frame, or the state can be applied manually in advance using the \_applySceneAnimations() method on SceneManager. See the API reference for full details of the interface for configuring scene animations.
-
-
-
 # Numeric Value Animation {#Numeric-Value-Animation}
 
 Apart from the specific animation types which may well comprise the most common uses of the animation framework, you can also use animations to alter any value which is exposed via the [AnimableObject](#AnimableObject) interface. 
@@ -995,9 +887,9 @@ Apart from the specific animation types which may well comprise the most common 
 
 ## AnimableObject
 
-AnimableObject is an abstract interface that any class can extend in order to provide access to a number of [AnimableValue](#AnimableValue)s. It holds a ’dictionary’ of the available animable properties which can be enumerated via the getAnimableValueNames method, and when its createAnimableValue method is called, it returns a reference to a value object which forms a bridge between the generic animation interfaces, and the underlying specific object property.
+Ogre::AnimableObject is an abstract interface that any class can extend in order to provide access to a number of [AnimableValue](#AnimableValue)s. It holds a ’dictionary’ of the available animable properties which can be enumerated via the getAnimableValueNames method, and when its createAnimableValue method is called, it returns a reference to a value object which forms a bridge between the generic animation interfaces, and the underlying specific object property.
 
-One example of this is the Light class. It extends AnimableObject and provides AnimableValues for properties such as "diffuseColour" and "attenuation". Animation tracks can be created for these values and thus properties of the light can be scripted to change. Other objects, including your custom objects, can extend this interface in the same way to provide animation support to their properties.
+One example of this is the Ogre::Light class. It extends AnimableObject and provides AnimableValues for properties such as "diffuseColour" and "attenuation". Animation tracks can be created for these values and thus properties of the light can be scripted to change. Other objects, including your custom objects, can extend this interface in the same way to provide animation support to their properties.
 
 <a name="AnimableValue"></a><a name="AnimableValue-1"></a>
 

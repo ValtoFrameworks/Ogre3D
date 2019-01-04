@@ -35,12 +35,6 @@ THE SOFTWARE.
 #include "OgreRenderTexture.h"
 #include "OgreSharedPtr.h"
 
-#if OGRE_PLATFORM == OGRE_PLATFORM_WIN32 && !defined(_WIN32_WINNT_WIN8)
-    #ifndef USE_D3DX11_LIBRARY
-        #define USE_D3DX11_LIBRARY
-    #endif
-#endif
-
 namespace Ogre {
 	/** Specialisation of Texture for D3D11 */
     class _OgreD3D11Export D3D11Texture
@@ -57,12 +51,6 @@ namespace Ogre {
 
 		/// overridden from Texture
 		void copyToTexture(TexturePtr& target);
-		/// overridden from Texture
-		void loadImage(const Image &img);
-
-
-		/// @copydoc Texture::getBuffer
-		HardwarePixelBufferSharedPtr getBuffer(size_t face, size_t mipmap);
 
 		ID3D11Resource *getTextureResource() { assert(mpTex); return mpTex.Get(); }
 		/// retrieves a pointer to the actual texture
@@ -79,9 +67,6 @@ namespace Ogre {
 		TextureUsage _getTextureUsage() { return static_cast<TextureUsage>(mUsage); }
 
     protected:
-        // needed to store data between prepareImpl and loadImpl
-        typedef SharedPtr<std::vector<MemoryDataStreamPtr> > LoadedStreams;
-
         template<typename fromtype, typename totype>
         void _queryInterface(const ComPtr<fromtype>& from, ComPtr<totype> *to)
         {
@@ -95,15 +80,9 @@ namespace Ogre {
                     "D3D11Texture::_queryInterface" );
             }
         }
-#ifdef USE_D3DX11_LIBRARY       
-        void _loadDDS(DataStreamPtr &dstream);
-#endif
         void _create1DResourceView();
         void _create2DResourceView();
         void _create3DResourceView();
-
-        /// internal method, load a normal texture
-        void _loadTex(LoadedStreams & loadedStreams);
 
         /// internal method, create a blank normal 1D Dtexture
         void _create1DTex();
@@ -132,23 +111,8 @@ namespace Ogre {
         void notifyDeviceLost(D3D11Device* device);
         void notifyDeviceRestored(D3D11Device* device);
 
-        /// @copydoc Resource::prepareImpl
-        void prepareImpl(void);
-        /// @copydoc Resource::unprepareImpl
-        void unprepareImpl(void);
         /// overridden from Resource
         void loadImpl();
-        /// overridden from Resource
-        void postLoadImpl();
-
-        /** Vector of pointers to streams that were pulled from disk by
-            prepareImpl  but have yet to be pushed into texture memory
-            by loadImpl.  Should be cleared on load and on unprepare.
-        */
-        LoadedStreams mLoadedStreams;
-        LoadedStreams _prepareNormTex();
-        LoadedStreams _prepareVolumeTex();
-        LoadedStreams _prepareCubeTex();
 
     protected:
         D3D11Device&	mDevice;
@@ -165,10 +129,6 @@ namespace Ogre {
 
         D3D11_SHADER_RESOURCE_VIEW_DESC mSRVDesc;
         bool mAutoMipMapGeneration;
-
-        /// Vector of pointers to subsurfaces
-        typedef std::vector<HardwarePixelBufferSharedPtr> SurfaceList;
-        SurfaceList                     mSurfaceList;
     };
 
     /// RenderTexture implementation for D3D11

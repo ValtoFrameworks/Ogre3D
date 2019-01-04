@@ -96,7 +96,9 @@ namespace Ogre {
         /// 2D texture array
         TEX_TYPE_2D_ARRAY = 5,
         /// 2D non-square texture, used in combination with 2D texture coordinates
-        TEX_TYPE_2D_RECT = 6
+        TEX_TYPE_2D_RECT = 6,
+        /// GLES2 only OES texture type
+        TEX_TYPE_EXTERNAL_OES = 7
     };
 
     /** Enum identifying special mipmap numbers
@@ -282,15 +284,15 @@ namespace Ogre {
         virtual void copyToTexture( TexturePtr& target );
 
         /** Loads the data from an image.
-        @note Important: only call this from outside the load() routine of a 
+        @attention only call this from outside the load() routine of a 
             Resource. Don't call it within (including ManualResourceLoader) - use
             _loadImages() instead. This method is designed to be external, 
             performs locking and checks the load status before loading.
         */
-        virtual void loadImage( const Image &img );
+        void loadImage( const Image &img );
             
         /** Loads the data from a raw stream.
-        @note Important: only call this from outside the load() routine of a 
+        @attention only call this from outside the load() routine of a 
             Resource. Don't call it within (including ManualResourceLoader) - use
             _loadImages() instead. This method is designed to be external, 
             performs locking and checks the load status before loading.
@@ -303,7 +305,7 @@ namespace Ogre {
             ushort uWidth, ushort uHeight, PixelFormat eFormat);
 
         /** Internal method to load the texture from a set of images. 
-        @note Do NOT call this method unless you are inside the load() routine
+        @attention Do NOT call this method unless you are inside the load() routine
             already, e.g. a ManualResourceLoader. It is not threadsafe and does
             not check or update resource loading status.
         */
@@ -389,7 +391,7 @@ namespace Ogre {
             @remarks The buffer is invalidated when the resource is unloaded or destroyed.
             Do not use it after the lifetime of the containing texture.
         */
-        virtual HardwarePixelBufferSharedPtr getBuffer(size_t face=0, size_t mipmap=0) = 0;
+        virtual const HardwarePixelBufferSharedPtr& getBuffer(size_t face=0, size_t mipmap=0);
 
 
         /** Populate an Image with the contents of this texture. 
@@ -400,11 +402,26 @@ namespace Ogre {
         
         /** Retrieve a platform or API-specific piece of information from this texture.
             This method of retrieving information should only be used if you know what you're doing.
+
+            | Name        | Description                  |
+            |-------------|------------------------------|
+            | GLID        | The OpenGL texture object id |
+
             @param name The name of the attribute to retrieve.
             @param pData Pointer to memory matching the type of data you want to retrieve.
         */
         virtual void getCustomAttribute(const String& name, void* pData);
         
+        /** simplified API for bindings
+         * 
+         * @overload
+         */
+        uint getCustomAttribute(const String& name)
+        {
+            uint ret = 0;
+            getCustomAttribute(name, &ret);
+            return ret;
+        }
 
         /** Enable read and/or write privileges to the texture from shaders.
             @param bindPoint The buffer binding location for shader access. For OpenGL this must be unique and is not related to the texture binding point.
@@ -414,9 +431,16 @@ namespace Ogre {
             @param format Texture format to be read in by shader. For OpenGL this may be different than the bound texture format.
         */
         virtual void createShaderAccessPoint(uint bindPoint, TextureAccess access = TA_READ_WRITE,
-                                             int mipmapLevel = 0, int textureArrayIndex = 0,
-                                             PixelFormat* format = NULL) {}
-
+                                        int mipmapLevel = 0, int textureArrayIndex = 0,
+                                        PixelFormat format = PF_UNKNOWN) {}
+        /// @deprecated
+        OGRE_DEPRECATED void createShaderAccessPoint(uint bindPoint, TextureAccess access,
+                                                     int mipmapLevel, int textureArrayIndex,
+                                                     PixelFormat* format)
+        {
+            createShaderAccessPoint(bindPoint, access, mipmapLevel, textureArrayIndex,
+                                    format ? *format : PF_UNKNOWN);
+        }
 
     protected:
         uint32 mHeight;
@@ -444,6 +468,23 @@ namespace Ogre {
         bool mTreatLuminanceAsAlpha;
 
         bool mInternalResourcesCreated;
+
+        /** Vector of images that were pulled from disk by
+            prepareLoad but have yet to be pushed into texture memory
+            by loadImpl.  Images should be deleted by loadImpl and unprepareImpl.
+        */
+        typedef std::vector<Image> LoadedImages;
+        LoadedImages mLoadedImages;
+
+        /// Vector of pointers to subsurfaces
+        typedef std::vector<HardwarePixelBufferSharedPtr> SurfaceList;
+        SurfaceList mSurfaceList;
+
+        void readImage(LoadedImages& imgs, const String& name, const String& ext, bool haveNPOT);
+
+        void prepareImpl();
+        void unprepareImpl();
+        void loadImpl();
 
         /// @copydoc Resource::calculateSize
         size_t calculateSize(void) const;

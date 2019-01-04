@@ -39,7 +39,7 @@ namespace Ogre {
 
     /** RenderTexture for GL FBO
      */
-    class _OgreGL3PlusExport GL3PlusFBORenderTexture: public GLRenderTexture
+    class _OgreGL3PlusExport GL3PlusFBORenderTexture : public GLRenderTexture
     {
     public:
         GL3PlusFBORenderTexture(GL3PlusFBOManager *manager, const String &name, const GLSurfaceDesc &target, bool writeGamma, uint fsaa);
@@ -53,6 +53,9 @@ namespace Ogre {
         virtual bool attachDepthBuffer( DepthBuffer *depthBuffer );
         virtual void detachDepthBuffer();
         virtual void _detachDepthBuffer();
+
+        GLContext* getContext() const { return mFB.getContext(); }
+        GLFrameBufferObjectCommon* getFBO() { return &mFB; }
     protected:
         GL3PlusFrameBufferObject mFB;
     };
@@ -99,7 +102,7 @@ namespace Ogre {
         void detectFBOFormats();
         GLuint _tryFormat(GLenum depthFormat, GLenum stencilFormat);
         bool _tryPackedFormat(GLenum packedFormat);
-        void _createTempFramebuffer(int ogreFormat, GLuint internalFormat, GLuint fmt, GLenum dataType, GLuint &fb, GLuint &tid);
+        void _createTempFramebuffer(GLuint internalFormat, GLuint fmt, GLenum dataType, GLuint &fb, GLuint &tid);
     };
 }
 

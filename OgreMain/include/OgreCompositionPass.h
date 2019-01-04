@@ -53,11 +53,12 @@ namespace Ogre {
         */
         enum PassType
         {
-            PT_CLEAR,           /// Clear target to one colour
-            PT_STENCIL,         /// Set stencil operation
-            PT_RENDERSCENE,     /// Render the scene or part of it
-            PT_RENDERQUAD,      /// Render a full screen quad
-            PT_RENDERCUSTOM     /// Render a custom sequence
+            PT_CLEAR,           //!< Clear target to one colour
+            PT_STENCIL,         //!< Set stencil operation
+            PT_RENDERSCENE,     //!< Render the scene or part of it
+            PT_RENDERQUAD,      //!< Render a full screen quad
+            PT_RENDERCUSTOM,    //!< Render a custom sequence
+            PT_COMPUTE          //!< dispatch a compute shader
         };
         
         /** Set the type of composition pass */
@@ -244,7 +245,7 @@ namespace Ogre {
             String name;
             /// MRT surface index if applicable
             size_t mrtIndex;
-            InputTex() : name(BLANKSTRING), mrtIndex(0) {}
+            InputTex() : mrtIndex(0) {}
             InputTex(const String& _name, size_t _mrtIndex = 0)
                 : name(_name), mrtIndex(_mrtIndex) {}
         };
@@ -285,12 +286,16 @@ namespace Ogre {
         /** Set quad normalised positions [-1;1]x[-1;1]
             @note applies when PassType is RENDERQUAD
          */
-        void setQuadCorners(Real left,Real top,Real right,Real bottom);
+        void setQuadCorners(const FloatRect& quad) { mQuad = quad; mQuadCornerModified = true; }
+        /// @deprecated
+        OGRE_DEPRECATED void setQuadCorners(Real left,Real top,Real right,Real bottom);
 
         /** Get quad normalised positions [-1;1]x[-1;1]
             @note applies when PassType is RENDERQUAD 
          */
-        bool getQuadCorners(Real & left,Real & top,Real & right,Real & bottom) const;
+        bool getQuadCorners(FloatRect& quad) const { quad = mQuad; return mQuadCornerModified; }
+        /// @deprecated
+        OGRE_DEPRECATED bool getQuadCorners(Real & left,Real & top,Real & right,Real & bottom) const;
             
         /** Sets the use of camera frustum far corners provided in the quad's normals
             @note applies when PassType is RENDERQUAD 
@@ -318,6 +323,9 @@ namespace Ogre {
             @see CompositorManager::registerCustomCompositionPass
         */
         const String& getCustomType() const;
+
+        void setThreadGroups(Vector3i g) { mThreadGroups = g; }
+        Vector3i getThreadGroups() { return mThreadGroups; }
 
     private:
         /// Parent technique
@@ -354,16 +362,15 @@ namespace Ogre {
         StencilOperation mStencilFailOp;
         StencilOperation mStencilDepthFailOp;
         StencilOperation mStencilPassOp;
+        Vector3i mThreadGroups;
+
         bool mStencilTwoSidedOperation;
         bool mStencilReadBackAsTexture;
 
         /// True if quad should not cover whole screen
         bool mQuadCornerModified;
         /// quad positions in normalised coordinates [-1;1]x[-1;1] (in case of PT_RENDERQUAD)
-        Real mQuadLeft;
-        Real mQuadTop;
-        Real mQuadRight;
-        Real mQuadBottom;
+        FloatRect mQuad;
 
         bool mQuadFarCorners, mQuadFarCornersViewSpace;
         /// The type name of the custom composition pass.

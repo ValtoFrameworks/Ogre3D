@@ -532,11 +532,11 @@ Default: alpha\_to\_coverage off <a name="light_005fscissor"></a>
 
 Sets whether when rendering this pass, rendering will be limited to a screen-space scissor rectangle representing the coverage of the light(s) being used in this pass.
 @par
-Format: light\_scissor &lt;on|off&gt; Default: light\_scissor off
+Format: light\_scissor &lt;on|off&gt; 
+@par
+Default: light\_scissor off
 
 @copydetails Ogre::Pass::setLightScissoringEnabled
-
-@see @ref Integrated-Texture-Shadows
 
 <a name="light_005fclip_005fplanes"></a><a name="light_005fclip_005fplanes-1"></a>
 
@@ -544,15 +544,15 @@ Format: light\_scissor &lt;on|off&gt; Default: light\_scissor off
 
 Sets whether when rendering this pass, triangle setup will be limited to clipping volume covered by the light.
 @par
-Format: light\_clip\_planes &lt;on|off&gt; Default: light\_clip\_planes off
+Format: light\_clip\_planes &lt;on|off&gt; 
+@par
+Default: light\_clip\_planes off
 
 @copydetails Ogre::Pass::setLightClipPlanesEnabled
 
 @see @ref Integrated-Texture-Shadows
 
-<a name="illumination_005fstage"></a><a name="illumination_005fstage-1"></a>
-
-## illumination\_stage
+## illumination_stage {#illumination_005fstage}
 
 @copydetails Ogre::Pass::setIlluminationStage
 
@@ -1077,9 +1077,9 @@ Format: binding\_type &lt;vertex|fragment&gt;
 @par
 Default: binding\_type fragment
 
-<a name="content_005ftype"></a><a name="content_005ftype-1"></a>
+<a name="content_005ftype"></a>
 
-## content\_type
+## content_type
 
 Tells this texture unit where it should get its content from. The default is to get texture content from a named texture, as defined with the [texture](#texture), [cubic\_texture](#cubic_005ftexture), [anim\_texture](#anim_005ftexture) attributes. However you can also pull texture information from other automated sources.
 

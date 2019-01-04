@@ -158,6 +158,9 @@ namespace Ogre {
         : mStateCacheManager(0),
           mGpuProgramManager(0),
           mGLSLESProgramFactory(0),
+#if !OGRE_NO_GLES2_CG_SUPPORT
+          mGLSLESCgProgramFactory(0),
+#endif
           mHardwareBufferManager(0),
           mRTTManager(0),
           mCurTexMipCount(0)
@@ -695,8 +698,7 @@ namespace Ogre {
         {
             // Unlike D3D9, OGL doesn't allow sharing the main depth buffer, so keep them separate.
             // Only Copy does, but Copy means only one depth buffer...
-            GLContext *windowContext = 0;
-            win->getCustomAttribute( "GLCONTEXT", &windowContext );
+            GLContext *windowContext = dynamic_cast<GLRenderTarget*>(win)->getContext();
             GLES2DepthBuffer *depthBuffer = OGRE_NEW GLES2DepthBuffer( DepthBuffer::POOL_DEFAULT, this,
                                                             windowContext, 0, 0,
                                                             win->getWidth(), win->getHeight(),
@@ -718,10 +720,7 @@ namespace Ogre {
         // Only FBO & pbuffer support different depth buffers, so everything
         // else creates dummy (empty) containers
         // retVal = mRTTManager->_createDepthBufferFor( renderTarget );
-        GLES2FrameBufferObject *fbo = 0;
-        renderTarget->getCustomAttribute("FBO", &fbo);
-
-        if( fbo )
+        if( auto fbo = dynamic_cast<GLRenderTarget*>(renderTarget)->getFBO() )
         {
             // Presence of an FBO means the manager is an FBO Manager, that's why it's safe to downcast
             // Find best depth & stencil format suited for the RT's format
@@ -777,8 +776,7 @@ namespace Ogre {
 
     void GLES2RenderSystem::_destroyDepthBuffer(RenderTarget* pWin)
     {
-        GLContext *windowContext = 0;
-        pWin->getCustomAttribute("GLCONTEXT", &windowContext);
+        GLContext *windowContext = dynamic_cast<GLRenderTarget*>(pWin)->getContext();
         
         // 1 Window <-> 1 Context, should be always true
         assert( windowContext );
@@ -823,8 +821,7 @@ namespace Ogre {
 
         if (enabled)
         {
-            GLES2TexturePtr tex = static_pointer_cast<GLES2Texture>(
-                texPtr ? texPtr : mTextureManager->_getWarningTexture());
+            GLES2TexturePtr tex = static_pointer_cast<GLES2Texture>(texPtr);
 
             mCurTexMipCount = 0;
 
@@ -951,45 +948,6 @@ namespace Ogre {
         return GL_ONE;
     }
 
-    void GLES2RenderSystem::_setSceneBlending(SceneBlendFactor sourceFactor, SceneBlendFactor destFactor, SceneBlendOperation op)
-    {
-        GLenum sourceBlend = getBlendMode(sourceFactor);
-        GLenum destBlend = getBlendMode(destFactor);
-        if(sourceFactor == SBF_ONE && destFactor == SBF_ZERO)
-        {
-            mStateCacheManager->setDisabled(GL_BLEND);
-        }
-        else
-        {
-            mStateCacheManager->setEnabled(GL_BLEND);
-            mStateCacheManager->setBlendFunc(sourceBlend, destBlend);
-        }
-        
-        GLint func = GL_FUNC_ADD;
-        switch(op)
-        {
-        case SBO_ADD:
-            func = GL_FUNC_ADD;
-            break;
-        case SBO_SUBTRACT:
-            func = GL_FUNC_SUBTRACT;
-            break;
-        case SBO_REVERSE_SUBTRACT:
-            func = GL_FUNC_REVERSE_SUBTRACT;
-            break;
-        case SBO_MIN:
-            if(hasMinGLVersion(3, 0) || checkExtension("GL_EXT_blend_minmax"))
-                func = GL_MIN_EXT;
-            break;
-        case SBO_MAX:
-            if(hasMinGLVersion(3, 0) || checkExtension("GL_EXT_blend_minmax"))
-                func = GL_MAX_EXT;
-            break;
-        }
-
-        mStateCacheManager->setBlendEquation(func);
-    }
-
     void GLES2RenderSystem::_setSeparateSceneBlending(
         SceneBlendFactor sourceFactor, SceneBlendFactor destFactor,
         SceneBlendFactor sourceFactorAlpha, SceneBlendFactor destFactorAlpha,
@@ -1008,7 +966,7 @@ namespace Ogre {
         else
         {
             mStateCacheManager->setEnabled(GL_BLEND);
-            OGRE_CHECK_GL_ERROR(glBlendFuncSeparate(sourceBlend, destBlend, sourceBlendAlpha, destBlendAlpha));
+            mStateCacheManager->setBlendFunc(sourceBlend, destBlend, sourceBlendAlpha, destBlendAlpha);
         }
         
         GLint func = GL_FUNC_ADD, alphaFunc = GL_FUNC_ADD;
@@ -1767,12 +1725,9 @@ namespace Ogre {
         
         for(RenderTargetMap::iterator it = mRenderTargets.begin(); it!=mRenderTargets.end(); ++it)
         {
-            RenderTarget* target = it->second;
-            if(target)
+            if(auto target = dynamic_cast<GLRenderTarget*>(it->second))
             {
-                GLES2FrameBufferObject *fbo = 0;
-                target->getCustomAttribute("FBO", &fbo);
-                if(fbo)
+                if(auto fbo = target->getFBO())
                     fbo->notifyContextDestroyed(context);
             }
         }
@@ -1835,14 +1790,16 @@ namespace Ogre {
             return;
 
         // Enable primitive restarting with fixed indices depending upon the data type
+        // https://www.khronos.org/registry/webgl/specs/latest/2.0/#NO_PRIMITIVE_RESTART_FIXED_INDEX
+#if OGRE_PLATFORM != OGRE_PLATFORM_EMSCRIPTEN
         OGRE_CHECK_GL_ERROR(glEnable(GL_PRIMITIVE_RESTART_FIXED_INDEX));
+#endif
     }
 
     void GLES2RenderSystem::initialiseContext(RenderWindow* primary)
     {
         // Set main and current context
-        mMainContext = 0;
-        primary->getCustomAttribute("GLCONTEXT", &mMainContext);
+        mMainContext = dynamic_cast<GLRenderTarget*>(primary)->getContext();
         mCurrentContext = mMainContext;
 
         // Set primary context as active
@@ -1887,8 +1844,7 @@ namespace Ogre {
         if (target && mRTTManager)
         {
             // Switch context if different from current one
-            GLContext *newContext = 0;
-            target->getCustomAttribute("GLCONTEXT", &newContext);
+            GLContext *newContext = dynamic_cast<GLRenderTarget*>(target)->getContext();
             if (newContext && mCurrentContext != newContext)
             {
                 _switchContext(newContext);
@@ -2035,7 +1991,7 @@ namespace Ogre {
         RenderSystem::unbindGpuProgram(gptype);
     }
 
-    void GLES2RenderSystem::bindGpuProgramParameters(GpuProgramType gptype, GpuProgramParametersSharedPtr params, uint16 mask)
+    void GLES2RenderSystem::bindGpuProgramParameters(GpuProgramType gptype, const GpuProgramParametersPtr& params, uint16 mask)
     {
         // Just copy
         params->_copySharedParams();
@@ -2286,7 +2242,7 @@ namespace Ogre {
         GLenum format = GLES2PixelUtil::getGLOriginFormat(dst.format);
         GLenum type = GLES2PixelUtil::getGLOriginDataType(dst.format);
 
-        if ((format == 0) || (type == 0))
+        if (dst.format != PF_BYTE_RGBA)
         {
             OGRE_EXCEPT(Exception::ERR_INVALIDPARAMS,
                 "Unsupported format.",

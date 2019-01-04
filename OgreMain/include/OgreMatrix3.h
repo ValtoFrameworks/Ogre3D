@@ -145,8 +145,8 @@ namespace Ogre
 
         // utilities
         Matrix3 Transpose () const;
-        bool Inverse (Matrix3& rkInverse, Real fTolerance = 1e-06) const;
-        Matrix3 Inverse (Real fTolerance = 1e-06) const;
+        bool Inverse (Matrix3& rkInverse, Real fTolerance = 1e-06f) const;
+        Matrix3 Inverse (Real fTolerance = 1e-06f) const;
         Real Determinant () const;
 
         Matrix3 transpose() const { return Transpose(); }
@@ -246,7 +246,6 @@ namespace Ogre
         bool QLAlgorithm (Real afDiag[3], Real afSubDiag[3]);
 
         // support for singular value decomposition
-        static const Real msSvdEpsilon;
         static const unsigned int msSvdMaxIterations;
         static void Bidiagonalize (Matrix3& kA, Matrix3& kL,
             Matrix3& kR);

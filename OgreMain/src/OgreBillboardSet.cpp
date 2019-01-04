@@ -548,14 +548,15 @@ namespace Ogre {
 
             iend = mActiveBillboards.end();
             Affine3 invWorld;
-            if (mWorldSpace && getParentSceneNode())
+            bool invert = mWorldSpace && getParentSceneNode();
+            if (invert)
                 invWorld = getParentSceneNode()->_getFullTransform().inverse();
 
             for (i = mActiveBillboards.begin(); i != iend; ++i)
             {
                 Vector3 pos = (*i)->getPosition();
                 // transform from world space to local space
-                if (mWorldSpace && getParentSceneNode())
+                if (invert)
                     pos = invWorld * pos;
                 min.makeFloor(pos);
                 max.makeCeil(pos);
@@ -815,10 +816,8 @@ namespace Ogre {
                 2-----3
             */
 
-            ushort* pIdx = static_cast<ushort*>(
-                mIndexData->indexBuffer->lock(0,
-                  mIndexData->indexBuffer->getSizeInBytes(),
-                  HardwareBuffer::HBL_DISCARD) );
+            HardwareBufferLockGuard indexLock(mIndexData->indexBuffer, HardwareBuffer::HBL_DISCARD);
+            ushort* pIdx = static_cast<ushort*>(indexLock.pData);
 
             for(
                 size_t idx, idxOff, bboard = 0;
@@ -837,8 +836,6 @@ namespace Ogre {
                 pIdx[idx+5] = static_cast<unsigned short>(idxOff + 3);
 
             }
-
-            mIndexData->indexBuffer->unlock();
         }
         mBuffersCreated = true;
     }

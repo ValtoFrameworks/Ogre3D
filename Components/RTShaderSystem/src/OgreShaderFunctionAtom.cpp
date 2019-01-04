@@ -32,6 +32,8 @@ namespace RTShader {
 //-----------------------------------------------------------------------------
 Operand::Operand(ParameterPtr parameter, Operand::OpSemantic opSemantic, int opMask, ushort indirectionLevel) : mParameter(parameter), mSemantic(opSemantic), mMask(opMask), mIndirectionLevel(indirectionLevel)
 {
+    OgreAssert(mParameter, "NULL parameter is not a valid operand");
+    parameter->setUsed(true);
 }
 //-----------------------------------------------------------------------------
 Operand::Operand(const Operand& other) 
@@ -267,9 +269,14 @@ void FunctionInvocation::writeOperands(std::ostream& os, OperandVector::const_it
 //-----------------------------------------------------------------------
 void FunctionInvocation::pushOperand(ParameterPtr parameter, Operand::OpSemantic opSemantic, int opMask, int indirectionLevel)
 {
-    OgreAssert(parameter, "NULL parameter not allowed");
     mOperands.push_back(Operand(parameter, opSemantic, opMask, indirectionLevel));
 }
+
+void FunctionInvocation::setOperands(const OperandVector& ops)
+{
+    mOperands = ops;
+}
+
 
 //-----------------------------------------------------------------------
 bool FunctionInvocation::operator == ( const FunctionInvocation& rhs ) const
@@ -337,15 +344,6 @@ bool FunctionInvocation::FunctionInvocationLessThan::operator ()(FunctionInvocat
         GpuConstantType leftType    = itLHSOps->getParameter()->getType();
         GpuConstantType rightType   = itRHSOps->getParameter()->getType();
         
-        if (Ogre::Root::getSingletonPtr()->getRenderSystem()->getName().find("OpenGL ES 2") != String::npos)
-        {
-            if (leftType == GCT_SAMPLER1D)
-                leftType = GCT_SAMPLER2D;
-
-            if (rightType == GCT_SAMPLER1D)
-                rightType = GCT_SAMPLER2D;
-        }
-
         // If a swizzle mask is being applied to the parameter, generate the GpuConstantType to
         // perform the parameter type comparison the way that the compiler will see it.
         if ((itLHSOps->getFloatCount(itLHSOps->getMask()) > 0) ||
@@ -433,10 +431,9 @@ bool FunctionInvocation::FunctionInvocationCompare::operator ()(FunctionInvocati
 }
 
 String AssignmentAtom::Type = "AssignmentAtom";
-AssignmentAtom::AssignmentAtom(ParameterPtr lhs, ParameterPtr rhs, int groupOrder) {
+AssignmentAtom::AssignmentAtom(const Out& lhs, const In& rhs, int groupOrder) {
     // do this backwards for compatibility with FFP_FUNC_ASSIGN calls
-    pushOperand(rhs, Operand::OPS_IN);
-    pushOperand(lhs, Operand::OPS_OUT);
+    setOperands({rhs, lhs});
     mGroupExecutionOrder = groupOrder;
 }
 
@@ -450,6 +447,51 @@ void AssignmentAtom::writeSourceCode(std::ostream& os, const String& targetLangu
     os << "\t=\t";
     writeOperands(os, mOperands.begin(), outOp);
     os << ";";
+}
+
+String SampleTextureAtom::Type = "SampleTextureAtom";
+SampleTextureAtom::SampleTextureAtom(const In& sampler, const In& texcoord, const Out& lhs, int groupOrder)
+{
+    setOperands({sampler, texcoord, lhs});
+    mGroupExecutionOrder = groupOrder;
+}
+
+void SampleTextureAtom::writeSourceCode(std::ostream& os, const String& targetLanguage) const
+{
+    OperandVector::const_iterator outOp = mOperands.begin();
+    // find the output operand
+    while(outOp->getSemantic() != Operand::OPS_OUT)
+        outOp++;
+    writeOperands(os, outOp, mOperands.end());
+    os << "\t=\t";
+
+    bool is_glsl = targetLanguage[0] == 'g';
+
+    os << (is_glsl ? "texture" : "tex");
+    const auto& sampler = mOperands.front().getParameter();
+    switch(sampler->getType())
+    {
+    case GCT_SAMPLER1D:
+        os << "1D";
+        break;
+    case GCT_SAMPLER_EXTERNAL_OES:
+    case GCT_SAMPLER2D:
+        os << "2D";
+        break;
+    case GCT_SAMPLER3D:
+        os << "3D";
+        break;
+    case GCT_SAMPLERCUBE:
+        os << (is_glsl ? "Cube" : "CUBE");
+        break;
+    default:
+        OGRE_EXCEPT(Exception::ERR_INVALID_STATE, "unknown sampler");
+        break;
+    }
+
+    os << "(";
+    writeOperands(os, mOperands.begin(), outOp);
+    os << ");";
 }
 
 }

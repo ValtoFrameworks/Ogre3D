@@ -70,7 +70,11 @@ public:
         SPS_TANGENT = 9
     };
 
-    // Shader parameter content.
+    /** Shader parameter content
+     * 
+     * used to resolve Parameters across different SubRenderState instances
+     * Think of it as Semantic extended to the actual parameter content.
+     */ 
     enum Content
     {
         /// Unknown content
@@ -328,7 +332,12 @@ public:
     const String& getName() const { return mName; }
 
     /// internal function for aliasing to GLSL builtins e.g. gl_Position
-    void _rename(const String& newName) { mName = newName; }
+    void _rename(const String& newName, bool onlyLocal = false)
+    {
+        if(onlyLocal)
+            mBindName = mName;
+        mName = newName;
+    }
 
     /** Get the type of this parameter. */
     GpuConstantType getType() const { return mType; }
@@ -357,10 +366,18 @@ public:
     /** Sets the number of elements in the parameter (for arrays). */
     void setSize(size_t size) { mSize = size; }
 
+    /// track whether this was used
+    void setUsed(bool used) { mUsed = used; }
+    bool isUsed() { return mUsed; }
+
 // Attributes.
 protected:
     // Name of this parameter.
     String mName;
+
+    // only used for local renaming
+    String mBindName;
+
     // Type of this parameter.
     GpuConstantType mType;
     // Semantic of this parameter.
@@ -372,6 +389,7 @@ protected:
     // Number of elements in the parameter (for arrays)
     size_t mSize;
     
+    bool mUsed;
 };
 
 typedef ShaderParameterList::iterator           ShaderParameterIterator;

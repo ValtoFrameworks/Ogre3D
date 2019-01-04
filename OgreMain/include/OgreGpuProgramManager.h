@@ -50,19 +50,18 @@ namespace Ogre {
         // silence warnings
         using ResourceManager::createImpl;
         using ResourceManager::load;
-        using ResourceManager::getResourceByName;
     public:
 
         typedef std::set<String> SyntaxCodes;
         typedef std::map<String, GpuSharedParametersPtr> SharedParametersMap;
 
         typedef MemoryDataStreamPtr Microcode;
-        typedef std::map<String, Microcode> MicrocodeMap;
+        OGRE_DEPRECATED typedef std::map<String, Microcode> MicrocodeMap;
 
     protected:
 
         SharedParametersMap mSharedParametersMap;
-        MicrocodeMap mMicrocodeCache;
+        std::map<uint32, Microcode> mMicrocodeCache;
         bool mSaveMicrocodesToCache;
         bool mCacheDirty;           // When this is true the cache is 'dirty' and should be resaved to disk.
             
@@ -174,7 +173,10 @@ namespace Ogre {
         @param preferHighLevelPrograms If set to true (the default), high level programs will be
             returned in preference to low-level programs.
         */
-        ResourcePtr getResourceByName(const String& name, const String& group OGRE_RESOURCE_GROUP_INIT, bool preferHighLevelPrograms = true);
+        ResourcePtr getResourceByName(const String& name, const String& group, bool preferHighLevelPrograms);
+
+        /// @overload
+        ResourcePtr getResourceByName(const String& name, const String& group OGRE_RESOURCE_GROUP_INIT);
 
         /** Create a new set of shared parameters, which can be used across many 
             GpuProgramParameters objects of different structures.
@@ -194,49 +196,78 @@ namespace Ogre {
 
         /** Get if the microcode of a shader should be saved to a cache
         */
-        bool getSaveMicrocodesToCache();
+        bool getSaveMicrocodesToCache() const;
         /** Set if the microcode of a shader should be saved to a cache
         */
-        void setSaveMicrocodesToCache( const bool val );
+        void setSaveMicrocodesToCache( bool val );
 
         /** Returns true if the microcodecache changed during the run.
         */
         bool isCacheDirty(void) const;
 
-        bool canGetCompiledShaderBuffer();
+        static bool canGetCompiledShaderBuffer();
         /** Check if a microcode is available for a program in the microcode cache.
-        @param name The name of the program.
+        @param id The id of the program.
         */
-        virtual bool isMicrocodeAvailableInCache( const String & name ) const;
+        bool isMicrocodeAvailableInCache(uint32 id) const;
+
+        /// @deprecated
+        OGRE_DEPRECATED bool isMicrocodeAvailableInCache(String name) const
+        {
+            name = addRenderSystemToName(name);
+            return isMicrocodeAvailableInCache(FastHash(name.c_str(), name.size()));
+        }
+
         /** Returns a microcode for a program from the microcode cache.
-        @param name The name of the program.
+        @param id The name of the program.
         */
-        virtual const Microcode & getMicrocodeFromCache( const String & name ) const;
+        const Microcode& getMicrocodeFromCache(uint32 id) const;
+
+        /// @deprecated
+        OGRE_DEPRECATED const Microcode& getMicrocodeFromCache(String name) const
+        {
+            name = addRenderSystemToName(name);
+            return getMicrocodeFromCache(FastHash(name.c_str(), name.size()));
+        }
 
         /** Creates a microcode to be later added to the cache.
         @param size The size of the microcode in bytes
         */
-        virtual Microcode createMicrocode( const uint32 size ) const;
+        Microcode createMicrocode( size_t size ) const;
 
         /** Adds a microcode for a program to the microcode cache.
-        @param name The name of the program
+        @param id The id of the program
         @param microcode the program binary
         */
-        virtual void addMicrocodeToCache( const String & name, const Microcode & microcode );
+        void addMicrocodeToCache(uint32 id, const Microcode& microcode);
+
+        /// @deprecated
+        OGRE_DEPRECATED void addMicrocodeToCache(String name, const Microcode& microcode)
+        {
+            name = addRenderSystemToName(name);
+            addMicrocodeToCache(FastHash(name.c_str(), name.size()), microcode);
+        }
 
         /** Removes a microcode for a program from the microcode cache.
-        @param name The name of the program.
+        @param id The name of the program.
         */
-        virtual void removeMicrocodeFromCache( const String & name );
+        void removeMicrocodeFromCache(uint32 id);
+
+        /// @deprecated
+        OGRE_DEPRECATED void removeMicrocodeFromCache(String name)
+        {
+            name = addRenderSystemToName(name);
+            removeMicrocodeFromCache(FastHash(name.c_str(), name.size()));
+        }
 
         /** Saves the microcode cache to disk.
         @param stream The destination stream
         */
-        virtual void saveMicrocodeCache( DataStreamPtr stream ) const;
+        void saveMicrocodeCache( DataStreamPtr stream ) const;
         /** Loads the microcode cache from disk.
         @param stream The source stream
         */
-        virtual void loadMicrocodeCache( DataStreamPtr stream );
+        void loadMicrocodeCache( DataStreamPtr stream );
         
 
 

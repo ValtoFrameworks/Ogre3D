@@ -109,7 +109,7 @@ TEST(VectorTests,PerpendicularVector)
     EXPECT_EQ((v3 + v1).dotProduct((v3 + v1).perpendicular()), (Real)0);
 }
 //--------------------------------------------------------------------------
-TEST(VectorTest, Matrix4ArrayLoading)
+TEST(VectorTests, Matrix4ArrayLoading)
 {
     Real arr0[16] = { 1, 0, 0, 0,
                       0, 1, 0, 0,
@@ -151,3 +151,46 @@ TEST(VectorTest, Matrix4ArrayLoading)
     EXPECT_EQ(15, mat1[3][3]);
 }
 //--------------------------------------------------------------------------
+TEST(VectorTests, Matrix3SVD)
+{
+    Matrix3 U, V, mat;
+    Vector3 w;
+
+    // bidiagonal matrix
+    Matrix3 ref(3, 1, 0,
+                0, 2, 0,
+                0, 0, 1);
+
+    ref.SingularValueDecomposition(U, w, V);
+    mat.SingularValueComposition(U, w, V);
+
+    for(int i = 0; i < 3; i++)
+        for(int j = 0; j < 3; j++)
+            EXPECT_NEAR(ref[i][j], mat[i][j], Matrix3::EPSILON);
+}
+//--------------------------------------------------------------------------
+TEST(VectorTests, TransformBaseArrayLoading)
+{
+    typedef TransformBase<3, float> Matrix3x4f;
+
+    double arr1[12] = { 0,    1,   2,   3,
+                        4,    5,   6,   7,
+                        8,    9,  10,  11};
+
+    Matrix3x4f mat1(arr1);
+
+    EXPECT_EQ(0, mat1[0][0]);
+    EXPECT_EQ(1, mat1[0][1]);
+    EXPECT_EQ(2, mat1[0][2]);
+    EXPECT_EQ(3, mat1[0][3]);
+
+    EXPECT_EQ(4, mat1[1][0]);
+    EXPECT_EQ(5, mat1[1][1]);
+    EXPECT_EQ(6, mat1[1][2]);
+    EXPECT_EQ(7, mat1[1][3]);
+
+    EXPECT_EQ(8, mat1[2][0]);
+    EXPECT_EQ(9, mat1[2][1]);
+    EXPECT_EQ(10, mat1[2][2]);
+    EXPECT_EQ(11, mat1[2][3]);
+}

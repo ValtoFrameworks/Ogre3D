@@ -152,9 +152,7 @@ namespace Ogre {
         if (eglSwapBuffers(mEglDisplay, mEglSurface) == EGL_FALSE)
         {
             EGL_CHECK_ERROR
-            OGRE_EXCEPT(Exception::ERR_RENDERINGAPI_ERROR,
-                        "Fail to SwapBuffers",
-                        __FUNCTION__);
+            OGRE_EXCEPT(Exception::ERR_RENDERINGAPI_ERROR, "Fail to SwapBuffers");
         }
     }
 
@@ -180,6 +178,11 @@ namespace Ogre {
             *static_cast<NativeWindowType*>(pData) = mWindow;
             return;
         } 
+    }
+
+    PixelFormat EGLWindow::suggestPixelFormat() const
+    {
+        return mGLSupport->getContextProfile() == GLNativeSupport::CONTEXT_ES ? PF_BYTE_RGBA : PF_BYTE_RGB;
     }
 
     void EGLWindow::copyContentsToMemory(const Box& src, const PixelBox &dst, FrameBuffer buffer)
@@ -211,8 +214,7 @@ namespace Ogre {
         if (surface == EGL_NO_SURFACE)
         {
             OGRE_EXCEPT(Exception::ERR_RENDERINGAPI_ERROR,
-                        "Fail to create EGLSurface based on NativeWindowType",
-                        __FUNCTION__);
+                        "Fail to create EGLSurface based on NativeWindowType");
         }
         return surface;
     }

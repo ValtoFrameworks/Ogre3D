@@ -261,17 +261,11 @@ namespace Ogre
         */
         virtual void setLightingEnabled(bool enabled) {}
 
-        /** Sets whether or not W-buffers are enabled if they are available for this renderer.
-        @param
-        enabled If true and the renderer supports them W-buffers will be used.  If false 
-        W-buffers will not be used even if available.  W-buffers are enabled by default 
-        for 16bit depth buffers and disabled for all other depths.
-        */
-        void setWBufferEnabled(bool enabled);
+        /// @deprecated use RSC_WBUFFER
+        OGRE_DEPRECATED void setWBufferEnabled(bool enabled);
 
-        /** Returns true if the renderer will try to use W-buffers when available.
-        */
-        bool getWBufferEnabled(void) const;
+        /// @deprecated use RSC_WBUFFER
+        OGRE_DEPRECATED bool getWBufferEnabled(void) const;
 
         /** Creates a new rendering window.
         @remarks
@@ -318,6 +312,7 @@ namespace Ogre
         | externalGLControl | true, false | false | Let the external window control OpenGL i.e. don't select a pixel format for the window, do not change v-sync and do not swap buffer. When set to true, the calling application is responsible of OpenGL initialization and buffer swapping. It should also create an OpenGL context for its own rendering, Ogre will create one for its use. Then the calling application must also enable Ogre OpenGL context before calling any Ogre function and restore its OpenGL context after these calls. | OpenGL Specific |
         | currentGLContext | true, false | false | Use an externally created GL context. (Must be current) | OpenGL Specific |
         | minColourBufferSize | Positive integer (usually 16, 32) | 16 | Min total colour buffer size. See EGL_BUFFER_SIZE | OpenGL Specific |
+        | windowProc | WNDPROC | DefWindowProc | function that processes window messages | Win 32 Specific |
         | colourDepth | 16, 32 | Desktop depth | Colour depth of the resulting rendering window; only applies if fullScreen | Win32 Specific |
         | FSAAHint | Depends on RenderSystem and hardware. Currently supports:"Quality": on systems that have an option to prefer higher AA quality over speed, use it | Blank | Full screen antialiasing hint | Win32 Specific |
         | outerDimensions | true, false | false | Whether the width/height is expressed as the size of the outer window, rather than the content area | Win32 Specific  |
@@ -639,31 +634,22 @@ namespace Ogre
         */
         virtual void _setTextureMatrix(size_t unit, const Matrix4& xform) {}
 
-        /** Sets the global blending factors for combining subsequent renders with the existing frame contents.
-        The result of the blending operation is:
-        <p align="center">final = (texture * sourceFactor) + (pixel * destFactor)</p>
-        Each of the factors is specified as one of a number of options, as specified in the SceneBlendFactor
-        enumerated type.
-        By changing the operation you can change addition between the source and destination pixels to a different operator.
-        @param sourceFactor The source factor in the above calculation, i.e. multiplied by the texture colour components.
-        @param destFactor The destination factor in the above calculation, i.e. multiplied by the pixel colour components.
-        @param op The blend operation mode for combining pixels
-        */
-        virtual void _setSceneBlending(SceneBlendFactor sourceFactor, SceneBlendFactor destFactor, SceneBlendOperation op = SBO_ADD) = 0;
+        /// Sets the global blending factors for combining subsequent renders with the existing frame contents.
+        virtual void setColourBlendState(const ColourBlendState& state)
+        {
+            _setSeparateSceneBlending(state.sourceFactor, state.destFactor, state.sourceFactorAlpha,
+                                      state.destFactorAlpha, state.operation, state.alphaOperation);
+            _setColourBufferWriteEnabled(state.writeR, state.writeG, state.writeB, state.writeA);
+        }
 
-        /** Sets the global blending factors for combining subsequent renders with the existing frame contents.
-        The result of the blending operation is:
-        <p align="center">final = (texture * sourceFactor) + (pixel * destFactor)</p>
-        Each of the factors is specified as one of a number of options, as specified in the SceneBlendFactor
-        enumerated type.
-        @param sourceFactor The source factor in the above calculation, i.e. multiplied by the texture colour components.
-        @param destFactor The destination factor in the above calculation, i.e. multiplied by the pixel colour components.
-        @param sourceFactorAlpha The source factor in the above calculation for the alpha channel, i.e. multiplied by the texture alpha components.
-        @param destFactorAlpha The destination factor in the above calculation for the alpha channel, i.e. multiplied by the pixel alpha components.
-        @param op The blend operation mode for combining pixels
-        @param alphaOp The blend operation mode for combining pixel alpha values
-        */
-        virtual void _setSeparateSceneBlending(SceneBlendFactor sourceFactor, SceneBlendFactor destFactor, SceneBlendFactor sourceFactorAlpha, 
+        /// @deprecated use setColourBlendState
+        OGRE_DEPRECATED void _setSceneBlending(SceneBlendFactor sourceFactor, SceneBlendFactor destFactor, SceneBlendOperation op = SBO_ADD)
+        {
+            _setSeparateSceneBlending(sourceFactor, destFactor, sourceFactor, destFactor, op, op);
+        }
+
+        /// @deprecated use setColourBlendState
+        virtual void _setSeparateSceneBlending(SceneBlendFactor sourceFactor, SceneBlendFactor destFactor, SceneBlendFactor sourceFactorAlpha,
             SceneBlendFactor destFactorAlpha, SceneBlendOperation op = SBO_ADD, SceneBlendOperation alphaOp = SBO_ADD) = 0;
 
         /** Sets the global alpha rejection approach for future renders.
@@ -783,13 +769,7 @@ namespace Ogre
         for the new pixel to be written.
         */
         virtual void _setDepthBufferFunction(CompareFunction func = CMPF_LESS_EQUAL) = 0;
-        /** Sets whether or not colour buffer writing is enabled, and for which channels. 
-        @remarks
-        For some advanced effects, you may wish to turn off the writing of certain colour
-        channels, or even all of the colour channels so that only the depth buffer is updated
-        in a rendering pass. However, the chances are that you really want to use this option
-        through the Material class.
-        @param red, green, blue, alpha Whether writing is enabled for each of the 4 colour channels. */
+        /// @deprecated use setColourBlendState
         virtual void _setColourBufferWriteEnabled(bool red, bool green, bool blue, bool alpha) = 0;
         /** Sets the depth bias, NB you should use the Material version of this. 
         @remarks
@@ -861,66 +841,21 @@ namespace Ogre
         virtual void _convertProjectionMatrix(const Matrix4& matrix,
             Matrix4& dest, bool forGpuProgram = false) = 0;
 
-        /** Builds a perspective projection matrix suitable for this render system.
-        @remarks
-        Because different APIs have different requirements (some incompatible) for the
-        projection matrix, this method allows each to implement their own correctly and pass
-        back a generic OGRE matrix for storage in the engine.
-        */
-        virtual void _makeProjectionMatrix(const Radian& fovy, Real aspect, Real nearPlane, Real farPlane, 
+        /// @deprecated use Frustum::getProjectionMatrixRS
+        OGRE_DEPRECATED virtual void _makeProjectionMatrix(const Radian& fovy, Real aspect, Real nearPlane, Real farPlane,
             Matrix4& dest, bool forGpuProgram = false) = 0;
-
-        /** Builds a perspective projection matrix for the case when frustum is
-        not centered around camera.
-        @remarks
-        Viewport coordinates are in camera coordinate frame, i.e. camera is 
-        at the origin.
-        */
-        virtual void _makeProjectionMatrix(Real left, Real right, Real bottom, Real top, 
+        /// @deprecated use Frustum::getProjectionMatrixRS
+        OGRE_DEPRECATED virtual void _makeProjectionMatrix(Real left, Real right, Real bottom, Real top,
             Real nearPlane, Real farPlane, Matrix4& dest, bool forGpuProgram = false) = 0;
-        /** Builds an orthographic projection matrix suitable for this render system.
-        @remarks
-        Because different APIs have different requirements (some incompatible) for the
-        projection matrix, this method allows each to implement their own correctly and pass
-        back a generic OGRE matrix for storage in the engine.
-        */
-        virtual void _makeOrthoMatrix(const Radian& fovy, Real aspect, Real nearPlane, Real farPlane, 
+        /// @deprecated use Frustum::getProjectionMatrixRS
+        OGRE_DEPRECATED virtual void _makeOrthoMatrix(const Radian& fovy, Real aspect, Real nearPlane, Real farPlane,
             Matrix4& dest, bool forGpuProgram = false) = 0;
-
-        /** Update a perspective projection matrix to use 'oblique depth projection'.
-        @remarks
-        This method can be used to change the nature of a perspective 
-        transform in order to make the near plane not perpendicular to the 
-        camera view direction, but to be at some different orientation. 
-        This can be useful for performing arbitrary clipping (e.g. to a 
-        reflection plane) which could otherwise only be done using user
-        clip planes, which are more expensive, and not necessarily supported
-        on all cards.
-        @param matrix The existing projection matrix. Note that this must be a
-        perspective transform (not orthographic), and must not have already
-        been altered by this method. The matrix will be altered in-place.
-        @param plane The plane which is to be used as the clipping plane. This
-        plane must be in CAMERA (view) space.
-        @param forGpuProgram Is this for use with a Gpu program or fixed-function
-        */
-        virtual void _applyObliqueDepthProjection(Matrix4& matrix, const Plane& plane, 
+        /// @deprecated use Frustum::getProjectionMatrixRS
+        OGRE_DEPRECATED virtual void _applyObliqueDepthProjection(Matrix4& matrix, const Plane& plane,
             bool forGpuProgram) = 0;
 
         /** Sets how to rasterise triangles, as points, wireframe or solid polys. */
         virtual void _setPolygonMode(PolygonMode level) = 0;
-
-        /** Turns depth-stencil buffer checking on or off. 
-        @remarks
-        An inactive depth-stencil buffer can be read by a shader as a texture. An 
-        application that reads a depth-stencil buffer as a texture renders in two
-        passes, the first pass writes to the depth-stencil buffer and the second
-        pass reads from the buffer. This allows a shader to compare depth or
-        stencil values previously written to the buffer against the value for
-        the pixel currrently being rendered. The result of the comparison can
-        be used to create effects such as shadow mapping or soft particles
-        in a particle system.
-        */
-        // virtual void setDepthCheckEnabled(bool enabled) = 0;
 
         /** Turns stencil buffer checking on or off. 
         @remarks
@@ -929,22 +864,6 @@ namespace Ogre
         disabled.
         */
         virtual void setStencilCheckEnabled(bool enabled) = 0;
-        /** Determines if this system supports hardware accelerated stencil buffer. 
-        @remarks
-        Note that the lack of this function doesn't mean you can't do stencilling, but
-        the stencilling operations will be provided in software, which will NOT be
-        fast.
-        @par
-        Generally hardware stencils are only supported in 32-bit colour modes, because
-        the stencil buffer shares the memory of the z-buffer, and in most cards the 
-        z-buffer has to be the same depth as the colour buffer. This means that in 32-bit
-        mode, 24 bits of the z-buffer are depth and 8 bits are stencil. In 16-bit mode there
-        is no room for a stencil (although some cards support a 15:1 depth:stencil option,
-        this isn't useful for very much) so 8 bits of stencil are provided in software.
-        This can mean that if you use stencilling, your applications may be faster in 
-        32-but colour than in 16-bit, which may seem odd to some people.
-        */
-        /*virtual bool hasHardwareStencil(void) = 0;*/
 
         /** This method allows you to set all the stencil buffer parameters in one call.
         @remarks
@@ -1020,6 +939,8 @@ namespace Ogre
         */
         virtual void _render(const RenderOperation& op);
 
+        virtual void _dispatchCompute(const Vector3i& workgroupDim) {}
+
         /** Gets the capabilities of the render system. */
         const RenderSystemCapabilities* getCapabilities(void) const { return mCurrentCapabilities; }
 
@@ -1051,7 +972,7 @@ namespace Ogre
         @param variabilityMask A mask of GpuParamVariability identifying which params need binding
         */
         virtual void bindGpuProgramParameters(GpuProgramType gptype, 
-            GpuProgramParametersSharedPtr params, uint16 variabilityMask) = 0;
+            const GpuProgramParametersPtr& params, uint16 variabilityMask) = 0;
 
         /** Only binds Gpu program parameters used for passes that have more than one iteration rendering
         */
@@ -1073,15 +994,15 @@ namespace Ogre
         uint16 getNativeShadingLanguageVersion() const { return mNativeShadingLanguageVersion; }
 
         /** Sets the user clipping region.
+        @deprecated only needed for fixed function APIs
         */
         virtual void setClipPlanes(const PlaneList& clipPlanes);
 
-        /** Add a user clipping plane. */
-        void addClipPlane (const Plane &p);
+        /// @deprecated use setClipPlanes
+        OGRE_DEPRECATED void addClipPlane (const Plane &p);
 
-        /** Clears the user clipping region.
-        */
-        void resetClipPlanes();
+        /// @deprecated use setClipPlanes
+        OGRE_DEPRECATED void resetClipPlanes();
 
         /** Utility method for initialising all render targets attached to this rendering system. */
         void _initRenderTargets(void);
@@ -1370,8 +1291,6 @@ namespace Ogre
 
         CullingMode mCullingMode;
 
-        bool mWBuffer;
-
         size_t mBatchCount;
         size_t mFaceCount;
         size_t mVertexCount;
@@ -1436,8 +1355,8 @@ namespace Ogre
         RenderSystemCapabilities* mCurrentCapabilities;
         bool mUseCustomCapabilities;
 
-        /// Internal method used to set the underlying clip planes when needed
-        virtual void setClipPlanesImpl(const PlaneList& clipPlanes) = 0;
+        /// @deprecated only needed for fixed function APIs
+        virtual void setClipPlanesImpl(const PlaneList& clipPlanes) {}
 
         /** Initialize the render system from the capabilities*/
         virtual void initialiseFromRenderSystemCapabilities(RenderSystemCapabilities* caps, RenderTarget* primary) = 0;

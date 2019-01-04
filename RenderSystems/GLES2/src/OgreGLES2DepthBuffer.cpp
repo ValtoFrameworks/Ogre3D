@@ -93,13 +93,11 @@ namespace Ogre
         }
 
         //Now check this is the appropriate format
-        GLES2FrameBufferObject *fbo = 0;
-        renderTarget->getCustomAttribute("FBO", &fbo);
+        auto *fbo = dynamic_cast<GLRenderTarget*>(renderTarget)->getFBO();
 
         if( !fbo )
         {
-            GLContext *windowContext = 0;
-            renderTarget->getCustomAttribute( "GLCONTEXT", &windowContext );
+            GLContext *windowContext = dynamic_cast<GLRenderTarget*>(renderTarget)->getContext();
 
             //Non-FBO targets and FBO depth surfaces don't play along, only dummies which match the same
             //context
@@ -131,7 +129,7 @@ namespace Ogre
                         bSameStencil = stencilFormat == mStencilBuffer->getGLFormat();
                 }
 
-                retVal = bSameDepth && bSameStencil;
+                retVal = PixelUtil::isDepth(internalFormat) ? bSameDepth : (bSameDepth && bSameStencil);
             }
         }
 

@@ -79,17 +79,13 @@ namespace Ogre
             if (mLoop)
             {
                 // Wrap
-                mTimePos = fmod(mTimePos, mLength);
-                if(mTimePos < 0)
-                    mTimePos += mLength;     
+                mTimePos = std::fmod(mTimePos, mLength);
+                if(mTimePos < 0) mTimePos += mLength;
             }
             else
             {
                 // Clamp
-                if(mTimePos < 0)
-                    mTimePos = 0;
-                else if (mTimePos > mLength)
-                    mTimePos = mLength;
+                mTimePos = Math::Clamp(mTimePos, Real(0), mLength);
             }
 
             if (mEnabled)

@@ -120,7 +120,7 @@ namespace Ogre {
         GL_STENCIL_INDEX4_OES,
         GL_STENCIL_INDEX8
     };
-    static const size_t stencilBits[] =
+    static const uchar stencilBits[] =
     {
         0,
         1,
@@ -138,7 +138,7 @@ namespace Ogre {
         , GL_DEPTH24_STENCIL8_OES    // Packed depth / stencil
         , GL_DEPTH32F_STENCIL8
     };
-    static const size_t depthBits[] =
+    static const uchar depthBits[] =
     {
         0
         ,16
@@ -182,7 +182,7 @@ namespace Ogre {
         OGRE_CHECK_GL_ERROR(glGenFramebuffers(1, &mTempFBO));
     }
 
-    void GLES2FBOManager::_createTempFramebuffer(PixelFormat pixFmt, GLuint internalFormat, GLuint fmt, GLenum type, GLuint &fb, GLuint &tid)
+    void GLES2FBOManager::_createTempFramebuffer(GLuint internalFormat, GLuint fmt, GLenum type, GLuint &fb, GLuint &tid)
     {
         // Create and attach framebuffer
         glGenFramebuffers(1, &fb);
@@ -202,7 +202,8 @@ namespace Ogre {
             glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
             glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
             glTexImage2D(GL_TEXTURE_2D, 0, internalFormat, PROBE_SIZE, PROBE_SIZE, 0, fmt, type, 0);
-            glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0,
+            glFramebufferTexture2D(GL_FRAMEBUFFER,
+                                   fmt == GL_DEPTH_COMPONENT ? GL_DEPTH_ATTACHMENT : GL_COLOR_ATTACHMENT0,
                                    GL_TEXTURE_2D, tid, 0);
         }
     }
@@ -322,7 +323,7 @@ namespace Ogre {
         bool hasGLES3 = rs->hasMinGLVersion(3, 0);
 
         const size_t depthCount = hasGLES3 ? DEPTHFORMAT_COUNT : DEPTHFORMAT_COUNT - 1; // 32_8 is not available on GLES2
-        const size_t stencilStep = hasGLES3 ? 3 : 1; // 1 and 4 bit not available on GLES3
+        const uchar stencilStep = hasGLES3 ? 3 : 1; // 1 and 4 bit not available on GLES3
 
         for(size_t x = 0; x < PF_COUNT; ++x)
         {
@@ -347,7 +348,7 @@ namespace Ogre {
                 continue;
 
             // Create and attach framebuffer
-            _createTempFramebuffer((PixelFormat)x, internalFormat, fmt, type, fb, tid);
+            _createTempFramebuffer(internalFormat, fmt, type, fb, tid);
 
             // Ignore status in case of fmt==GL_NONE, because no implementation will accept
             // a buffer without *any* attachment. Buffers with only stencil and depth attachment
@@ -360,13 +361,13 @@ namespace Ogre {
                     << " depth/stencil support: ";
 
                 // For each depth/stencil formats
-                for (size_t depth = 0; depth < depthCount; ++depth)
+                for (uchar depth = 0; depth < depthCount; ++depth)
                 {
                     if (depthFormats[depth] != GL_DEPTH24_STENCIL8 && depthFormats[depth] != GL_DEPTH32F_STENCIL8)
                     {
                         // General depth/stencil combination
 
-                        for (size_t stencil = 0; stencil < STENCILFORMAT_COUNT; stencil += stencilStep)
+                        for (uchar stencil = 0; stencil < STENCILFORMAT_COUNT; stencil += stencilStep)
                         {
 //                            StringStream l;
 //                            l << "Trying " << PixelUtil::getFormatName((PixelFormat)x) 
@@ -377,7 +378,7 @@ namespace Ogre {
                             if (_tryFormat(depthFormats[depth], stencilFormats[stencil]))
                             {
                                 // Add mode to allowed modes
-                                str << "D" << depthBits[depth] << "S" << stencilBits[stencil] << " ";
+                                str << StringUtil::format("D%dS%d ", depthBits[depth], stencilBits[stencil]);
                                 FormatProperties::Mode mode;
                                 mode.depth = depth;
                                 mode.stencil = stencil;
@@ -390,7 +391,7 @@ namespace Ogre {
                                 glBindFramebuffer(GL_FRAMEBUFFER, 0);
                                 glDeleteFramebuffers(1, &fb);
 
-                                _createTempFramebuffer((PixelFormat)x, internalFormat, fmt, type, fb, tid);
+                                _createTempFramebuffer(internalFormat, fmt, type, fb, tid);
                             }
                         }
                     }
@@ -400,7 +401,7 @@ namespace Ogre {
                         if (_tryPackedFormat(depthFormats[depth]))
                         {
                             // Add mode to allowed modes
-                            str << "Packed-D" << depthBits[depth] << "S" << 8 << " ";
+                            str << "Packed-D" << int(depthBits[depth]) << "S8 ";
                             FormatProperties::Mode mode;
                             mode.depth = depth;
                             mode.stencil = 0;   // unuse
@@ -413,7 +414,7 @@ namespace Ogre {
                             glBindFramebuffer(GL_FRAMEBUFFER, 0);
                             glDeleteFramebuffers(1, &fb);
 
-                            _createTempFramebuffer((PixelFormat)x, internalFormat, fmt, type, fb, tid);
+                            _createTempFramebuffer(internalFormat, fmt, type, fb, tid);
                         }
                     }
                 }
@@ -456,7 +457,7 @@ namespace Ogre {
         // [best supported for internal format]
         size_t bestmode = 0;
         int bestscore = -1;
-        bool requestDepthOnly = internalFormat == PF_DEPTH;
+        bool requestDepthOnly = PixelUtil::isDepth(internalFormat);
 
         for(size_t mode = 0; mode < props.modes.size(); mode++)
         {
@@ -486,10 +487,7 @@ namespace Ogre {
             }
         }
         *depthFormat = depthFormats[props.modes[bestmode].depth];
-        if(requestDepthOnly)
-            *stencilFormat = 0;
-        else
-            *stencilFormat = stencilFormats[props.modes[bestmode].stencil];
+        *stencilFormat = requestDepthOnly ? 0 : stencilFormats[props.modes[bestmode].stencil];
     }
 
     GLES2FBORenderTexture *GLES2FBOManager::createRenderTexture(const String &name, 
@@ -506,9 +504,7 @@ namespace Ogre {
     void GLES2FBOManager::bind(RenderTarget *target)
     {
         // Check if the render target is in the rendertarget->FBO map
-        GLES2FrameBufferObject *fbo = 0;
-        target->getCustomAttribute("FBO", &fbo);
-        if(fbo)
+        if(auto fbo = dynamic_cast<GLRenderTarget*>(target)->getFBO())
             fbo->bind(true);
             // Old style context (window/pbuffer) or copying render texture
 #if OGRE_PLATFORM == OGRE_PLATFORM_APPLE_IOS

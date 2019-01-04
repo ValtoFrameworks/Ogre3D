@@ -235,20 +235,20 @@ An important note is that this will recognize the above pattern no matter where 
 
 @page Compositor-Scripts Compositor Scripts
 
-The compositor framework is a subsection of the OGRE API that allows you to easily define full screen post-processing effects. Compositor scripts offer you the ability to define compositor effects in a script which can be reused and modified easily, rather than having to use the API to define them. You still need to use code to instantiate a compositor against one of your visible viewports, but this is a much simpler process than actually defining the compositor itself.
+The compositor framework is a subsection of the OGRE API that allows you to easily define how to assemble the final image. A typical use-case are full screen post-processing effects - however Compositors are not limited to that. Compositor scripts offer you the ability to define rendering pipelines in a script which can be reused and modified easily, rather than having to use the API to define them. You still need to use code to instantiate a compositor against one of your visible viewports, but this is a much simpler process than actually defining the compositor itself.
 
 @tableofcontents
 
 # Compositor Fundamentals {#Compositor-Fundamentals}
 
-Performing post-processing effects generally involves first rendering the scene to a texture, either in addition to or instead of the main window. Once the scene is in a texture, you can then pull the scene image into a fragment program and perform operations on it by rendering it through full screen quad. The target of this post processing render can be the main result (e.g. a window), or it can be another render texture so that you can perform multi-stage convolutions on the image. You can even ’ping-pong’ the render back and forth between a couple of render textures to perform convolutions which require many iterations, without using a separate texture for each stage. Eventually you’ll want to render the result to the final output, which you do with a full screen quad. This might replace the whole window (thus the main window doesn’t need to render the scene itself), or it might be a combinational effect. 
+Compositing generally involves rendering the scene to a texture, either in addition to or instead of the main window. Once the scene is in a texture, you can then pull the scene image into a fragment program and perform operations on it by rendering it through full screen quad. The target of this post processing render can be the main result (e.g. a window), or it can be another render texture so that you can perform multi-stage convolutions on the image. You can even ’ping-pong’ the render back and forth between a couple of render textures to perform convolutions which require many iterations, without using a separate texture for each stage. Eventually you’ll want to render the result to the final output, which you do with a full screen quad. This might replace the whole window (thus the main window doesn’t need to render the scene itself), or it might be a combinational effect. 
 
 So that we can discuss how to implement these techniques efficiently, a number of definitions are required:
 
 <dl compact="compact">
 <dt>Compositor</dt> <dd>
 
-Definition of a fullscreen effect that can be applied to a user viewport. This is what you’re defining when writing compositor scripts as detailed in this section.
+Definition of a rendering pipeline that can be applied to a user viewport. This is what you’re defining when writing compositor scripts as detailed in this section.
 
 </dd> <dt>Compositor Instance</dt> <dd>
 
@@ -276,13 +276,11 @@ Within a Target Pass, there are one or more individual [passes](#Compositor-Pass
 
 </dd> </dl>
 
-# Format {#Format-1}
-
 @snippet Samples/Media/materials/scripts/Examples.compositor manual_sample
 
-The major components of a compositor are the [techniques](#Compositor-Techniques), the [target passes](#Compositor-Target-Passes) and the [passes](#Compositor-Passes), which are covered in detail in the following sections.
+The major components of a compositor are the @ref Compositor-Techniques, the @ref Compositor-Target-Passes and the @ref Compositor-Passes, which are covered in detail in the following sections.
 
-## Techniques {#Compositor-Techniques}
+# Techniques {#Compositor-Techniques}
 
 A compositor technique is much like a [material technique](@ref Techniques) in that it describes one approach to achieving the effect you’re looking for. A compositor definition can have more than one technique if you wish to provide some fallback should the hardware not support the technique you’d prefer to use. Techniques are evaluated for hardware support based on 2 things:
 
@@ -299,20 +297,21 @@ This one is slightly more complicated. When you request a [texture](#compositor_
 
 As with material techniques, compositor techniques are evaluated in the order you define them in the script, so techniques declared first are preferred over those declared later.
 
+@par
 Format: technique { }
 
 Techniques can have the following nested elements:
 
 -   [texture](#compositor_005ftexture)
 -   [texture\_ref](#compositor_005ftexture_005fref)
--   [scheme](#compositor_005fscheme)
+-   [material_scheme](#compositor_005fscheme)
 -   [compositor\_logic](#compositor_005flogic)
 -   [target](#Compositor-Target-Passes)
 -   [target\_output](#Compositor-Target-Passes)
 
 <a name="compositor_005ftexture"></a><a name="texture-2"></a>
 
-## texture
+## texture {#compositor-texture}
 
 This declares a render texture for use in subsequent [target passes](#Compositor-Target-Passes).
 @par
@@ -322,11 +321,17 @@ Format: texture &lt;Name&gt; &lt;Width&gt; &lt;Height&gt; &lt;Pixel_Format&gt; \
 A name to give the render texture, which must be unique within this compositor. This name is used to reference the texture in [target passes](#Compositor-Target-Passes), when the texture is rendered to, and in [passes](#Compositor-Passes), when the texture is used as input to a material rendering a fullscreen quad.
 
 @param Width
-@param Height
-The dimensions of the render texture. You can either specify a fixed width and height, or you can request that the texture is based on the physical dimensions of the viewport to which the compositor is attached. The options for the latter are ’target\_width’, ’target\_height’, ’target\_width\_scaled &lt;factor&gt;’ and ’target\_height\_scaled &lt;factor&gt;’ - where ’factor’ is the amount by which you wish to multiply the size of the main target to derive the dimensions.
+@param Height 
+@parblock
+The dimensions of the render texture. You can either specify a fixed width and height, or you can request that the texture is based on the physical dimensions of the viewport to which the compositor is attached. The options for the latter are either of
+- @c target_width and @c target_height
+- @c target_width_scaled &lt;factor&gt; and @c target_height_scaled &lt;factor&gt;
 
+where ’factor’ is the amount by which you wish to multiply the size of the main target to derive the dimensions.
+@endparblock
 @param Pixel_Format
-The pixel format of the render texture. This affects how much memory it will take, what colour channels will be available, and what precision you will have within those channels. The available options are PF\_A8R8G8B8, PF\_R8G8B8A8, PF\_R8G8B8, PF\_FLOAT16\_RGBA, PF\_FLOAT16\_RGB, PF\_FLOAT16\_R, PF\_FLOAT32\_RGBA, PF\_FLOAT32\_RGB, and PF\_FLOAT32\_R.
+The pixel format of the render texture. This affects how much memory it will take, what colour channels will be available, and what precision you will have within those channels.
+See Ogre::PixelFormat. You can in fact repeat this element if you wish. If you do so, that means that this render texture becomes a Multiple Render Target (MRT), when the GPU writes to multiple textures at once.
 
 @param pooled
 If present, this directive makes this texture ’pooled’ among compositor instances, which can save some memory.
@@ -339,17 +344,24 @@ If present, this directive disables the use of anti-aliasing on this texture. FS
 
 @param depth\_pool
 When present, this directive has to be followed by an integer. This directive is unrelated to the "pooled" directive. This one sets from which Depth buffer pool the depth buffer will be chosen from. All RTs from all compositors (including render windows if the render system API allows it) with the same pool ID share the same depth buffers (following the rules of the current render system APIs, (check RenderSystemCapabilities flags to find the rules). When the pool ID is 0, no depth buffer is used. This can be helpful for passes that don’t require a Depth buffer at all, potentially saving performance and memory. Default value is 1.
+Ignored with depth pixel formats.
 
 @param scope
-If present, this directive sets the scope for the texture for being accessed by other compositors using the [texture\_ref](#compositor_005ftexture_005fref) directive. There are three options : ’local\_scope’ (which is also the default) means that only the compositor defining the texture can access it. ’chain\_scope’ means that the compositors after this compositor in the chain can reference its textures, and ’global\_scope’ means that the entire application can access the texture. This directive also affects the creation of the textures (global textures are created once and thus can’t be used with the pooled directive, and can’t rely on viewport size).
+If present, this directive sets the scope for the texture for being accessed by other compositors using the [texture\_ref](#compositor_005ftexture_005fref) directive. There are three options : 
+1. @c local_scope (which is also the default) means that only the compositor defining the texture can access it. 
+2. @c chain_scope means that the compositors after this compositor in the chain can reference its textures, and 
+3. @c global_scope means that the entire application can access the texture. This directive also affects the creation of the textures (global textures are created once and thus can’t be used with the pooled directive, and can’t rely on viewport size).
 
 @par
-Example: texture rt0 512 512 PF\_R8G8B8A8<br> Example: texture rt1 target\_width target\_height PF\_FLOAT32\_RGB
-
-You can in fact repeat this element if you wish. If you do so, that means that this render texture becomes a Multiple Render Target (MRT), when the GPU writes to multiple textures at once. It is imperative that if you use MRT that the shaders that render to it render to ALL the targets. Not doing so can cause undefined results. It is also important to note that although you can use different pixel formats for each target in a MRT, each one should have the same total bit depth since most cards do not support independent bit depths. If you try to use this feature on cards that do not support the number of MRTs you’ve asked for, the technique will be skipped (so you ought to write a fallback technique).
-
+Example: texture rt0 512 512 PF\_R8G8B8A8
+@par
+Example: texture rt1 target\_width target\_height PF\_FLOAT32\_RGB
 @par
 Example : texture mrt\_output target\_width target\_height PF\_FLOAT16\_RGBA PF\_FLOAT16\_RGBA chain\_scope
+
+@note
+It is imperative that if you use MRT that the shaders that render to it render to ALL the targets. Not doing so can cause undefined results. It is also important to note that although you can use different pixel formats for each target in a MRT, each one should have the same total bit depth since most cards do not support independent bit depths. If you try to use this feature on cards that do not support the number of MRTs you’ve asked for, the technique will be skipped (so you ought to write a fallback technique).
+
 
 <a name="compositor_005ftexture_005fref"></a><a name="texture_005fref"></a>
 
@@ -394,25 +406,35 @@ Format: compositor\_logic &lt;Name&gt;
 
 Registration of compositor logics is done by name through CompositorManager::registerCompositorLogic.
 
-## Target Passes {#Compositor-Target-Passes}
+# Target Passes {#Compositor-Target-Passes}
 
 A target pass is the action of rendering to a given target, either a render texture or the final output. You can update the same render texture multiple times by adding more than one target pass to your compositor script - this is very useful for ’ping pong’ renders between a couple of render textures to perform complex convolutions that cannot be done in a single render, such as blurring.
 
-There are two types of target pass, the sort that updates a render texture: Format: target &lt;Name&gt; { } ... and the sort that defines the final output render: Format: target\_output { }
+There are two types of target pass, the sort that updates a render texture
 
-The contents of both are identical, the only real difference is that you can only have a single target\_output entry, whilst you can have many target entries. Here are the attributes you can use in a ’target’ or ’target\_output’ section of a .compositor script:
+@par
+Format: target &lt;Name&gt; { }
+
+and the sort that defines the final output render
+
+@par
+Format: target\_output { }
+
+The contents of both are identical, the only real difference is that you can only have a single target\_output entry, whilst you can have many target entries. 
+
+Here are the attributes you can use in a ’target’ or ’target\_output’ section of a .compositor script:
 
 -   [input](#compositor_005ftarget_005finput)
 -   [only\_initial](#only_005finitial)
 -   [visibility\_mask](#visibility_005fmask)
 -   [lod\_bias](#compositor_005flod_005fbias)
--   [material\_scheme](#material_005fscheme)
+-   [material_scheme](#material_005fscheme)
 -   [shadows](#compositor_005fshadows)
 -   [pass](#Compositor-Passes)
 
 <a name="Attribute-Descriptions-2"></a>
 
-# Attribute Descriptions
+## Attribute Descriptions
 
 <a name="compositor_005ftarget_005finput"></a><a name="input"></a>
 
@@ -484,13 +506,13 @@ Format: material\_scheme &lt;scheme name&gt;
 @par
 Default: None
 
-## Compositor Passes {#Compositor-Passes}
+# Compositor Passes {#Compositor-Passes}
 
 A pass is a single rendering action to be performed in a target pass.  
 @par
 Format: ’pass’ (render\_quad | clear | stencil | render\_scene | render\_custom) \[custom name\] { }
 
-There are four types of pass:
+There are the following types of a pass:
 
 <dl compact="compact">
 <dt>clear</dt> <dd>
@@ -509,9 +531,13 @@ This kind of pass performs a regular rendering of the scene. It will use the [vi
 
 This kind of pass renders a quad over the entire render target, using a given material. You will undoubtedly want to pull in the results of other target passes into this operation to perform fullscreen effects.
 
+</dd> <dt>compute</dt> <dd>
+
+This kind of a pass dispatches a compute shader as attached to the given material. Compute shaders are independent from normal rendering pipeline as triggered by `render_scene` or `render_quad`. They do not have any predefined input/ outputs but rather read/ write to any buffers you attach to them.
+
 </dd> <dt>render\_custom</dt> <dd>
 
-This kind of pass is just a callback to user code for the composition pass specified in the custom name (and registered via CompositorManager::registerCustomCompositionPass) and allows the user to create custom render operations for more advanced effects. This is the only pass type that requires the custom name parameter.
+This kind of pass is just a callback to user code for the composition pass specified in the custom name (and registered via Ogre::CompositorManager::registerCustomCompositionPass) and allows the user to create custom render operations for more advanced effects. This is the only pass type that requires the custom name parameter.
 
 </dd> </dl>
 
@@ -519,9 +545,10 @@ Here are the attributes you can use in a ’pass’ section of a .compositor scr
 
 <a name="Available-Pass-Attributes"></a>
 
-# Available Pass Attributes
+## Available Pass Attributes
 
 -   [material](#material)
+-   [thread_groups](#thread_groups)
 -   [input](#compositor_005fpass_005finput)
 -   [identifier](#compositor_005fpass_005fidentifier)
 -   [first\_render\_queue](#first_005frender_005fqueue)
@@ -534,7 +561,23 @@ Here are the attributes you can use in a ’pass’ section of a .compositor scr
 
 ## material
 
-For passes of type ’render\_quad’, sets the material used to render the quad. You will want to use shaders in this material to perform fullscreen effects, and use the [input](#compositor_005fpass_005finput) attribute to map other texture targets into the texture bindings needed by this material. Format: material &lt;Name&gt;
+For passes of type `render_quad` and `compute`, sets the material to be used. With `compute` passes only the compute shader is used and pnly global auto parameter can be accessed.
+For `render_quad` you will want to use shaders in this material to perform fullscreen effects, and use the [input](#compositor_005fpass_005finput) attribute to map other texture targets into the texture bindings needed by this material. 
+
+@par
+Format: material &lt;Name&gt;
+
+<a name="thread_groups"></a>
+
+## thread_groups
+
+Passes of type `compute` operate on an absract "compute space". This space is typically diveded into threads and thread groups (work groups). The size of a thread group is defined inside the compute shader itself. This defines how many groups should be launched.
+
+@par
+Example: if you want to process a 256x256px image and have a thread group size of 16x16x1, you want to specify `16 16 1` here as well.
+
+@par
+Format: thread_groups &lt;groups_x&gt; &lt;groups_y&gt; &lt;groups_z&gt;
 
 <a name="compositor_005fpass_005finput"></a><a name="input-1"></a>
 
@@ -596,9 +639,12 @@ Format: material\_scheme &lt;scheme name&gt;
 @par
 Default: None
 
-# Clear Section {#Clear-Section}
+## Clear Section {#Clear-Section}
 
-For passes of type ’clear’, this section defines the buffer clearing parameters.  Format: clear { }
+For passes of type ’clear’, this section defines the buffer clearing parameters.  
+
+@par
+Format: pass clear { }
 
 Here are the attributes you can use in a ’clear’ section of a .compositor script:
 
@@ -646,11 +692,12 @@ Here are the attributes you can use in a ’clear’ section of a .compositor sc
     @par
     Default: stencil\_value 0.0
 
-# Stencil Section {#Stencil-Section}
+## Stencil Section {#Stencil-Section}
 
 For passes of type ’stencil’, this section defines the stencil operation parameters. 
 
-Format: stencil { }
+@par
+Format: pass stencil { }
 
 Here are the attributes you can use in a ’stencil’ section of a .compositor script:
 
@@ -838,26 +885,23 @@ The overlay itself only has a single property ’zorder’ which determines how 
 
 Within an overlay, you can include any number of 2D or 3D elements. You do this by defining nested ’overlay_element’ blocks.
 
+@note Top level overlay components must derive from Ogre::OverlayContainer - e.g. you must place @ref TextArea into a @ref Panel component to be able to add it to the overlay.
+
 ## ’overlay_element’ blocks
 
 These are delimited by curly braces. The format for the header preceding the first brace is:
 
-overlay_element &lt;instance\_name&gt; &lt;type\_name&gt; \[: &lt;template\_name&gt;\]<br> { ...
+@par
+Format: overlay_element &lt;instance\_name&gt; &lt;type\_name&gt; \[: &lt;template\_name&gt;\]
 
-<dl compact="compact">
-<dt>type\_name</dt> <dd>
+@param type_name
+Must resolve to the name of a Ogre::OverlayElement type which has been registered with the Ogre::OverlayManager. Plugins register with the OverlayManager to advertise their ability to create elements, and at this time advertise the name of the type. OGRE comes preconfigured with types @ref Panel, @ref BorderPanel and @ref TextArea.
 
-Must resolve to the name of a OverlayElement type which has been registered with the OverlayManager. Plugins register with the OverlayManager to advertise their ability to create elements, and at this time advertise the name of the type. OGRE comes preconfigured with types ’Panel’, ’BorderPanel’ and ’TextArea’.
-
-</dd> <dt>instance\_name</dt> <dd>
-
+@param instance_name
 Must be a name unique among all other elements / containers by which to identify the element. Note that you can obtain a pointer to any named element by calling OverlayManager::getSingleton().getOverlayElement(name).
 
-</dd> <dt>template\_name</dt> <dd>
+@param template_name Optional template on which to base this item. See @ref Templates.
 
-Optional template on which to base this item. See templates.
-
-</dd> </dl>
 
 The properties which can be included within the braces depend on the custom type. However the following are always valid:
 
@@ -1090,15 +1134,15 @@ Default: none
 
 # Standard OverlayElements {#Standard-OverlayElements}
 
-Although OGRE’s OverlayElement and OverlayContainer classes are designed to be extended by applications developers, there are a few elements which come as standard with Ogre. These include:
+Although OGRE’s Ogre::OverlayElement and Ogre::OverlayContainer classes are designed to be extended by applications developers, there are a few elements which come as standard with Ogre. These include:
 
--   [Panel](#Panel)
--   [BorderPanel](#BorderPanel)
--   [TextArea](#TextArea)
+-   @ref Panel
+-   @ref BorderPanel
+-   @ref TextArea
 
 This section describes how you define their custom attributes in an .overlay script, but you can also change these custom properties in code if you wish. You do this by calling setParameter(param, value). You may wish to use the StringConverter class to convert your types to and from strings.
 
-## Panel {#Panel}
+## Panel (container) {#Panel}
 
 This is the most bog-standard container you can use. It is a rectangular area which can contain other elements (or containers) and may or may not have a background, which can be tiled however you like. The background material is determined by the material attribute, but is only displayed if transparency is off.
 
@@ -1108,7 +1152,7 @@ This is the most bog-standard container you can use. It is a rectangular area wh
 
 @param uv\_coords <b>&lt;topleft\_u&gt; &lt;topleft\_v&gt; &lt;bottomright\_u&gt; &lt;bottomright\_v&gt;</b> Sets the texture coordinates to use for this panel.
 
-## BorderPanel {#BorderPanel}
+## BorderPanel (container) {#BorderPanel}
 
 This is a slightly more advanced version of Panel, where instead of just a single flat panel, the panel has a separate border which resizes with the panel. It does this by taking an approach very similar to the use of HTML tables for bordered content: the panel is rendered as 9 square areas, with the center area being rendered with the main material (as with Panel) and the outer 8 areas (the 4 corners and the 4 edges) rendered with a separate border material. The advantage of rendering the corners separately from the edges is that the edge textures can be designed so that they can be stretched without distorting them, meaning the single texture can serve any size panel.
 
@@ -1120,7 +1164,7 @@ This is a slightly more advanced version of Panel, where instead of just a singl
 
 @param border\_left\_uv <b>&lt;u1&gt; &lt;v1&gt; &lt;u2&gt; &lt;v2&gt;</b> \[also border\_right\_uv, border\_top\_uv, border\_bottom\_uv\]; The texture coordinates to be used for the edge areas of the border. 4 coordinates are required, 2 for the top-left corner, 2 for the bottom-right. Note that you should design the texture so that the left & right edges can be stretched / squashed vertically and the top and bottom edges can be stretched / squashed horizontally without detrimental effects.
 
-## TextArea {#TextArea}
+## TextArea (element) {#TextArea}
 
 This is a generic element that you can use to render text. It uses fonts which can be defined in code using the FontManager and Font classes, or which have been predefined in .fontdef files. See the font definitions section for more information.
 

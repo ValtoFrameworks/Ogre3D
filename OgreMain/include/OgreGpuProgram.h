@@ -170,10 +170,8 @@ namespace Ogre {
     mutable GpuLogicalBufferStructPtr mDoubleLogicalToPhysical;
     /// @copydoc mFloatLogicalToPhysical
     mutable GpuLogicalBufferStructPtr mIntLogicalToPhysical;
-    /// @copydoc mFloatLogicalToPhysical
-    mutable GpuLogicalBufferStructPtr mUIntLogicalToPhysical;
-    /// @copydoc mFloatLogicalToPhysical
-    mutable GpuLogicalBufferStructPtr mBoolLogicalToPhysical;
+    /// static nullPtr
+    static GpuLogicalBufferStructPtr mBoolLogicalToPhysical;
     /** Parameter name -> ConstantDefinition map, shared instance used by all parameter objects.
         This is a shared pointer because if the program is recompiled and the parameters
         change, this definition will alter, but previous params may reference the old def.
@@ -430,6 +428,9 @@ namespace Ogre {
 
     /// @copydoc Resource::calculateSize
     virtual size_t calculateSize(void) const;
+
+    /// internal method to get the microcode cache id
+    uint32 _getHash(uint32 seed = 0) const;
 
     protected:
     /// Virtual method which must be implemented by subclasses, load from mSource

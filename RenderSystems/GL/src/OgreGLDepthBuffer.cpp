@@ -51,8 +51,10 @@ namespace Ogre
                 mBitDepth = 16;
                 break;
             case GL_DEPTH_COMPONENT24:
-            case GL_DEPTH_COMPONENT32:
             case GL_DEPTH24_STENCIL8_EXT:
+	            mBitDepth = 24;
+	            break;
+            case GL_DEPTH_COMPONENT32:
                 mBitDepth = 32;
                 break;
             }
@@ -93,13 +95,11 @@ namespace Ogre
         }
 
         //Now check this is the appropriate format
-        GLFrameBufferObject *fbo = 0;
-        renderTarget->getCustomAttribute(GLRenderTexture::CustomAttributeString_FBO, &fbo);
+        auto fbo = dynamic_cast<GLRenderTarget*>(renderTarget)->getFBO();
 
         if( !fbo )
         {
-            GLContext *windowContext = 0;
-            renderTarget->getCustomAttribute( GLRenderTexture::CustomAttributeString_GLCONTEXT, &windowContext );
+            GLContext *windowContext = dynamic_cast<GLRenderTarget*>(renderTarget)->getContext();;
 
             //Non-FBO targets and FBO depth surfaces don't play along, only dummies which match the same
             //context
@@ -131,7 +131,7 @@ namespace Ogre
                         bSameStencil = stencilFormat == mStencilBuffer->getGLFormat();
                 }
 
-                retVal = bSameDepth && bSameStencil;
+                retVal = PixelUtil::isDepth(internalFormat) ? bSameDepth : (bSameDepth && bSameStencil);
             }
         }
 

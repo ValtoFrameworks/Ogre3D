@@ -49,43 +49,13 @@ public:
 
     void getCustomAttribute(const String& name, void* pData);
 
-    void createRenderTexture() {
-        // Create the GL texture
-        // This already does everything necessary
-        createInternalResources();
-    }
-
 protected:
-    HardwarePixelBufferSharedPtr getBuffer(size_t face, size_t mipmap);
-
     /** Returns the maximum number of Mipmaps that can be generated until we reach
         the mininum format possible. This does not count the base level.
 
         @return how many times we can divide this texture in 2 until we reach 1x1.
     */
     uint32 getMaxMipmaps();
-
-    void prepareImpl(void);
-
-    void unprepareImpl(void)
-    {
-        mLoadedImages.clear();
-    }
-
-    /// Used to hold images between calls to prepare and load.
-    typedef std::vector<Image> LoadedImages;
-
-    /** Vector of images that were pulled from disk by
-        prepareLoad but have yet to be pushed into texture memory
-        by loadImpl.  Images should be deleted by loadImpl and unprepareImpl.
-    */
-    LoadedImages mLoadedImages;
-
-    void readImage(LoadedImages& imgs, const String& name, const String& ext, bool haveNPOT);
-
-    /// Vector of pointers to subsurfaces
-    typedef std::vector<HardwarePixelBufferSharedPtr> SurfaceList;
-    SurfaceList mSurfaceList;
 
     uint mTextureID;
 };

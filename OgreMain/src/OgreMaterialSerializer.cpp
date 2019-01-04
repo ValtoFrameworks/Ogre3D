@@ -504,28 +504,15 @@ namespace Ogre
             }
 
             // scene blend factor
-            if (pPass->hasSeparateSceneBlending())
+            if (mDefaults ||
+                pPass->getSourceBlendFactor() != SBF_ONE ||
+                pPass->getDestBlendFactor() != SBF_ZERO ||
+                pPass->getSourceBlendFactorAlpha() != SBF_ONE ||
+                pPass->getDestBlendFactorAlpha() != SBF_ZERO)
             {
-                if (mDefaults ||
-                    pPass->getSourceBlendFactor() != SBF_ONE ||
-                    pPass->getDestBlendFactor() != SBF_ZERO ||
-                    pPass->getSourceBlendFactorAlpha() != SBF_ONE ||
-                    pPass->getDestBlendFactorAlpha() != SBF_ZERO)
-                {
-                    writeAttribute(3, "separate_scene_blend");
-                    writeSceneBlendFactor(pPass->getSourceBlendFactor(), pPass->getDestBlendFactor(), 
-                        pPass->getSourceBlendFactorAlpha(), pPass->getDestBlendFactorAlpha());
-                }
-            }
-            else
-            {
-                if (mDefaults ||
-                    pPass->getSourceBlendFactor() != SBF_ONE ||
-                    pPass->getDestBlendFactor() != SBF_ZERO)
-                {
-                    writeAttribute(3, "scene_blend");
-                    writeSceneBlendFactor(pPass->getSourceBlendFactor(), pPass->getDestBlendFactor());
-                }
+                writeAttribute(3, "separate_scene_blend");
+                writeSceneBlendFactor(pPass->getSourceBlendFactor(), pPass->getDestBlendFactor(),
+                    pPass->getSourceBlendFactorAlpha(), pPass->getDestBlendFactorAlpha());
             }
 
 
@@ -1707,65 +1694,6 @@ namespace Ogre
             }
 
         }
-
-        // uint params
-        GpuLogicalBufferStructPtr uintLogical = params->getUnsignedIntLogicalBufferStruct();
-        if( uintLogical )
-        {
-            OGRE_LOCK_MUTEX(uintLogical->mutex);
-
-            for(GpuLogicalIndexUseMap::const_iterator i = uintLogical->map.begin();
-                i != uintLogical->map.end(); ++i)
-            {
-                size_t logicalIndex = i->first;
-                const GpuLogicalIndexUse& logicalUse = i->second;
-
-                const GpuProgramParameters::AutoConstantEntry* autoEntry = 
-                    params->findUnsignedIntAutoConstantEntry(logicalIndex);
-                const GpuProgramParameters::AutoConstantEntry* defaultAutoEntry = 0;
-                if (defaultParams)
-                {
-                    defaultAutoEntry = defaultParams->findUnsignedIntAutoConstantEntry(logicalIndex);
-                }
-
-                writeGpuProgramParameter("param_indexed", 
-                                         StringConverter::toString(logicalIndex), autoEntry, 
-                                         defaultAutoEntry, false, false, false, true,
-                                         logicalUse.physicalIndex, logicalUse.currentSize,
-                                         params, defaultParams, level, useMainBuffer);
-            }
-
-        }
-
-        // // bool params
-        // GpuLogicalBufferStructPtr boolLogical = params->getBoolLogicalBufferStruct();
-        // if( boolLogical )
-        // {
-        //     OGRE_LOCK_MUTEX(boolLogical->mutex);
-
-        //     for(GpuLogicalIndexUseMap::const_iterator i = boolLogical->map.begin();
-        //         i != boolLogical->map.end(); ++i)
-        //     {
-        //         size_t logicalIndex = i->first;
-        //         const GpuLogicalIndexUse& logicalUse = i->second;
-
-        //         const GpuProgramParameters::AutoConstantEntry* autoEntry = 
-        //             params->findBoolAutoConstantEntry(logicalIndex);
-        //         const GpuProgramParameters::AutoConstantEntry* defaultAutoEntry = 0;
-        //         if (defaultParams)
-        //         {
-        //             defaultAutoEntry = defaultParams->findBoolAutoConstantEntry(logicalIndex);
-        //         }
-
-        //         writeGpuProgramParameter("param_indexed", 
-        //                                  StringConverter::toString(logicalIndex), autoEntry, 
-        //                                  defaultAutoEntry, false, false, false, false,
-        //                                  logicalUse.physicalIndex, logicalUse.currentSize,
-        //                                  params, defaultParams, level, useMainBuffer);
-        //     }
-
-        // }
-
     }
     //-----------------------------------------------------------------------
     void MaterialSerializer::writeGpuProgramParameter(

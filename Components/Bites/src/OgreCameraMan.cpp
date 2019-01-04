@@ -4,7 +4,8 @@
 namespace OgreBites {
 
 CameraMan::CameraMan(Ogre::SceneNode *cam)
-    : mCamera(0)
+    : mYawSpace(Ogre::Node::TS_PARENT)
+    , mCamera(0)
     , mStyle(CS_MANUAL)
     , mTarget(0)
     , mOrbiting(false)
@@ -55,7 +56,8 @@ void CameraMan::setStyle(CameraStyle style)
     if (mStyle != CS_ORBIT && style == CS_ORBIT)
     {
         setTarget(mTarget ? mTarget : mCamera->getCreator()->getRootSceneNode());
-        mCamera->setFixedYawAxis(true); // also fix axis with lookAt calls
+        // fix the yaw axis if requested
+        mCamera->setFixedYawAxis(mYawSpace == Ogre::Node::TS_PARENT);
         manualStop();
 
         // try to replicate the camera configuration
@@ -168,6 +170,14 @@ Ogre::Real CameraMan::getDistToTarget()
     return offset.length();
 }
 
+void CameraMan::setPivotOffset(const Ogre::Vector3& pivot)
+{
+    Ogre::Real dist = getDistToTarget();
+    mOffset = pivot;
+    mCamera->setPosition(mTarget->_getDerivedPosition() + mOffset);
+    mCamera->translate(Ogre::Vector3(0, 0, dist), Ogre::Node::TS_LOCAL);
+}
+
 bool CameraMan::mouseMoved(const MouseMotionEvent &evt)
 {
     if (mStyle == CS_ORBIT)
@@ -178,7 +188,7 @@ bool CameraMan::mouseMoved(const MouseMotionEvent &evt)
         {
             mCamera->setPosition(mTarget->_getDerivedPosition() + mOffset);
 
-            mCamera->yaw(Ogre::Degree(-evt.xrel * 0.25f), Ogre::Node::TS_PARENT);
+            mCamera->yaw(Ogre::Degree(-evt.xrel * 0.25f), mYawSpace);
             mCamera->pitch(Ogre::Degree(-evt.yrel * 0.25f));
 
             mCamera->translate(Ogre::Vector3(0, 0, dist), Ogre::Node::TS_LOCAL);

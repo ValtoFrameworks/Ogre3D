@@ -537,15 +537,17 @@ namespace Ogre {
             case VET_FLOAT2:
             case VET_FLOAT3:
             case VET_FLOAT4:
+                OgreAssert(elem.getSemantic() != VES_DIFFUSE, "must use VET_COLOUR");
                 elem.baseVertexPointerToElement(pBase, &pFloat);
                 break;
             case VET_COLOUR:
             case VET_COLOUR_ABGR:
             case VET_COLOUR_ARGB:
+                OgreAssert(elem.getSemantic() == VES_DIFFUSE, "must use VES_DIFFUSE");
                 elem.baseVertexPointerToElement(pBase, &pRGBA);
                 break;
             default:
-                // nop ?
+                OgreAssert(false, "invalid element type");
                 break;
             };
 
@@ -596,7 +598,7 @@ namespace Ogre {
                 }
                 break;
             default:
-                // nop ?
+                OgreAssert(false, "invalid semantic");
                 break;
             };
 
@@ -715,14 +717,13 @@ namespace Ogre {
                 }
                 else //(HardwareIndexBuffer::IT_16BIT == indexType)
                 {
-                    uint16* pIdx = static_cast<uint16*>(rop->indexData->indexBuffer->lock(HardwareBuffer::HBL_DISCARD));
+                    HardwareBufferLockGuard indexLock(rop->indexData->indexBuffer, HardwareBuffer::HBL_DISCARD);
+                    uint16* pIdx = static_cast<uint16*>(indexLock.pData);
                     uint32* pSrc = mTempIndexBuffer;
                     for (size_t i = 0; i < rop->indexData->indexCount; i++)
                     {
                         *pIdx++ = static_cast<uint16>(*pSrc++);
                     }
-                    rop->indexData->indexBuffer->unlock();
-
                 }
             }
 

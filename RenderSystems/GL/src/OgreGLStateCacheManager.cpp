@@ -100,6 +100,8 @@ namespace Ogre {
         // stored values match the GL state
         mBlendFuncSource = GL_ONE;
         mBlendFuncDest = GL_ZERO;
+        mBlendFuncSourceAlpha = GL_ONE;
+        mBlendFuncDestAlpha = GL_ZERO;
         
         mClearColour[0] = mClearColour[1] = mClearColour[2] = mClearColour[3] = 0.0f;
         mColourMask[0] = mColourMask[1] = mColourMask[2] = mColourMask[3] = GL_TRUE;
@@ -279,9 +281,10 @@ namespace Ogre {
     
     bool GLStateCacheManager::activateGLTextureUnit(size_t unit)
     {
+#ifdef OGRE_ENABLE_STATE_CACHE
         if (mActiveTextureUnit == unit)
             return true;
-
+#endif
         if (unit >= Root::getSingleton().getRenderSystem()->getCapabilities()->getNumTextureUnits())
             return false;
 
@@ -290,23 +293,26 @@ namespace Ogre {
         return true;
     }
 
-    void GLStateCacheManager::setBlendFunc(GLenum source, GLenum dest)
+    void GLStateCacheManager::setBlendFunc(GLenum source, GLenum dest, GLenum sourceA, GLenum destA)
     {
-#if 0
-        // TODO glBlendFuncSeparate missing
-        if(mBlendFuncSource != source || mBlendFuncDest != dest)
+#ifdef OGRE_ENABLE_STATE_CACHE
+        if(mBlendFuncSource != source || mBlendFuncDest != dest || sourceA != mBlendFuncSourceAlpha || destA != mBlendFuncDestAlpha )
 #endif
         {
             mBlendFuncSource = source;
             mBlendFuncDest = dest;
+            mBlendFuncSourceAlpha = sourceA;
+            mBlendFuncDestAlpha = destA;
             
-            glBlendFunc(source, dest);
+            glBlendFuncSeparate(source, dest, sourceA, destA);
         }
     }
 
     void GLStateCacheManager::setDepthMask(GLboolean mask)
     {
+#ifdef OGRE_ENABLE_STATE_CACHE
         if(mDepthMask != mask)
+#endif
         {
             mDepthMask = mask;
             
@@ -316,7 +322,9 @@ namespace Ogre {
     
     void GLStateCacheManager::setDepthFunc(GLenum func)
     {
+#ifdef OGRE_ENABLE_STATE_CACHE
         if(mDepthFunc != func)
+#endif
         {
             mDepthFunc = func;
             
@@ -326,7 +334,9 @@ namespace Ogre {
     
     void GLStateCacheManager::setClearDepth(GLclampf depth)
     {
+#ifdef OGRE_ENABLE_STATE_CACHE
         if(mClearDepth != depth)
+#endif
         {
             mClearDepth = depth;
             
@@ -336,10 +346,12 @@ namespace Ogre {
     
     void GLStateCacheManager::setClearColour(GLclampf red, GLclampf green, GLclampf blue, GLclampf alpha)
     {
+#ifdef OGRE_ENABLE_STATE_CACHE
         if((mClearColour[0] != red) ||
            (mClearColour[1] != green) ||
            (mClearColour[2] != blue) ||
            (mClearColour[3] != alpha))
+#endif
         {
             mClearColour[0] = red;
             mClearColour[1] = green;
@@ -352,10 +364,12 @@ namespace Ogre {
     
     void GLStateCacheManager::setColourMask(GLboolean red, GLboolean green, GLboolean blue, GLboolean alpha)
     {
+#ifdef OGRE_ENABLE_STATE_CACHE
         if((mColourMask[0] != red) ||
            (mColourMask[1] != green) ||
            (mColourMask[2] != blue) ||
            (mColourMask[3] != alpha))
+#endif
         {
             mColourMask[0] = red;
             mColourMask[1] = green;
@@ -368,7 +382,9 @@ namespace Ogre {
     
     void GLStateCacheManager::setStencilMask(GLuint mask)
     {
+#ifdef OGRE_ENABLE_STATE_CACHE
         if(mStencilMask != mask)
+#endif
         {
             mStencilMask = mask;
             
@@ -423,7 +439,9 @@ namespace Ogre {
 
     void GLStateCacheManager::setCullFace(GLenum face)
     {
+#ifdef OGRE_ENABLE_STATE_CACHE
         if(mCullFace != face)
+#endif
         {
             mCullFace = face;
             
@@ -431,27 +449,11 @@ namespace Ogre {
         }
     }
 
-    void GLStateCacheManager::setBlendEquation(GLenum eq)
-    {
-        if(mBlendEquationRGB != eq || mBlendEquationAlpha != eq)
-        {
-            mBlendEquationRGB = eq;
-            mBlendEquationAlpha = eq;
-
-            if(GLEW_VERSION_1_4 || GLEW_ARB_imaging)
-            {
-                glBlendEquation(eq);
-            }
-            else if(GLEW_EXT_blend_minmax && (eq == GL_MIN || eq == GL_MAX))
-            {
-                glBlendEquationEXT(eq);
-            }
-        }
-    }
-
     void GLStateCacheManager::setBlendEquation(GLenum eqRGB, GLenum eqAlpha)
     {
+#ifdef OGRE_ENABLE_STATE_CACHE
         if(mBlendEquationRGB != eqRGB || mBlendEquationAlpha != eqAlpha)
+#endif
         {
             mBlendEquationRGB = eqRGB;
             mBlendEquationAlpha = eqAlpha;
@@ -464,15 +466,21 @@ namespace Ogre {
             {
                 glBlendEquationSeparateEXT(eqRGB, eqAlpha);
             }
+            else
+            {
+                glBlendEquation(eqRGB);
+            }
         }
     }
 
     void GLStateCacheManager::setMaterialDiffuse(GLfloat r, GLfloat g, GLfloat b, GLfloat a)
     {
+#ifdef OGRE_ENABLE_STATE_CACHE
         if((mDiffuse[0] != r) ||
            (mDiffuse[1] != g) ||
            (mDiffuse[2] != b) ||
            (mDiffuse[3] != a))
+#endif
         {
             mDiffuse[0] = r;
             mDiffuse[1] = g;
@@ -485,10 +493,12 @@ namespace Ogre {
 
     void GLStateCacheManager::setMaterialAmbient(GLfloat r, GLfloat g, GLfloat b, GLfloat a)
     {
+#ifdef OGRE_ENABLE_STATE_CACHE
         if((mAmbient[0] != r) ||
            (mAmbient[1] != g) ||
            (mAmbient[2] != b) ||
            (mAmbient[3] != a))
+#endif
         {
             mAmbient[0] = r;
             mAmbient[1] = g;
@@ -501,10 +511,12 @@ namespace Ogre {
 
     void GLStateCacheManager::setMaterialEmissive(GLfloat r, GLfloat g, GLfloat b, GLfloat a)
     {
+#ifdef OGRE_ENABLE_STATE_CACHE
         if((mEmissive[0] != r) ||
            (mEmissive[1] != g) ||
            (mEmissive[2] != b) ||
            (mEmissive[3] != a))
+#endif
         {
             mEmissive[0] = r;
             mEmissive[1] = g;
@@ -517,10 +529,12 @@ namespace Ogre {
 
     void GLStateCacheManager::setMaterialSpecular(GLfloat r, GLfloat g, GLfloat b, GLfloat a)
     {
+#ifdef OGRE_ENABLE_STATE_CACHE
         if((mSpecular[0] != r) ||
            (mSpecular[1] != g) ||
            (mSpecular[2] != b) ||
            (mSpecular[3] != a))
+#endif
         {
             mSpecular[0] = r;
             mSpecular[1] = g;
@@ -533,7 +547,9 @@ namespace Ogre {
 
     void GLStateCacheManager::setMaterialShininess(GLfloat shininess)
     {
+#ifdef OGRE_ENABLE_STATE_CACHE
         if (mShininess != shininess)
+#endif
         {
             mShininess = shininess;
             glMaterialf(GL_FRONT_AND_BACK, GL_SHININESS, mShininess);
@@ -542,7 +558,9 @@ namespace Ogre {
 
     void GLStateCacheManager::setPolygonMode(GLenum mode)
     {
+#ifdef OGRE_ENABLE_STATE_CACHE
         if (mPolygonMode != mode)
+#endif
         {
             mPolygonMode = mode;
             glPolygonMode(GL_FRONT_AND_BACK, mPolygonMode);
@@ -551,7 +569,9 @@ namespace Ogre {
 
     void GLStateCacheManager::setShadeModel(GLenum model)
     {
+#ifdef OGRE_ENABLE_STATE_CACHE
         if (mShadeModel != model)
+#endif
         {
             mShadeModel = model;
             glShadeModel(model);
@@ -560,9 +580,11 @@ namespace Ogre {
 
     void GLStateCacheManager::setLightAmbient(GLfloat r, GLfloat g, GLfloat b)
     {
+#ifdef OGRE_ENABLE_STATE_CACHE
         if((mLightAmbient[0] != r) ||
            (mLightAmbient[1] != g) ||
            (mLightAmbient[2] != b))
+#endif
         {
             mLightAmbient[0] = r;
             mLightAmbient[1] = g;
@@ -574,7 +596,9 @@ namespace Ogre {
 
     void GLStateCacheManager::setPointSize(GLfloat size)
     {
+#ifdef OGRE_ENABLE_STATE_CACHE
         if (mPointSize != size)
+#endif
         {
             mPointSize = size;
             glPointSize(mPointSize);
@@ -583,21 +607,27 @@ namespace Ogre {
 
     void GLStateCacheManager::setPointParameters(GLfloat *attenuation, float minSize, float maxSize)
     {
+#ifdef OGRE_ENABLE_STATE_CACHE
         if (minSize != mPointSizeMin)
+#endif
         {
             mPointSizeMin = minSize;
             const Ogre::RenderSystemCapabilities* caps = dynamic_cast<GLRenderSystem*>(Root::getSingleton().getRenderSystem())->getCapabilities();
             if (caps->hasCapability(RSC_POINT_EXTENDED_PARAMETERS))
                 glPointParameterf(GL_POINT_SIZE_MIN, mPointSizeMin);
         }
+#ifdef OGRE_ENABLE_STATE_CACHE
         if (maxSize != mPointSizeMax)
+#endif
         {
             mPointSizeMax = maxSize;
             const Ogre::RenderSystemCapabilities* caps = dynamic_cast<GLRenderSystem*>(Root::getSingleton().getRenderSystem())->getCapabilities();
             if (caps->hasCapability(RSC_POINT_EXTENDED_PARAMETERS))
                 glPointParameterf(GL_POINT_SIZE_MAX, mPointSizeMax);
         }
+#ifdef OGRE_ENABLE_STATE_CACHE
         if (attenuation[0] != mPointAttenuation[0] || attenuation[1] != mPointAttenuation[1] || attenuation[2] != mPointAttenuation[2])
+#endif
         {
             mPointAttenuation[0] = attenuation[0];
             mPointAttenuation[1] = attenuation[1];

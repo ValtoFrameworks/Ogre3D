@@ -69,6 +69,7 @@ namespace Ogre {
         mTypeEnumMap.insert(StringToEnumMap::value_type("sampler2D", GL_SAMPLER_2D));
         mTypeEnumMap.insert(StringToEnumMap::value_type("samplerCube", GL_SAMPLER_CUBE));
         mTypeEnumMap.insert(StringToEnumMap::value_type("sampler2DShadow", GL_SAMPLER_2D_SHADOW_EXT));
+        mTypeEnumMap.insert(StringToEnumMap::value_type("samplerExternalOES", GL_SAMPLER_EXTERNAL_OES));
         mTypeEnumMap.insert(StringToEnumMap::value_type("int", GL_INT));
         mTypeEnumMap.insert(StringToEnumMap::value_type("ivec2", GL_INT_VEC2));
         mTypeEnumMap.insert(StringToEnumMap::value_type("ivec3", GL_INT_VEC3));
@@ -277,6 +278,9 @@ namespace Ogre {
             break;
         case GL_SAMPLER_2D_SHADOW_EXT:
             defToUpdate.constType = GCT_SAMPLER2DSHADOW;
+            break;
+        case GL_SAMPLER_EXTERNAL_OES:
+            defToUpdate.constType = GCT_SAMPLER_EXTERNAL_OES;
             break;
         case GL_INT:
             defToUpdate.constType = GCT_INT1;

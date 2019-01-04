@@ -266,10 +266,7 @@ namespace Ogre {
     //-----------------------------------------------------------------------
     bool PixelUtil::isAccessible(PixelFormat srcformat)
     {
-        if (srcformat == PF_UNKNOWN)
-            return false;
-        unsigned int flags = getFlags(srcformat);
-        return !((flags & PFF_COMPRESSED) || (flags & PFF_DEPTH));
+        return (srcformat != PF_UNKNOWN) && !isCompressed(srcformat);
     }
     //-----------------------------------------------------------------------
     PixelComponentType PixelUtil::getComponentType(PixelFormat fmt)
@@ -302,6 +299,17 @@ namespace Ogre {
                     return pf;
             }
         }
+
+        // allow look-up by alias name
+        if(tmp == "PF_BYTE_RGB")
+            return PF_BYTE_RGB;
+        if(tmp == "PF_BYTE_RGBA")
+            return PF_BYTE_RGBA;
+        if(tmp == "PF_BYTE_BGR")
+            return PF_BYTE_BGR;
+        if(tmp == "PF_BYTE_BGRA")
+            return PF_BYTE_BGRA;
+
         return PF_UNKNOWN;
     }
     //-----------------------------------------------------------------------

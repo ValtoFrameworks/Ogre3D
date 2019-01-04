@@ -96,7 +96,6 @@ class _OgreSampleClassExport Sample_Shadows : public SdkSample
 {
 protected:
     Entity* mAthene;
-    AnimationState* mAnimState;
     Entity* pPlaneEnt;
     std::vector<Entity*> pColumns;
     Light* mLight;
@@ -136,21 +135,9 @@ protected:
     ShadowCameraSetupPtr mCurrentShadowCameraSetup;
     /// Plane that defines plane-optimal shadow mapping basis
     MovablePlane* mPlane;
-    // transient pointer to LiSPSM setup if present
-    LiSPSMShadowCameraSetup* mLiSPSMSetup;
-
 public:
-
-    bool frameEnded(const FrameEvent& evt)
-    {
-        if (mAnimState)
-                mAnimState->addTime(evt.timeSinceLastFrame);
-        return SdkSample::frameEnded(evt);
-    }
-
     Sample_Shadows()
-        : mAnimState(0)
-        , mLightNode(0)
+        : mLightNode(0)
         , mLightAnimationState(0)
         , mMinLightColour(0.2, 0.1, 0.0)
         , mMaxLightColour(0.5, 0.3, 0.1)
@@ -250,8 +237,7 @@ protected:
         mLightNode->attachObject(bbs);
 
         // create controller, after this is will get updated on its own
-        ControllerFunctionRealPtr func = ControllerFunctionRealPtr(
-            new WaveformControllerFunction(Ogre::WFT_SINE, 0.75, 0.5));
+        ControllerFunctionRealPtr func = WaveformControllerFunction::create(Ogre::WFT_SINE, 0.75, 0.5);
         ControllerManager& contMgr = ControllerManager::getSingleton();
         ControllerValueRealPtr val = ControllerValueRealPtr(
             new LightWibbler(mLight, bb, mMinLightColour, mMaxLightColour, 
@@ -293,8 +279,12 @@ protected:
         key = track->createNodeKeyFrame(20);//K == A
         key->setTranslate(Vector3(300,750,-700));
         // Create a new animation state to track this
-        mAnimState = mSceneMgr->createAnimationState("LightTrack");
-        mAnimState->setEnabled(true);
+        auto animState = mSceneMgr->createAnimationState("LightTrack");
+        animState->setEnabled(true);
+
+        auto& controllerMgr = ControllerManager::getSingleton();
+        controllerMgr.createFrameTimePassthroughController(AnimationStateControllerValue::create(animState, true));
+
         // Make light node look at origin, this is for when we
         // change the moving light to a spotlight
         mLightNode->setAutoTracking(true, mSceneMgr->getRootSceneNode());
@@ -585,23 +575,17 @@ protected:
             switch(proj)
             {
             case UNIFORM:
-                mCurrentShadowCameraSetup = 
-                    ShadowCameraSetupPtr(new DefaultShadowCameraSetup());
+                mCurrentShadowCameraSetup = DefaultShadowCameraSetup::create();
                 break;
             case UNIFORM_FOCUSED:
-                mCurrentShadowCameraSetup = 
-                    ShadowCameraSetupPtr(new FocusedShadowCameraSetup());
+                mCurrentShadowCameraSetup = FocusedShadowCameraSetup::create();
                 break;
             case LISPSM:
-                {
-                    mLiSPSMSetup = new LiSPSMShadowCameraSetup();
-                    //mLiSPSMSetup->setUseAggressiveFocusRegion(false);
-                    mCurrentShadowCameraSetup = ShadowCameraSetupPtr(mLiSPSMSetup);
-                }
+                //mLiSPSMSetup->setUseAggressiveFocusRegion(false);
+                mCurrentShadowCameraSetup = LiSPSMShadowCameraSetup::create();
                 break;
             case PLANE_OPTIMAL:
-                mCurrentShadowCameraSetup = 
-                    ShadowCameraSetupPtr(new PlaneOptimalShadowCameraSetup(mPlane));
+                mCurrentShadowCameraSetup = PlaneOptimalShadowCameraSetup::create(mPlane);
                 break;
 
             };
