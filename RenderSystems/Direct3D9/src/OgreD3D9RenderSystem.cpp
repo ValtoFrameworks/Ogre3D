@@ -140,6 +140,126 @@ namespace Ogre
         mEventNames.push_back("DeviceLost");
         mEventNames.push_back("DeviceRestored");            
     }
+
+    const GpuProgramParametersPtr& D3D9RenderSystem::getFixedFunctionParams(TrackVertexColourType tracking,
+                                                                            FogMode fog)
+    {
+        _setSurfaceTracking(tracking);
+        _setFog(fog);
+
+        return mFixedFunctionParams;
+    }
+
+    void D3D9RenderSystem::applyFixedFunctionParams(const GpuProgramParametersSharedPtr& params, uint16 mask)
+    {
+        D3DMATERIAL9 material;
+        D3DLIGHT9 d3dLight;
+        ZeroMemory(&d3dLight, sizeof(D3DLIGHT9));
+
+        // Autoconstant index is not a physical index
+        for (const auto& ac : params->getAutoConstants())
+        {
+            // Only update needed slots
+            if (ac.variability & mask)
+            {
+                HRESULT hr = S_OK;
+                const float* ptr = params->getFloatPointer(ac.physicalIndex);
+                switch(ac.paramType)
+                {
+                case GpuProgramParameters::ACT_WORLD_MATRIX:
+                    setWorldMatrix(Matrix4(ptr));
+                    break;
+                case GpuProgramParameters::ACT_VIEW_MATRIX:
+                    setViewMatrix(Matrix4(ptr));
+                    break;
+                case GpuProgramParameters::ACT_PROJECTION_MATRIX:
+                    setProjectionMatrix(Matrix4(ptr));
+                    break;
+                case GpuProgramParameters::ACT_SURFACE_AMBIENT_COLOUR:
+                    material.Ambient = D3DXCOLOR( ptr[0], ptr[1], ptr[2], ptr[3]);
+                    break;
+                case GpuProgramParameters::ACT_SURFACE_DIFFUSE_COLOUR:
+                    material.Diffuse = D3DXCOLOR( ptr[0], ptr[1], ptr[2], ptr[3] );
+                    break;
+                case GpuProgramParameters::ACT_SURFACE_SPECULAR_COLOUR:
+                    material.Specular = D3DXCOLOR( ptr[0], ptr[1], ptr[2], ptr[3]);
+                    break;
+                case GpuProgramParameters::ACT_SURFACE_EMISSIVE_COLOUR:
+                    material.Emissive = D3DXCOLOR( ptr[0], ptr[1], ptr[2], ptr[3]);
+                    break;
+                case GpuProgramParameters::ACT_SURFACE_SHININESS:
+                    material.Power = ptr[0];
+
+                    // last material param -> apply
+                    hr = getActiveD3D9Device()->SetMaterial( &material );
+                    if( FAILED( hr ) )
+                        OGRE_EXCEPT(Exception::ERR_RENDERINGAPI_ERROR, "Error setting D3D material", "D3D9RenderSystem::applyFixedFunctionParams" );
+                    break;
+                case GpuProgramParameters::ACT_POINT_PARAMS:
+                {
+                    float size = ptr[0];
+                    // detect attenuation
+                    if(ptr[1] != 1.0f || ptr[2] != 0.0f || ptr[3] != 0.0f)
+                        size /= mActiveViewport->getActualHeight(); // data source scales points by height
+                    __SetFloatRenderState(D3DRS_POINTSIZE, size);
+                    __SetFloatRenderState(D3DRS_POINTSCALE_A, ptr[1]);
+                    __SetFloatRenderState(D3DRS_POINTSCALE_B, ptr[2]);
+                    __SetFloatRenderState(D3DRS_POINTSCALE_C, ptr[3]);
+                    break;
+                }
+                case GpuProgramParameters::ACT_FOG_PARAMS:
+                    hr = __SetFloatRenderState( D3DRS_FOGDENSITY, ptr[0] );
+                    hr = __SetFloatRenderState( D3DRS_FOGSTART, ptr[1] );
+                    hr = __SetFloatRenderState( D3DRS_FOGEND, ptr[2] );
+                    break;
+                case GpuProgramParameters::ACT_FOG_COLOUR:
+                    hr = __SetRenderState( D3DRS_FOGCOLOR, ColourValue(ptr[0], ptr[1], ptr[2], ptr[3]).getAsARGB());
+                    break;
+                case GpuProgramParameters::ACT_AMBIENT_LIGHT_COLOUR:
+                    hr = __SetRenderState( D3DRS_AMBIENT, D3DCOLOR_COLORVALUE( ptr[0], ptr[1], ptr[2], 1.0f ) );
+                    break;
+                case GpuProgramParameters::ACT_LIGHT_POSITION:
+                    d3dLight.Type = ptr[3] ? D3DLIGHT_POINT : D3DLIGHT_DIRECTIONAL;
+                    d3dLight.Position = D3DXVECTOR3( ptr[0], ptr[1], ptr[2] );
+                    break;
+                case GpuProgramParameters::ACT_LIGHT_DIRECTION:
+                    d3dLight.Direction = D3DXVECTOR3( ptr[0], ptr[1], ptr[2] );
+                    break;
+                case GpuProgramParameters::ACT_LIGHT_DIFFUSE_COLOUR:
+                    d3dLight.Diffuse = D3DXCOLOR( ptr[0], ptr[1], ptr[2], ptr[3] );
+                    break;
+                case GpuProgramParameters::ACT_LIGHT_SPECULAR_COLOUR:
+                    d3dLight.Specular = D3DXCOLOR( ptr[0], ptr[1], ptr[2], ptr[3] );
+                    break;
+                case GpuProgramParameters::ACT_LIGHT_ATTENUATION:
+                    d3dLight.Range = ptr[0];
+                    d3dLight.Attenuation0 = ptr[1];
+                    d3dLight.Attenuation1 = ptr[2];
+                    d3dLight.Attenuation2 = ptr[3];
+                    break;
+                case GpuProgramParameters::ACT_SPOTLIGHT_PARAMS:
+                    if(ptr[3]) d3dLight.Type = D3DLIGHT_SPOT;
+                    d3dLight.Theta = std::acos(ptr[0])*2;
+                    d3dLight.Phi = std::acos(ptr[1])*2;
+                    d3dLight.Falloff = ptr[2];
+
+                    // last light param -> apply
+                    if( FAILED( hr = getActiveD3D9Device()->SetLight( static_cast<DWORD>(ac.data), &d3dLight ) ) )
+                        OGRE_EXCEPT(Exception::ERR_RENDERINGAPI_ERROR, "Unable to set light details", "D3D9RenderSystem::setD3D9Light" );
+
+                    if( FAILED( hr = getActiveD3D9Device()->LightEnable( static_cast<DWORD>(ac.data), TRUE ) ) )
+                        OGRE_EXCEPT(Exception::ERR_RENDERINGAPI_ERROR, "Unable to enable light", "D3D9RenderSystem::setD3D9Light" );
+                    break;
+                default:
+                    OgreAssert(false, "unknown autoconstant");
+                    break;
+                }
+                if( FAILED( hr ) )
+                    OGRE_EXCEPT(Exception::ERR_RENDERINGAPI_ERROR, "Error setting render state", "D3D9RenderSystem::applyFixedFunctionParams" );
+            }
+        }
+    }
+
     //---------------------------------------------------------------------
     D3D9RenderSystem::~D3D9RenderSystem()
     {       
@@ -625,9 +745,10 @@ namespace Ogre
         return BLANKSTRING;
     }
     //---------------------------------------------------------------------
-    RenderWindow* D3D9RenderSystem::_initialise( bool autoCreateWindow, const String& windowTitle )
+    void D3D9RenderSystem::_initialise()
     {
-        RenderWindow* autoWindow = NULL;
+        // call superclass method
+        RenderSystem::_initialise();
         LogManager::getSingleton().logMessage( "D3D9 : Subsystem Initialising" );
 
         // Init using current settings
@@ -666,101 +787,16 @@ namespace Ogre
         // Create & register HLSL factory       
         mHLSLProgramFactory = OGRE_NEW D3D9HLSLProgramFactory();
         
-        if( autoCreateWindow )
-        {
-            bool fullScreen;
-            opt = mOptions.find( "Full Screen" );
-            if( opt == mOptions.end() )
-                OGRE_EXCEPT( Exception::ERR_INTERNAL_ERROR, "Can't find full screen option!", "D3D9RenderSystem::initialise" );
-            fullScreen = opt->second.currentValue == "Yes";
-
-            D3D9VideoMode* videoMode = NULL;
-            unsigned int width, height;
-            String temp;
-
-            opt = mOptions.find( "Video Mode" );
-            if( opt == mOptions.end() )
-                OGRE_EXCEPT( Exception::ERR_INTERNAL_ERROR, "Can't find Video Mode option!", "D3D9RenderSystem::initialise" );
-
-            // The string we are manipulating looks like this :width x height @ colourDepth
-            // Pull out the colour depth by getting what comes after the @ and a space
-            String colourDepth = opt->second.currentValue.substr(opt->second.currentValue.rfind('@')+1);
-            // Now we know that the width starts a 0, so if we can find the end we can parse that out
-            String::size_type widthEnd = opt->second.currentValue.find(' ');
-            // we know that the height starts 3 characters after the width and goes until the next space
-            String::size_type heightEnd = opt->second.currentValue.find(' ', widthEnd+3);
-            // Now we can parse out the values
-            width = StringConverter::parseInt(opt->second.currentValue.substr(0, widthEnd));
-            height = StringConverter::parseInt(opt->second.currentValue.substr(widthEnd+3, heightEnd));
-
-            for( unsigned j=0; j < mActiveD3DDriver->getVideoModeList()->count(); j++ )
-            {
-                temp = mActiveD3DDriver->getVideoModeList()->item(j)->getDescription();
-
-                // In full screen we only want to allow supported resolutions, so temp and opt->second.currentValue need to 
-                // match exactly, but in windowed mode we can allow for arbitrary window sized, so we only need
-                // to match the colour values
-                if(fullScreen && (temp == opt->second.currentValue) ||
-                    !fullScreen && (temp.substr(temp.rfind('@')+1) == colourDepth))
-                {
-                    videoMode = mActiveD3DDriver->getVideoModeList()->item(j);
-                    break;
-                }
-            }
-
-            if( !videoMode )
-                OGRE_EXCEPT( Exception::ERR_INTERNAL_ERROR, "Can't find requested video mode.", "D3D9RenderSystem::initialise" );
-
-            // sRGB window option
-            bool hwGamma = false;
-            opt = mOptions.find( "sRGB Gamma Conversion" );
-            if( opt == mOptions.end() )
-                OGRE_EXCEPT( Exception::ERR_INTERNAL_ERROR, "Can't find sRGB option!", "D3D9RenderSystem::initialise" );
-            hwGamma = opt->second.currentValue == "Yes";
-
-            NameValuePairList miscParams;
-            miscParams["colourDepth"] = StringConverter::toString(videoMode->getColourDepth());
-            miscParams["FSAA"] = StringConverter::toString(mFSAASamples);
-            miscParams["FSAAHint"] = mFSAAHint;
-			miscParams["vsync"] = StringConverter::toString(mVSync);
-			miscParams["vsyncInterval"] = StringConverter::toString(mVSyncInterval);
-
-            miscParams["useNVPerfHUD"] = StringConverter::toString(mUseNVPerfHUD);
-            miscParams["gamma"] = StringConverter::toString(hwGamma);
-            miscParams["monitorIndex"] = StringConverter::toString(static_cast<int>(mActiveD3DDriver->getAdapterNumber()));
-			miscParams["Backbuffer Count"] = StringConverter::toString(mBackBufferCount);
-			
-            opt = mOptions.find("VSync");
-            if (opt == mOptions.end())
-                OGRE_EXCEPT(Exception::ERR_INVALIDPARAMS, "Can't find VSync options!", "D3D9RenderSystem::initialise");
-            bool vsync = (opt->second.currentValue == "Yes");
-            miscParams["vsync"] = StringConverter::toString(vsync);
-
-            opt = mOptions.find("VSync Interval");
-            if (opt == mOptions.end())
-                OGRE_EXCEPT(Exception::ERR_INVALIDPARAMS, "Can't find VSync Interval options!", "D3D9RenderSystem::initialise");
-            miscParams["vsyncInterval"] = opt->second.currentValue;
-
-            autoWindow = _createRenderWindow( windowTitle, width, height, 
-                fullScreen, &miscParams );
-        }
-
         LogManager::getSingleton().logMessage("***************************************");
         LogManager::getSingleton().logMessage("*** D3D9 : Subsystem Initialised OK ***");
         LogManager::getSingleton().logMessage("***************************************");
-
-        // call superclass method
-        RenderSystem::_initialise( autoCreateWindow );
-
-
-        return autoWindow;
     }
     //---------------------------------------------------------------------
     void D3D9RenderSystem::reinitialise()
     {
         LogManager::getSingleton().logMessage( "D3D9 : Reinitialising" );
         this->shutdown();
-        this->_initialise( true );
+        this->_initialise();
     }
     //---------------------------------------------------------------------
     void D3D9RenderSystem::shutdown()
@@ -928,7 +964,6 @@ namespace Ogre
         rsc->setNumVertexAttributes(14); // see D3DDECLUSAGE
         rsc->setCapability(RSC_ANISOTROPY);
         rsc->setCapability(RSC_DOT3);
-        rsc->setCapability(RSC_CUBEMAPPING);        
         rsc->setCapability(RSC_SCISSOR_TEST);       
         rsc->setCapability(RSC_TWO_SIDED_STENCIL);      
         rsc->setCapability(RSC_STENCIL_WRAP);
@@ -999,6 +1034,8 @@ namespace Ogre
                 rsc->setNumTextureUnits(static_cast<ushort>(rkCurCaps.MaxSimultaneousTextures));
             }
 
+            bool has_level_9_1 = true;
+
             // Check for Anisotropy.
             if (rkCurCaps.MaxAnisotropy <= 1)
                 rsc->unsetCapability(RSC_ANISOTROPY);
@@ -1011,10 +1048,12 @@ namespace Ogre
             if ((rkCurCaps.RasterCaps & D3DPRASTERCAPS_SCISSORTEST) == 0)
                 rsc->unsetCapability(RSC_SCISSOR_TEST);
 
+            if ((rkCurCaps.RasterCaps & (D3DPRASTERCAPS_DEPTHBIAS | D3DPRASTERCAPS_SLOPESCALEDEPTHBIAS)) == 0)
+                has_level_9_1 = false;
 
             // Two-sided stencil
             if ((rkCurCaps.StencilCaps & D3DSTENCILCAPS_TWOSIDED) == 0)
-                rsc->unsetCapability(RSC_TWO_SIDED_STENCIL);
+                has_level_9_1 = false;
 
             // stencil wrap
             if ((rkCurCaps.StencilCaps & D3DSTENCILCAPS_INCR) == 0 ||
@@ -1035,7 +1074,7 @@ namespace Ogre
 
             // Check cube map support.
             if ((rkCurCaps.TextureCaps & D3DPTEXTURECAPS_CUBEMAP) == 0)
-                rsc->unsetCapability(RSC_CUBEMAPPING);
+                has_level_9_1 = false;
             
             // 3D textures?
             if ((rkCurCaps.TextureCaps & D3DPTEXTURECAPS_VOLUMEMAP) == 0)           
@@ -1091,7 +1130,12 @@ namespace Ogre
             // Advanced blend operations? min max subtract rev 
             if((rkCurCaps.PrimitiveMiscCaps & D3DPMISCCAPS_BLENDOP) == 0)
                 rsc->unsetCapability(RSC_ADVANCED_BLEND_OPERATIONS);
-        }               
+
+            // see https://technet.microsoft.com/en-us/evalcenter/jj841213(v=vs.90)
+            if (!has_level_9_1)
+                LogManager::getSingleton().logError(
+                    "D3D9 feature level 9.1 required, but at least one Capability is not supported");
+        }
 
         // We always support compression, D3DX will decompress if device does not support
         rsc->setCapability(RSC_TEXTURE_COMPRESSION);
@@ -1221,6 +1265,8 @@ namespace Ogre
         {       
             mRealCapabilities = rsc;
             mRealCapabilities->addShaderProfile("hlsl");
+
+            initFixedFunctionParams(); // create params
 
             // if we are using custom capabilities, then 
             // mCurrentCapabilities has already been loaded
@@ -1643,77 +1689,6 @@ namespace Ogre
         }
     }
     //---------------------------------------------------------------------
-    void D3D9RenderSystem::_makeProjectionMatrix(const Radian& fovy, Real aspect, Real nearPlane, 
-        Real farPlane, Matrix4& dest, bool forGpuProgram)
-    {
-        Radian theta ( fovy * 0.5 );
-        Real h = 1 / Math::Tan(theta);
-        Real w = h / aspect;
-        Real q, qn;
-        if (farPlane == 0)
-        {
-            q = 1 - Frustum::INFINITE_FAR_PLANE_ADJUST;
-            qn = nearPlane * (Frustum::INFINITE_FAR_PLANE_ADJUST - 1);
-        }
-        else
-        {
-            q = farPlane / ( farPlane - nearPlane );
-            qn = -q * nearPlane;
-        }
-
-        dest = Matrix4::ZERO;
-        dest[0][0] = w;
-        dest[1][1] = h;
-
-        if (forGpuProgram)
-        {
-            dest[2][2] = -q;
-            dest[3][2] = -1.0f;
-        }
-        else
-        {
-            dest[2][2] = q;
-            dest[3][2] = 1.0f;
-        }
-
-        dest[2][3] = qn;
-    }
-    //---------------------------------------------------------------------
-    void D3D9RenderSystem::_makeOrthoMatrix(const Radian& fovy, Real aspect, Real nearPlane, Real farPlane, 
-        Matrix4& dest, bool forGpuProgram )
-    {
-        Radian thetaY (fovy / 2.0f);
-        Real tanThetaY = Math::Tan(thetaY);
-
-        //Real thetaX = thetaY * aspect;
-        Real tanThetaX = tanThetaY * aspect; //Math::Tan(thetaX);
-        Real half_w = tanThetaX * nearPlane;
-        Real half_h = tanThetaY * nearPlane;
-        Real iw = static_cast<Real>(1.0 / half_w);
-        Real ih = static_cast<Real>(1.0 / half_h);
-        Real q;
-        if (farPlane == 0)
-        {
-            q = 0;
-        }
-        else
-        {
-            q = static_cast<Real>(1.0 / (farPlane - nearPlane));
-        }
-
-        dest = Matrix4::ZERO;
-        dest[0][0] = iw;
-        dest[1][1] = ih;
-        dest[2][2] = q;
-        dest[2][3] = -nearPlane / (farPlane - nearPlane);
-        dest[3][3] = 1;
-
-        if (forGpuProgram)
-        {
-            dest[2][2] = -dest[2][2];
-        }
-    }
-    //---------------------------------------------------------------------
     void D3D9RenderSystem::setAmbientLight( float r, float g, float b )
     {
         HRESULT hr = __SetRenderState( D3DRS_AMBIENT, D3DCOLOR_COLORVALUE( r, g, b, 1.0f ) );
@@ -1722,22 +1697,24 @@ namespace Ogre
             "Failed to set render stat D3DRS_AMBIENT", "D3D9RenderSystem::setAmbientLight" );
     }
     //---------------------------------------------------------------------
-    void D3D9RenderSystem::_useLights(const LightList& lights, unsigned short limit)
+    void D3D9RenderSystem::_useLights(unsigned short limit)
     {
         IDirect3DDevice9* activeDevice = getActiveD3D9Device();
-        LightList::const_iterator i, iend;
-        iend = lights.end();
+
+        if(mCurrentLights[activeDevice] == limit)
+            return;
+
         unsigned short num = 0;
-        for (i = lights.begin(); i != iend && num < limit; ++i, ++num)
+        for (; num < limit; ++num)
         {
-            setD3D9Light(num, *i);
+            setD3D9Light(num, true);
         }
         // Disable extra lights
         for (; num < mCurrentLights[activeDevice]; ++num)
         {
-            setD3D9Light(num, NULL);
+            setD3D9Light(num, false);
         }
-        mCurrentLights[activeDevice] = std::min(limit, static_cast<unsigned short>(lights.size()));
+        mCurrentLights[activeDevice] = limit;
 
     }
     //---------------------------------------------------------------------
@@ -1757,74 +1734,20 @@ namespace Ogre
             "Failed to set render state D3DRS_LIGHTING", "D3D9RenderSystem::setLightingEnabled" );
     }
     //---------------------------------------------------------------------
-    void D3D9RenderSystem::setD3D9Light( size_t index, Light* lt )
+    void D3D9RenderSystem::setD3D9Light( size_t index, bool enabled)
     {
+        setFFPLightParams(index, enabled);
         HRESULT hr;
 
-        D3DLIGHT9 d3dLight;
-        ZeroMemory( &d3dLight, sizeof(d3dLight) );
-
-        if (!lt)
+        if (!enabled)
         {
             if( FAILED( hr = getActiveD3D9Device()->LightEnable( static_cast<DWORD>(index), FALSE) ) )
                 OGRE_EXCEPT(Exception::ERR_RENDERINGAPI_ERROR, 
                 "Unable to disable light", "D3D9RenderSystem::setD3D9Light" );
         }
-        else
-        {
-            switch( lt->getType() )
-            {
-            case Light::LT_POINT:
-                d3dLight.Type = D3DLIGHT_POINT;
-                break;
-
-            case Light::LT_DIRECTIONAL:
-                d3dLight.Type = D3DLIGHT_DIRECTIONAL;
-                break;
-
-            case Light::LT_SPOTLIGHT:
-                d3dLight.Type = D3DLIGHT_SPOT;
-                d3dLight.Falloff = lt->getSpotlightFalloff();
-                d3dLight.Theta = lt->getSpotlightInnerAngle().valueRadians();
-                d3dLight.Phi = lt->getSpotlightOuterAngle().valueRadians();
-                break;
-            }
-
-            ColourValue col;
-            col = lt->getDiffuseColour();
-            d3dLight.Diffuse = D3DXCOLOR( col.r, col.g, col.b, col.a );
-
-            col = lt->getSpecularColour();
-            d3dLight.Specular = D3DXCOLOR( col.r, col.g, col.b, col.a );
-
-            Vector3 vec;
-            if( lt->getType() != Light::LT_DIRECTIONAL )
-            {
-                vec = lt->getDerivedPosition(true);
-                d3dLight.Position = D3DXVECTOR3( vec.x, vec.y, vec.z );
-            }
-            if( lt->getType() != Light::LT_POINT )
-            {
-                vec = lt->getDerivedDirection();
-                d3dLight.Direction = D3DXVECTOR3( vec.x, vec.y, vec.z );
-            }
-
-            d3dLight.Range = lt->getAttenuationRange();
-            d3dLight.Attenuation0 = lt->getAttenuationConstant();
-            d3dLight.Attenuation1 = lt->getAttenuationLinear();
-            d3dLight.Attenuation2 = lt->getAttenuationQuadric();
-
-            if( FAILED( hr = getActiveD3D9Device()->SetLight( static_cast<DWORD>(index), &d3dLight ) ) )
-                OGRE_EXCEPT(Exception::ERR_RENDERINGAPI_ERROR, "Unable to set light details", "D3D9RenderSystem::setD3D9Light" );
-
-            if( FAILED( hr = getActiveD3D9Device()->LightEnable( static_cast<DWORD>(index), TRUE ) ) )
-                OGRE_EXCEPT(Exception::ERR_RENDERINGAPI_ERROR, "Unable to enable light", "D3D9RenderSystem::setD3D9Light" );
-        }
-
-
     }
     //---------------------------------------------------------------------
-    void D3D9RenderSystem::_setViewMatrix( const Matrix4 &m )
+    void D3D9RenderSystem::setViewMatrix( const Matrix4 &m )
     {
         // save latest view matrix
         mViewMatrix = m;
@@ -1837,30 +1760,27 @@ namespace Ogre
 
         HRESULT hr;
         if( FAILED( hr = getActiveD3D9Device()->SetTransform( D3DTS_VIEW, &mDxViewMat ) ) )
-            OGRE_EXCEPT(Exception::ERR_RENDERINGAPI_ERROR, "Cannot set D3D9 view matrix", "D3D9RenderSystem::_setViewMatrix" );
+            OGRE_EXCEPT(Exception::ERR_RENDERINGAPI_ERROR, "Cannot set D3D9 view matrix");
 
         // also mark clip planes dirty
         if (!mClipPlanes.empty())
             mClipPlanesDirty = true;
     }
     //---------------------------------------------------------------------
-    void D3D9RenderSystem::_setProjectionMatrix( const Matrix4 &m )
+    void D3D9RenderSystem::setProjectionMatrix( const Matrix4 &m )
     {
         // save latest matrix
         mDxProjMat = D3D9Mappings::makeD3DXMatrix( m );
 
-        if( mActiveRenderTarget->requiresTextureFlipping() )
-        {
-            // Invert transformed y
-            mDxProjMat._12 = - mDxProjMat._12;
-            mDxProjMat._22 = - mDxProjMat._22;
-            mDxProjMat._32 = - mDxProjMat._32;
-            mDxProjMat._42 = - mDxProjMat._42;
-        }
+        // Convert right-handed to left-handed
+        mDxProjMat._31 = -mDxProjMat._31;
+        mDxProjMat._32 = -mDxProjMat._32;
+        mDxProjMat._33 = -mDxProjMat._33;
+        mDxProjMat._34 = -mDxProjMat._34;
 
         HRESULT hr;
         if( FAILED( hr = getActiveD3D9Device()->SetTransform( D3DTS_PROJECTION, &mDxProjMat ) ) )
-            OGRE_EXCEPT(Exception::ERR_RENDERINGAPI_ERROR, "Cannot set D3D9 projection matrix", "D3D9RenderSystem::_setProjectionMatrix" );
+            OGRE_EXCEPT(Exception::ERR_RENDERINGAPI_ERROR, "Cannot set D3D9 projection matrix");
 
         // also mark clip planes dirty
         if (!mClipPlanes.empty())
@@ -1868,32 +1788,18 @@ namespace Ogre
 
     }
     //---------------------------------------------------------------------
-    void D3D9RenderSystem::_setWorldMatrix( const Matrix4 &m )
+    void D3D9RenderSystem::setWorldMatrix( const Matrix4 &m )
     {
         // save latest matrix
         mDxWorldMat = D3D9Mappings::makeD3DXMatrix( m );
 
         HRESULT hr;
         if( FAILED( hr = getActiveD3D9Device()->SetTransform( D3DTS_WORLD, &mDxWorldMat ) ) )
-            OGRE_EXCEPT(Exception::ERR_RENDERINGAPI_ERROR, "Cannot set D3D9 world matrix", "D3D9RenderSystem::_setWorldMatrix" );
+            OGRE_EXCEPT(Exception::ERR_RENDERINGAPI_ERROR, "Cannot set D3D9 world matrix");
     }
     //---------------------------------------------------------------------
-    void D3D9RenderSystem::_setSurfaceParams( const ColourValue &ambient, const ColourValue &diffuse,
-        const ColourValue &specular, const ColourValue &emissive, Real shininess,
-        TrackVertexColourType tracking )
+    void D3D9RenderSystem::_setSurfaceTracking( TrackVertexColourType tracking )
     {
-
-        D3DMATERIAL9 material;
-        material.Diffuse = D3DXCOLOR( diffuse.r, diffuse.g, diffuse.b, diffuse.a );
-        material.Ambient = D3DXCOLOR( ambient.r, ambient.g, ambient.b, ambient.a );
-        material.Specular = D3DXCOLOR( specular.r, specular.g, specular.b, specular.a );
-        material.Emissive = D3DXCOLOR( emissive.r, emissive.g, emissive.b, emissive.a );
-        material.Power = shininess;
-
-        HRESULT hr = getActiveD3D9Device()->SetMaterial( &material );
-        if( FAILED( hr ) )
-            OGRE_EXCEPT(Exception::ERR_RENDERINGAPI_ERROR, "Error setting D3D material", "D3D9RenderSystem::_setSurfaceParams" );
-
 
         if(tracking != TVC_NONE) 
         {
@@ -1910,24 +1816,19 @@ namespace Ogre
 
     }
     //---------------------------------------------------------------------
-    void D3D9RenderSystem::_setPointParameters(Real size, 
-        bool attenuationEnabled, Real constant, Real linear, Real quadratic,
-        Real minSize, Real maxSize)
+    void D3D9RenderSystem::_setPointParameters(bool attenuationEnabled, Real minSize, Real maxSize)
     {
         if(attenuationEnabled)
         {
             // scaling required
             __SetRenderState(D3DRS_POINTSCALEENABLE, TRUE);
-            __SetFloatRenderState(D3DRS_POINTSCALE_A, constant);
-            __SetFloatRenderState(D3DRS_POINTSCALE_B, linear);
-            __SetFloatRenderState(D3DRS_POINTSCALE_C, quadratic);
         }
         else
         {
             // no scaling required
             __SetRenderState(D3DRS_POINTSCALEENABLE, FALSE);
         }
-        __SetFloatRenderState(D3DRS_POINTSIZE, size);
+
         __SetFloatRenderState(D3DRS_POINTSIZE_MIN, minSize);
         if (maxSize == 0.0f)
             maxSize = mCurrentCapabilities->getMaxPointSize();
@@ -2133,20 +2034,6 @@ namespace Ogre
             hr = __SetTextureStageState( static_cast<DWORD>(stage), D3DTSS_TEXCOORDINDEX, D3D9Mappings::get(m, mDeviceManager->getActiveDevice()->getD3D9DeviceCaps()) | mTexStageDesc[stage].coordIndex );
         if(FAILED(hr))
             OGRE_EXCEPT(Exception::ERR_RENDERINGAPI_ERROR, "Unable to set texture auto tex.coord. generation mode", "D3D9RenderSystem::_setTextureCoordCalculation" );
-    }
-    //---------------------------------------------------------------------
-    void D3D9RenderSystem::_setTextureMipmapBias(size_t unit, float bias)
-    {
-        if (mCurrentCapabilities->hasCapability(RSC_MIPMAP_LOD_BIAS))
-        {
-            // ugh - have to pass float data through DWORD with no conversion
-            HRESULT hr = __SetSamplerState(getSamplerId(unit), D3DSAMP_MIPMAPLODBIAS, 
-                *(DWORD*)&bias);
-            if(FAILED(hr))
-                OGRE_EXCEPT(Exception::ERR_RENDERINGAPI_ERROR, "Unable to set texture mipmap bias", 
-                "D3D9RenderSystem::_setTextureMipmapBias" );
-
-        }
     }
     //---------------------------------------------------------------------
     void D3D9RenderSystem::_setTextureMatrix( size_t stage, const Matrix4& xForm )
@@ -2364,14 +2251,6 @@ namespace Ogre
             OGRE_EXCEPT(Exception::ERR_RENDERINGAPI_ERROR, "Failed to set texture addressing mode for V", "D3D9RenderSystem::_setTextureAddressingMode" );
         if( FAILED( hr = __SetSamplerState( getSamplerId(stage), D3DSAMP_ADDRESSW, D3D9Mappings::get(uvw.w, mDeviceManager->getActiveDevice()->getD3D9DeviceCaps()) ) ) )
             OGRE_EXCEPT(Exception::ERR_RENDERINGAPI_ERROR, "Failed to set texture addressing mode for W", "D3D9RenderSystem::_setTextureAddressingMode" );
-    }
-    //-----------------------------------------------------------------------------
-    void D3D9RenderSystem::_setTextureBorderColour(size_t stage,
-        const ColourValue& colour)
-    {
-        HRESULT hr;
-        if( FAILED( hr = __SetSamplerState( getSamplerId(stage), D3DSAMP_BORDERCOLOR, colour.getAsARGB()) ) )
-            OGRE_EXCEPT(Exception::ERR_RENDERINGAPI_ERROR, "Failed to set texture border colour", "D3D9RenderSystem::_setTextureBorderColour" );
     }
     //---------------------------------------------------------------------
     void D3D9RenderSystem::_setTextureBlendMode( size_t stage, const LayerBlendModeEx& bm )
@@ -2649,30 +2528,21 @@ namespace Ogre
     //---------------------------------------------------------------------
     void D3D9RenderSystem::_setDepthBias(float constantBias, float slopeScaleBias)
     {
+        // Negate bias since D3D is backward
+        // D3D also expresses the constant bias as an absolute value, rather than
+        // relative to minimum depth unit, so scale to fit
+        constantBias = -constantBias / 250000.0f;
+        HRESULT hr = __SetRenderState(D3DRS_DEPTHBIAS, FLOAT2DWORD(constantBias));
+        if (FAILED(hr))
+            OGRE_EXCEPT(Exception::ERR_RENDERINGAPI_ERROR, "Error setting constant depth bias",
+            "D3D9RenderSystem::_setDepthBias");
 
-        if ((mDeviceManager->getActiveDevice()->getD3D9DeviceCaps().RasterCaps & D3DPRASTERCAPS_DEPTHBIAS) != 0)
-        {
-            // Negate bias since D3D is backward
-            // D3D also expresses the constant bias as an absolute value, rather than 
-            // relative to minimum depth unit, so scale to fit
-            constantBias = -constantBias / 250000.0f;
-            HRESULT hr = __SetRenderState(D3DRS_DEPTHBIAS, FLOAT2DWORD(constantBias));
-            if (FAILED(hr))
-                OGRE_EXCEPT(Exception::ERR_RENDERINGAPI_ERROR, "Error setting constant depth bias", 
-                "D3D9RenderSystem::_setDepthBias");
-        }
-
-        if ((mDeviceManager->getActiveDevice()->getD3D9DeviceCaps().RasterCaps & D3DPRASTERCAPS_SLOPESCALEDEPTHBIAS) != 0)
-        {
-            // Negate bias since D3D is backward
-            slopeScaleBias = -slopeScaleBias;
-            HRESULT hr = __SetRenderState(D3DRS_SLOPESCALEDEPTHBIAS, FLOAT2DWORD(slopeScaleBias));
-            if (FAILED(hr))
-                OGRE_EXCEPT(Exception::ERR_RENDERINGAPI_ERROR, "Error setting slope scale depth bias", 
-                "D3D9RenderSystem::_setDepthBias");
-        }
-
-
+        // Negate bias since D3D is backward
+        slopeScaleBias = -slopeScaleBias;
+        hr = __SetRenderState(D3DRS_SLOPESCALEDEPTHBIAS, FLOAT2DWORD(slopeScaleBias));
+        if (FAILED(hr))
+            OGRE_EXCEPT(Exception::ERR_RENDERINGAPI_ERROR, "Error setting slope scale depth bias",
+            "D3D9RenderSystem::_setDepthBias");
     }
     //---------------------------------------------------------------------
     void D3D9RenderSystem::_setColourBufferWriteEnabled(bool red, bool green, 
@@ -2693,7 +2563,7 @@ namespace Ogre
             "D3D9RenderSystem::_setColourBufferWriteEnabled");
     }
     //---------------------------------------------------------------------
-    void D3D9RenderSystem::_setFog( FogMode mode, const ColourValue& colour, Real densitiy, Real start, Real end )
+    void D3D9RenderSystem::_setFog( FogMode mode)
     {
         HRESULT hr;
 
@@ -2715,6 +2585,9 @@ namespace Ogre
             // just disable
             hr = __SetRenderState(fogType, D3DFOG_NONE );
             hr = __SetRenderState(D3DRS_FOGENABLE, FALSE);
+
+            mFixedFunctionParams->clearAutoConstant(18);
+            mFixedFunctionParams->clearAutoConstant(19);
         }
         else
         {
@@ -2723,10 +2596,8 @@ namespace Ogre
             hr = __SetRenderState( fogTypeNot, D3DFOG_NONE );
             hr = __SetRenderState( fogType, D3D9Mappings::get(mode) );
 
-            hr = __SetRenderState( D3DRS_FOGCOLOR, colour.getAsARGB() );
-            hr = __SetFloatRenderState( D3DRS_FOGSTART, start );
-            hr = __SetFloatRenderState( D3DRS_FOGEND, end );
-            hr = __SetFloatRenderState( D3DRS_FOGDENSITY, densitiy );
+            mFixedFunctionParams->setAutoConstant(18, GpuProgramParameters::ACT_FOG_PARAMS);
+            mFixedFunctionParams->setAutoConstant(19, GpuProgramParameters::ACT_FOG_COLOUR);
         }
 
         if( FAILED( hr ) )
@@ -2854,30 +2725,11 @@ namespace Ogre
             OGRE_EXCEPT(Exception::ERR_RENDERINGAPI_ERROR, "Failed to set texture filter ", "D3D9RenderSystem::_setTextureUnitFiltering");
     }
     //---------------------------------------------------------------------
-    void D3D9RenderSystem::_setTextureUnitCompareFunction(size_t unit, CompareFunction function)
-    {
-        //no effect in directX9 rendersystem
-    }
-    //---------------------------------------------------------------------
-    void D3D9RenderSystem::_setTextureUnitCompareEnabled(size_t unit, bool compare)
-    {
-        //no effect in directX9 rendersystem
-    }
-    //---------------------------------------------------------------------
     DWORD D3D9RenderSystem::_getCurrentAnisotropy(size_t unit)
     {
         DWORD oldVal;
         getActiveD3D9Device()->GetSamplerState(static_cast<DWORD>(unit), D3DSAMP_MAXANISOTROPY, &oldVal);
         return oldVal;
-    }
-    //---------------------------------------------------------------------
-    void D3D9RenderSystem::_setTextureLayerAnisotropy(size_t unit, unsigned int maxAnisotropy)
-    {
-        if (static_cast<DWORD>(maxAnisotropy) > mDeviceManager->getActiveDevice()->getD3D9DeviceCaps().MaxAnisotropy)
-            maxAnisotropy = mDeviceManager->getActiveDevice()->getD3D9DeviceCaps().MaxAnisotropy;
-
-        if (_getCurrentAnisotropy(unit) != maxAnisotropy)
-            __SetSamplerState( getSamplerId(unit), D3DSAMP_MAXANISOTROPY, maxAnisotropy );
     }
     //---------------------------------------------------------------------
     HRESULT D3D9RenderSystem::__SetRenderState(D3DRENDERSTATETYPE state, DWORD value)
@@ -3998,54 +3850,6 @@ namespace Ogre
                 + msg, "D3D9RenderSystem::clearFrameBuffer" );
         }
     }
-    //---------------------------------------------------------------------
-    void D3D9RenderSystem::_makeProjectionMatrix(Real left, Real right, 
-        Real bottom, Real top, Real nearPlane, Real farPlane, Matrix4& dest,
-        bool forGpuProgram)
-    {
-        // Correct position for off-axis projection matrix
-        if (!forGpuProgram)
-        {
-            Real offsetX = left + right;
-            Real offsetY = top + bottom;
-
-            left -= offsetX;
-            right -= offsetX;
-            top -= offsetY;
-            bottom -= offsetY;
-        }
-
-        Real width = right - left;
-        Real height = top - bottom;
-        Real q, qn;
-        if (farPlane == 0)
-        {
-            q = 1 - Frustum::INFINITE_FAR_PLANE_ADJUST;
-            qn = nearPlane * (Frustum::INFINITE_FAR_PLANE_ADJUST - 1);
-        }
-        else
-        {
-            q = farPlane / ( farPlane - nearPlane );
-            qn = -q * nearPlane;
-        }
-        dest = Matrix4::ZERO;
-        dest[0][0] = 2 * nearPlane / width;
-        dest[0][2] = (right+left) / width;
-        dest[1][1] = 2 * nearPlane / height;
-        dest[1][2] = (top+bottom) / height;
-        if (forGpuProgram)
-        {
-            dest[2][2] = -q;
-            dest[3][2] = -1.0f;
-        }
-        else
-        {
-            dest[2][2] = q;
-            dest[3][2] = 1.0f;
-        }
-        dest[2][3] = qn;
-    }
-
     // ------------------------------------------------------------------
     void D3D9RenderSystem::setClipPlane (ushort index, Real A, Real B, Real C, Real D)
     {
@@ -4079,53 +3883,6 @@ namespace Ogre
     {
         // D3D considers the origin to be in the center of a pixel
         return -0.5f;
-    }
-    //---------------------------------------------------------------------
-    void D3D9RenderSystem::_applyObliqueDepthProjection(Matrix4& matrix, const Plane& plane, 
-        bool forGpuProgram)
-    {
-        // Thanks to Eric Lenyel for posting this calculation at www.terathon.com
-
-        // Calculate the clip-space corner point opposite the clipping plane
-        // as (sgn(clipPlane.x), sgn(clipPlane.y), 1, 1) and
-        // transform it into camera space by multiplying it
-        // by the inverse of the projection matrix
-
-        /* generalised version
-        Vector4 q = matrix.inverse() * 
-        Vector4(Math::Sign(plane.normal.x), Math::Sign(plane.normal.y), 1.0f, 1.0f);
-        */
-        Vector4 q;
-        q.x = Math::Sign(plane.normal.x) / matrix[0][0];
-        q.y = Math::Sign(plane.normal.y) / matrix[1][1];
-        q.z = 1.0F; 
-        // flip the next bit from Lengyel since we're right-handed
-        if (forGpuProgram)
-        {
-            q.w = (1.0F - matrix[2][2]) / matrix[2][3];
-        }
-        else
-        {
-            q.w = (1.0F + matrix[2][2]) / matrix[2][3];
-        }
-
-        // Calculate the scaled plane vector
-        Vector4 clipPlane4d(plane.normal.x, plane.normal.y, plane.normal.z, plane.d);
-        Vector4 c = clipPlane4d * (1.0F / (clipPlane4d.dotProduct(q)));
-
-        // Replace the third row of the projection matrix
-        matrix[2][0] = c.x;
-        matrix[2][1] = c.y;
-        // flip the next bit from Lengyel since we're right-handed
-        if (forGpuProgram)
-        {
-            matrix[2][2] = c.z; 
-        }
-        else
-        {
-            matrix[2][2] = -c.z; 
-        }
-        matrix[2][3] = c.w;        
     }
     //---------------------------------------------------------------------
     Real D3D9RenderSystem::getMinimumDepthInputValue()

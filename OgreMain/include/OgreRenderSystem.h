@@ -137,7 +137,7 @@ namespace Ogre
         operation.
         @par
         These are passed as strings for portability, but
-        grouped into a structure (_ConfigOption) which includes
+        grouped into a structure (ConfigOption) which includes
         both options and current value.
         @par
         Note that the settings returned from this call are
@@ -151,7 +151,7 @@ namespace Ogre
         A 'map' of options, i.e. a list of options which is also
         indexed by option name.
         */
-        ConfigOptionMap& getConfigOptions() { return mOptions; }
+        const ConfigOptionMap& getConfigOptions() const { return mOptions; }
 
         /** Sets an option for this API
         @remarks
@@ -174,6 +174,10 @@ namespace Ogre
         */
         virtual void setConfigOption(const String &name, const String &value) = 0;
 
+        /** get a RenderWindowDescription from the current ConfigOptionMap
+         */
+        RenderWindowDescription getRenderWindowDescription() const;
+
         /** Create an object for performing hardware occlusion queries. 
         */
         virtual HardwareOcclusionQuery* createHardwareOcclusionQuery(void) = 0;
@@ -189,20 +193,11 @@ namespace Ogre
         virtual String validateConfigOptions(void) = 0;
 
         /** Start up the renderer using the settings selected (Or the defaults if none have been selected).
-        @remarks
+
         Called by Root::setRenderSystem. Shouldn't really be called
         directly, although  this can be done if the app wants to.
-        @param
-        autoCreateWindow If true, creates a render window
-        automatically, based on settings chosen so far. This saves
-        an extra call to _createRenderWindow
-        for the main render window.
-        @param
-        windowTitle Sets the app window title
-        @return
-        A pointer to the automatically created window, if requested, otherwise null.
         */
-        virtual RenderWindow* _initialise(bool autoCreateWindow, const String& windowTitle = "OGRE Render Window");
+        virtual void _initialise();
 
         /**
         Returns whether under the current render system buffers marked as TU_STATIC can be locked for update
@@ -239,14 +234,45 @@ namespace Ogre
         */
         virtual void shutdown(void);
 
+        virtual const GpuProgramParametersPtr& getFixedFunctionParams(TrackVertexColourType tracking,
+                                                                      FogMode fog)
+        {
+            return mFixedFunctionParams;
+        }
 
-        /** Sets the colour & strength of the ambient (global directionless) light in the world.
-        @deprecated only needed for fixed function APIs
-        */
-        virtual void setAmbientLight(float r, float g, float b) {}
+        /// @deprecated migrate to getFixedFunctionParams ASAP. this is very slow now.
+        OGRE_DEPRECATED void _setProjectionMatrix(Matrix4 m);
 
-        /// @overload
-        void setAmbientLight(const ColourValue& c) { setAmbientLight(c.r, c.g, c.b); }
+        /// @deprecated migrate to getFixedFunctionParams ASAP. this is very slow now.
+        OGRE_DEPRECATED void _setViewMatrix(const Matrix4& m)
+        {
+            if (!mFixedFunctionParams) return;
+            mFixedFunctionParams->setConstant(4, m);
+            applyFixedFunctionParams(mFixedFunctionParams, GPV_GLOBAL);
+        }
+
+        /// @deprecated migrate to getFixedFunctionParams ASAP. this is very slow now.
+        OGRE_DEPRECATED void _setWorldMatrix(const Matrix4& m)
+        {
+            if (!mFixedFunctionParams) return;
+            mFixedFunctionParams->setConstant(0, m);
+            applyFixedFunctionParams(mFixedFunctionParams, GPV_PER_OBJECT);
+        }
+
+        /// @deprecated migrate to getFixedFunctionParams ASAP. this is very slow now.
+        OGRE_DEPRECATED void _setFog(FogMode f)
+        {
+            if (mFixedFunctionParams)
+                getFixedFunctionParams(TVC_NONE, f);
+        }
+
+        /// @deprecated use setColourBlendState
+        OGRE_DEPRECATED void _setSceneBlending(SceneBlendFactor sourceFactor, SceneBlendFactor destFactor, SceneBlendOperation op = SBO_ADD)
+        {
+            _setSeparateSceneBlending(sourceFactor, destFactor, sourceFactor, destFactor, op, op);
+        }
+
+        virtual void applyFixedFunctionParams(const GpuProgramParametersPtr& params, uint16 variabilityMask) {}
 
         /** Sets the type of light shading required (default = Gouraud).
         @deprecated only needed for fixed function APIs
@@ -260,12 +286,6 @@ namespace Ogre
         @deprecated only needed for fixed function APIs
         */
         virtual void setLightingEnabled(bool enabled) {}
-
-        /// @deprecated use RSC_WBUFFER
-        OGRE_DEPRECATED void setWBufferEnabled(bool enabled);
-
-        /// @deprecated use RSC_WBUFFER
-        OGRE_DEPRECATED bool getWBufferEnabled(void) const;
 
         /** Creates a new rendering window.
         @remarks
@@ -322,7 +342,7 @@ namespace Ogre
         | useNVPerfHUD | true, false | false | Enable the use of nVidia NVPerfHUD | DirectX Specific |
         | depthBuffer | true, false | true | Use depth buffer | DirectX9 Specific |
         | NSOpenGLCPSurfaceOrder | -1 or 1 | 1 | [NSOpenGLCPSurfaceOrder](https://developer.apple.com/documentation/appkit/nsopenglcpsurfaceorder) | Mac OS X Specific |
-        | contentScalingFactor | Positive Float greater than 1.0 | The default content scaling factor of the screen | Specifies the CAEAGLLayer content scaling factor. Only supported on iOS 4 or greater. This can be useful to limit the resolution of the OpenGL ES backing store. For example, the iPhone 4's native resolution is 960 x 640\. Windows are always 320 x 480, if you would like to limit the display to 720 x 480, specify 1.5 as the scaling factor. | iOS Specific |
+        | contentScalingFactor | Positive Float greater than 1.0 | The default content scaling factor of the screen | On IOS specifies the CAEAGLLayer content scaling factor. Only supported on iOS 4 or greater. This can be useful to limit the resolution of the OpenGL ES backing store. For example, the iPhone 4's native resolution is 960 x 640\. Windows are always 320 x 480, if you would like to limit the display to 720 x 480, specify 1.5 as the scaling factor. | iOS / Android Specific |
         | externalViewHandle | UIView pointer as an integer | 0 | External view handle, for rendering OGRE render in an existing view | iOS Specific |
         | externalViewControllerHandle | UIViewController pointer as an integer | 0 | External view controller handle, for embedding OGRE in an existing view controller | iOS Specific |
         | externalSharegroup | EAGLSharegroup pointer as an integer | 0 | External sharegroup, used to shared GL resources between contexts | iOS Specific |
@@ -420,25 +440,12 @@ namespace Ogre
         // They can be called by library user if required
         // ------------------------------------------------------------------------
 
-
         /** Tells the rendersystem to use the attached set of lights (and no others) 
         up to the number specified (this allows the same list to be used with different
         count limits)
         @deprecated only needed for fixed function APIs
         */
-        virtual void _useLights(const LightList& lights, unsigned short limit) {}
-        /** Are fixed-function lights provided in view space? Affects optimisation. 
-        */
-        virtual bool areFixedFunctionLightsInViewSpace() const { return false; }
-        /** Sets the world transform matrix.
-         * @deprecated only needed for fixed function APIs */
-        virtual void _setWorldMatrix(const Matrix4 &m) {}
-        /** Sets the view transform matrix
-         * @deprecated only needed for fixed function APIs */
-        virtual void _setViewMatrix(const Matrix4 &m) {}
-        /** Sets the projection transform matrix
-         * @deprecated only needed for fixed function APIs*/
-        virtual void _setProjectionMatrix(const Matrix4 &m) {}
+        virtual void _useLights(unsigned short limit) {}
         /** Utility function for setting all the properties of a texture unit at once.
         This method is also worth using over the individual texture unit settings because it
         only sets those settings which are different from the current settings for this
@@ -447,49 +454,10 @@ namespace Ogre
         virtual void _setTextureUnitSettings(size_t texUnit, TextureUnitState& tl);
         /// set the sampler settings for the given texture unit
         virtual void _setSampler(size_t texUnit, Sampler& s) = 0;
-        OGRE_DEPRECATED virtual void _setBindingType(TextureUnitState::BindingType bindigType) {}
         /** Turns off a texture unit. */
         virtual void _disableTextureUnit(size_t texUnit);
         /** Disables all texture units from the given unit upwards */
         virtual void _disableTextureUnitsFrom(size_t texUnit);
-        /** Sets the surface properties to be used for future rendering.
-
-        This method sets the the properties of the surfaces of objects
-        to be rendered after it. In this context these surface properties
-        are the amount of each type of light the object reflects (determining
-        it's colour under different types of light), whether it emits light
-        itself, and how shiny it is. Textures are not dealt with here,
-        see the _setTetxure method for details.
-        This method is used by _setMaterial so does not need to be called
-        direct if that method is being used.
-
-        @param ambient The amount of ambient (sourceless and directionless)
-        light an object reflects. Affected by the colour/amount of ambient light in the scene.
-        @param diffuse The amount of light from directed sources that is
-        reflected (affected by colour/amount of point, directed and spot light sources)
-        @param specular The amount of specular light reflected. This is also
-        affected by directed light sources but represents the colour at the
-        highlights of the object.
-        @param emissive The colour of light emitted from the object. Note that
-        this will make an object seem brighter and not dependent on lights in
-        the scene, but it will not act as a light, so will not illuminate other
-        objects. Use a light attached to the same SceneNode as the object for this purpose.
-        @param shininess A value which only has an effect on specular highlights (so
-        specular must be non-black). The higher this value, the smaller and crisper the
-        specular highlights will be, imitating a more highly polished surface.
-        This value is not constrained to 0.0-1.0, in fact it is likely to
-        be more (10.0 gives a modest sheen to an object).
-        @param tracking A bit field that describes which of the ambient, diffuse, specular
-        and emissive colours follow the vertex colour of the primitive. When a bit in this field is set
-        its ColourValue is ignored. This is a combination of TVC_AMBIENT, TVC_DIFFUSE, TVC_SPECULAR(note that the shininess value is still
-        taken from shininess) and TVC_EMISSIVE. TVC_NONE means that there will be no material property
-        tracking the vertex colours.
-        @deprecated only needed for fixed function APIs
-        */
-        virtual void _setSurfaceParams(const ColourValue &ambient,
-            const ColourValue &diffuse, const ColourValue &specular,
-            const ColourValue &emissive, Real shininess,
-            TrackVertexColourType tracking = TVC_NONE) {}
 
         /** Sets whether or not rendering points using OT_POINT_LIST will 
         render point sprites (textured quads) or plain points.
@@ -499,19 +467,10 @@ namespace Ogre
         */  
         virtual void _setPointSpritesEnabled(bool enabled) {};
 
-        /** Sets the size of points and how they are attenuated with distance.
-        @remarks
-        When performing point rendering or point sprite rendering,
-        point size can be attenuated with distance. The equation for
-        doing this is attenuation = 1 / (constant + linear * dist + quadratic * d^2) .
-        @par
-        For example, to disable distance attenuation (constant screensize) 
-        you would set constant to 1, and linear and quadratic to 0. A
-        standard perspective attenuation would be 0, 1, 0 respectively.
+        /**
         @deprecated only needed for fixed function APIs
         */
-        virtual void _setPointParameters(Real size, bool attenuationEnabled, 
-            Real constant, Real linear, Real quadratic, Real minSize, Real maxSize) {};
+        virtual void _setPointParameters(bool attenuationEnabled, Real minSize, Real maxSize) {}
 
         /**
          * Set the line width when drawing as RenderOperation::OT_LINE_LIST/ RenderOperation::OT_LINE_STRIP
@@ -578,54 +537,15 @@ namespace Ogre
         */
         virtual void _setTextureBlendMode(size_t unit, const LayerBlendModeEx& bm) {}
 
-        /** Sets a single filter for a given texture unit.
-        @param unit The texture unit to set the filtering options for
-        @param ftype The filter type
-        @param filter The filter to be used
-        */
+        /// @deprecated use _setSampler
         virtual void _setTextureUnitFiltering(size_t unit, FilterType ftype, FilterOptions filter) = 0;
 
-        /** @overload
-        @param unit The texture unit to set the filtering options for
-        @param minFilter The filter used when a texture is reduced in size
-        @param magFilter The filter used when a texture is magnified
-        @param mipFilter The filter used between mipmap levels, FO_NONE disables mipmapping
-        */
-        virtual void _setTextureUnitFiltering(size_t unit, FilterOptions minFilter,
+        /// @deprecated use _setSampler
+        OGRE_DEPRECATED virtual void _setTextureUnitFiltering(size_t unit, FilterOptions minFilter,
             FilterOptions magFilter, FilterOptions mipFilter);
 
-        /** Sets whether the compare func is enabled or not for this texture unit 
-        @param unit The texture unit to set the filtering options for
-        @param compare The state (enabled/disabled)
-        */
-        virtual void _setTextureUnitCompareEnabled(size_t unit, bool compare) = 0;
-
-
-        /** Sets the compare function to use for a given texture unit
-        @param unit The texture unit to set the filtering options for
-        @param function The comparison function
-        */
-        virtual void _setTextureUnitCompareFunction(size_t unit, CompareFunction function) = 0;
-
-
-        /** Sets the maximal anisotropy for the specified texture unit.*/
-        virtual void _setTextureLayerAnisotropy(size_t unit, unsigned int maxAnisotropy) = 0;
-
-        /** Sets the texture addressing mode for a texture unit.*/
-        virtual void _setTextureAddressingMode(size_t unit, const Sampler::UVWAddressingMode& uvw) = 0;
-
-        /** Sets the texture border colour for a texture unit.*/
-        virtual void _setTextureBorderColour(size_t unit, const ColourValue& colour) = 0;
-
-        /** Sets the mipmap bias value for a given texture unit.
-        @remarks
-        This allows you to adjust the mipmap calculation up or down for a
-        given texture unit. Negative values force a larger mipmap to be used, 
-        positive values force a smaller mipmap to be used. Units are in numbers
-        of levels, so +1 forces the mipmaps to one smaller level.
-        @note Only does something if render system has capability RSC_MIPMAP_LOD_BIAS.
-        */
-        virtual void _setTextureMipmapBias(size_t unit, float bias) = 0;
+        /// @deprecated use _setSampler
+        OGRE_DEPRECATED virtual void _setTextureAddressingMode(size_t unit, const Sampler::UVWAddressingMode& uvw) = 0;
 
         /** Sets the texture coordinate transformation matrix for a texture unit.
         @param unit Texture unit to affect
@@ -640,12 +560,6 @@ namespace Ogre
             _setSeparateSceneBlending(state.sourceFactor, state.destFactor, state.sourceFactorAlpha,
                                       state.destFactorAlpha, state.operation, state.alphaOperation);
             _setColourBufferWriteEnabled(state.writeR, state.writeG, state.writeB, state.writeA);
-        }
-
-        /// @deprecated use setColourBlendState
-        OGRE_DEPRECATED void _setSceneBlending(SceneBlendFactor sourceFactor, SceneBlendFactor destFactor, SceneBlendOperation op = SBO_ADD)
-        {
-            _setSeparateSceneBlending(sourceFactor, destFactor, sourceFactor, destFactor, op, op);
         }
 
         /// @deprecated use setColourBlendState
@@ -794,20 +708,6 @@ namespace Ogre
 
         */
         virtual void _setDepthBias(float constantBias, float slopeScaleBias = 0.0f) = 0;
-        /** Sets the fogging mode for future geometry.
-        @param mode Set up the mode of fog as described in the FogMode enum, or set to FOG_NONE to turn off.
-        @param colour The colour of the fog. Either set this to the same as your viewport background colour,
-        or to blend in with a skydome or skybox.
-        @param expDensity The density of the fog in FOG_EXP or FOG_EXP2 mode, as a value between 0 and 1. The default is 1. i.e. completely opaque, lower values can mean
-        that fog never completely obscures the scene.
-        @param linearStart Distance at which linear fog starts to encroach. The distance must be passed
-        as a parametric value between 0 and 1, with 0 being the near clipping plane, and 1 being the far clipping plane. Only applicable if mode is FOG_LINEAR.
-        @param linearEnd Distance at which linear fog becomes completely opaque.The distance must be passed
-        as a parametric value between 0 and 1, with 0 being the near clipping plane, and 1 being the far clipping plane. Only applicable if mode is FOG_LINEAR.
-        @deprecated only needed for fixed function APIs
-        */
-        virtual void _setFog(FogMode mode = FOG_NONE, const ColourValue& colour = ColourValue::White, Real expDensity = 1.0, Real linearStart = 0.0, Real linearEnd = 1.0) {}
-
 
         /** The RenderSystem will keep a count of tris rendered, this resets the count. */
         virtual void _beginGeometryCount(void);
@@ -840,19 +740,6 @@ namespace Ogre
         */
         virtual void _convertProjectionMatrix(const Matrix4& matrix,
             Matrix4& dest, bool forGpuProgram = false) = 0;
-
-        /// @deprecated use Frustum::getProjectionMatrixRS
-        OGRE_DEPRECATED virtual void _makeProjectionMatrix(const Radian& fovy, Real aspect, Real nearPlane, Real farPlane,
-            Matrix4& dest, bool forGpuProgram = false) = 0;
-        /// @deprecated use Frustum::getProjectionMatrixRS
-        OGRE_DEPRECATED virtual void _makeProjectionMatrix(Real left, Real right, Real bottom, Real top,
-            Real nearPlane, Real farPlane, Matrix4& dest, bool forGpuProgram = false) = 0;
-        /// @deprecated use Frustum::getProjectionMatrixRS
-        OGRE_DEPRECATED virtual void _makeOrthoMatrix(const Radian& fovy, Real aspect, Real nearPlane, Real farPlane,
-            Matrix4& dest, bool forGpuProgram = false) = 0;
-        /// @deprecated use Frustum::getProjectionMatrixRS
-        OGRE_DEPRECATED virtual void _applyObliqueDepthProjection(Matrix4& matrix, const Plane& plane,
-            bool forGpuProgram) = 0;
 
         /** Sets how to rasterise triangles, as points, wireframe or solid polys. */
         virtual void _setPolygonMode(PolygonMode level) = 0;
@@ -997,12 +884,6 @@ namespace Ogre
         @deprecated only needed for fixed function APIs
         */
         virtual void setClipPlanes(const PlaneList& clipPlanes);
-
-        /// @deprecated use setClipPlanes
-        OGRE_DEPRECATED void addClipPlane (const Plane &p);
-
-        /// @deprecated use setClipPlanes
-        OGRE_DEPRECATED void resetClipPlanes();
 
         /** Utility method for initialising all render targets attached to this rendering system. */
         void _initRenderTargets(void);
@@ -1239,10 +1120,6 @@ namespace Ogre
         */
         virtual void markProfileEvent( const String &event ) = 0;
 
-        /** Determines if the system has anisotropic mip map filter support
-        */
-        virtual bool hasAnisotropicMipMapFilter() const = 0;
-
         /** Gets a custom (maybe platform-specific) attribute.
         @remarks This is a nasty way of satisfying any API's need to see platform-specific details.
         @param name The name of the attribute.
@@ -1372,6 +1249,11 @@ namespace Ogre
         ConfigOptionMap mOptions;
 
         virtual void initConfigOptions();
+
+        GpuProgramParametersSharedPtr mFixedFunctionParams;
+
+        void initFixedFunctionParams();
+        void setFFPLightParams(size_t index, bool enabled);
     };
     /** @} */
     /** @} */

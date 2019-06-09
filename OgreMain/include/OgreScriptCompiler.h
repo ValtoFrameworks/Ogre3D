@@ -202,7 +202,6 @@ namespace Ogre
             CE_DUPLICATEOVERRIDE,
             CE_UNEXPECTEDTOKEN,
             CE_OBJECTBASENOTFOUND,
-            CE_UNSUPPORTEDBYRENDERSYSTEM, //!< @deprecated do not use
             CE_REFERENCETOANONEXISTINGOBJECT,
             CE_DEPRECATEDSYMBOL
         };
@@ -270,7 +269,7 @@ namespace Ogre
         /// Handles processing the variables
         void processVariables(AbstractNodeList& nodes);
         /// This function overlays the given object on the destination object following inheritance rules
-        void overlayObject(const AbstractNode &source, ObjectAbstractNode& dest);
+        void overlayObject(const ObjectAbstractNode &source, ObjectAbstractNode& dest);
         /// Returns true if the given class is name excluded
         bool isNameExcluded(const ObjectAbstractNode& node, AbstractNode *parent);
         /// This function sets up the initial values in word id map

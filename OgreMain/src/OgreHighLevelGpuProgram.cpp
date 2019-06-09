@@ -110,6 +110,65 @@ namespace Ogre
         return memSize;
     }
 
+    std::vector<std::pair<const char*, const char*>> HighLevelGpuProgram::parseDefines(String& defines)
+    {
+        std::vector<std::pair<const char*, const char*>> ret;
+        if (defines.empty())
+            return ret;
+
+        String::size_type pos = 0;
+        while (pos != String::npos)
+        {
+            // Find delims
+            String::size_type endPos = defines.find_first_of(";,=", pos);
+            if (endPos != String::npos)
+            {
+                String::size_type macro_name_start = pos;
+                pos = endPos;
+
+                // Check definition part
+                if (defines[pos] == '=')
+                {
+                    // Setup null character for macro name
+                    defines[pos] = '\0';
+                    // set up a definition, skip delim
+                    ++pos;
+                    String::size_type macro_val_start = pos;
+
+                    endPos = defines.find_first_of(";,", pos);
+                    if (endPos == String::npos)
+                    {
+                        pos = endPos;
+                    }
+                    else
+                    {
+                        defines[endPos] = '\0';
+                        pos = endPos+1;
+                    }
+
+                    ret.push_back({&defines[macro_name_start], &defines[macro_val_start]});
+                }
+                else
+                {
+                    // Setup null character for macro name
+                    defines[pos] = '\0';
+                    // No definition part, define as "1"
+                    ++pos;
+                    ret.push_back({&defines[macro_name_start], "1"});
+                }
+            }
+            else
+            {
+                if(pos < defines.size())
+                    ret.push_back({&defines[pos], "1"});
+
+                pos = endPos;
+            }
+        }
+
+        return ret;
+    }
+
     //---------------------------------------------------------------------------
     void HighLevelGpuProgram::loadHighLevel(void)
     {
@@ -200,5 +259,125 @@ namespace Ogre
         // also set logical / physical maps for programs which use this
         params->_setLogicalIndexes(mFloatLogicalToPhysical, mDoubleLogicalToPhysical,
                                    mIntLogicalToPhysical);
+    }
+
+    //-----------------------------------------------------------------------
+    String HighLevelGpuProgram::_resolveIncludes(const String& inSource, Resource* resourceBeingLoaded, const String& fileName)
+    {
+        String outSource;
+        // output will be at least this big
+        outSource.reserve(inSource.length());
+
+        size_t startMarker = 0;
+        size_t i = inSource.find("#include");
+
+        bool supportsFilename = StringUtil::endsWith(fileName, "cg");
+        String lineFilename = supportsFilename ? StringUtil::format(" \"%s\"", fileName.c_str()) : " 0";
+
+        while (i != String::npos)
+        {
+            size_t includePos = i;
+            size_t afterIncludePos = includePos + 8;
+            size_t newLineBefore = inSource.rfind('\n', includePos);
+
+            // check we're not in a comment
+            size_t lineCommentIt = inSource.rfind("//", includePos);
+            if (lineCommentIt != String::npos)
+            {
+                if (newLineBefore == String::npos || lineCommentIt > newLineBefore)
+                {
+                    // commented
+                    i = inSource.find("#include", afterIncludePos);
+                    continue;
+                }
+
+            }
+            size_t blockCommentIt = inSource.rfind("/*", includePos);
+            if (blockCommentIt != String::npos)
+            {
+                size_t closeCommentIt = inSource.rfind("*/", includePos);
+                if (closeCommentIt == String::npos || closeCommentIt < blockCommentIt)
+                {
+                    // commented
+                    i = inSource.find("#include", afterIncludePos);
+                    continue;
+                }
+
+            }
+
+            // find following newline (or EOF)
+            size_t newLineAfter = inSource.find('\n', afterIncludePos);
+            // find include file string container
+            String endDelimeter = "\"";
+            size_t startIt = inSource.find('\"', afterIncludePos);
+            if (startIt == String::npos || startIt > newLineAfter)
+            {
+                // try <>
+                startIt = inSource.find('<', afterIncludePos);
+                if (startIt == String::npos || startIt > newLineAfter)
+                {
+                    OGRE_EXCEPT(Exception::ERR_INTERNAL_ERROR,
+                                "Badly formed #include directive (expected \" or <) in file " + fileName + ": " +
+                                    inSource.substr(includePos, newLineAfter - includePos));
+                }
+                else
+                {
+                    endDelimeter = ">";
+                }
+            }
+            size_t endIt = inSource.find(endDelimeter, startIt+1);
+            if (endIt == String::npos || endIt <= startIt)
+            {
+                OGRE_EXCEPT(Exception::ERR_INTERNAL_ERROR, "Badly formed #include directive (expected " + endDelimeter +
+                                                               ") in file " + fileName + ": " +
+                                                               inSource.substr(includePos, newLineAfter - includePos));
+            }
+
+            // extract filename
+            String filename(inSource.substr(startIt+1, endIt-startIt-1));
+
+            // open included file
+            DataStreamPtr resource = ResourceGroupManager::getSingleton().
+                openResource(filename, resourceBeingLoaded->getGroup(), resourceBeingLoaded);
+
+            // replace entire include directive line
+            // copy up to just before include
+            if (newLineBefore != String::npos && newLineBefore >= startMarker)
+                outSource.append(inSource.substr(startMarker, newLineBefore-startMarker+1));
+
+            size_t lineCount = 0;
+            size_t lineCountPos = 0;
+
+            // Count the line number of #include statement
+            lineCountPos = outSource.find('\n');
+            while(lineCountPos != String::npos)
+            {
+                lineCountPos = outSource.find('\n', lineCountPos+1);
+                lineCount++;
+            }
+
+            // use include filename if supported (cg) - else use include line as id (glsl)
+            String incLineFilename = supportsFilename ? StringUtil::format(" \"%s\"", filename.c_str()) : StringUtil::format(" %zu", lineCount);
+
+            // Add #line to the start of the included file to correct the line count)
+            outSource.append("#line 1 " + incLineFilename + "\n");
+
+            outSource.append(resource->getAsString());
+
+            // Add #line to the end of the included file to correct the line count
+            outSource.append("\n#line " + std::to_string(lineCount) + lineFilename + "\n");
+
+            startMarker = newLineAfter;
+
+            if (startMarker != String::npos)
+                i = inSource.find("#include", startMarker);
+            else
+                i = String::npos;
+
+        }
+        // copy any remaining characters
+        outSource.append(inSource.substr(startMarker));
+
+        return outSource;
     }
 }

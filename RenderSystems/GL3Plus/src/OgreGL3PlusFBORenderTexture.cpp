@@ -468,20 +468,6 @@ namespace Ogre {
         GL3PlusFBORenderTexture *retval = new GL3PlusFBORenderTexture(this, name, target, writeGamma, fsaa);
         return retval;
     }
-    MultiRenderTarget *GL3PlusFBOManager::createMultiRenderTarget(const String & name)
-    {
-        return new GL3PlusFBOMultiRenderTarget(this, name);
-    }
-
-    void GL3PlusFBOManager::bind(RenderTarget *target)
-    {
-        // Check if the render target is in the rendertarget->FBO map
-        if(auto fbo = dynamic_cast<GLRenderTarget*>(target)->getFBO())
-            fbo->bind(true);
-        else
-            // Old style context (window/pbuffer) or copying render texture
-            mRenderSystem->_getStateCacheManager()->bindGLFrameBuffer( GL_FRAMEBUFFER, 0 );
-    }
 
     GLSurfaceDesc GL3PlusFBOManager::requestRenderBuffer(GLenum format, uint32 width, uint32 height, uint fsaa)
     {

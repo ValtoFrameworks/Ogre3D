@@ -155,22 +155,15 @@ namespace Ogre {
     void GLStateCacheManager::bindGLBuffer(GLenum target, GLuint buffer, bool force)
     {
 #ifdef OGRE_ENABLE_STATE_CACHE
-        bool update = false;
-        BindBufferMap::iterator i = mActiveBufferMap.find(target);
-        if (i == mActiveBufferMap.end())
+        auto ret = mActiveBufferMap.emplace(target, buffer);
+        if(ret.first->second != buffer || force) // Update the cached value if needed
         {
-            // Haven't cached this state yet.  Insert it into the map
-            mActiveBufferMap.insert(BindBufferMap::value_type(target, buffer));
-            update = true;
-        }
-        else if((*i).second != buffer || force) // Update the cached value if needed
-        {
-            (*i).second = buffer;
-            update = true;
+            ret.first->second = buffer;
+            ret.second = true;
         }
 
         // Update GL
-        if(update)
+        if(ret.second)
 #endif
         {
             if(target == GL_FRAMEBUFFER)
@@ -245,26 +238,17 @@ namespace Ogre {
         
         // Get a local copy of the parameter map and search for this parameter
         TexParameteriMap &myMap = (*it).second.mTexParameteriMap;
-        TexParameteriMap::iterator i = myMap.find(pname);
-        
-        if (i == myMap.end())
+
+        auto ret = myMap.emplace(pname, param);
+        TexParameteriMap::iterator i = ret.first;
+
+        // Update the cached value if needed
+        if((*i).second != param || ret.second)
         {
-            // Haven't cached this state yet.  Insert it into the map
-            myMap.insert(TexParameteriMap::value_type(pname, param));
+            (*i).second = param;
             
             // Update GL
             glTexParameteri(target, pname, param);
-        }
-        else
-        {
-            // Update the cached value if needed
-            if((*i).second != param)
-            {
-                (*i).second = param;
-                
-                // Update GL
-                glTexParameteri(target, pname, param);
-            }
         }
 #else
         glTexParameteri(target, pname, param);
@@ -605,8 +589,9 @@ namespace Ogre {
         }
     }
 
-    void GLStateCacheManager::setPointParameters(GLfloat *attenuation, float minSize, float maxSize)
+    void GLStateCacheManager::setPointParameters(const GLfloat *attenuation, float minSize, float maxSize)
     {
+        if(minSize > -1)
 #ifdef OGRE_ENABLE_STATE_CACHE
         if (minSize != mPointSizeMin)
 #endif
@@ -616,6 +601,8 @@ namespace Ogre {
             if (caps->hasCapability(RSC_POINT_EXTENDED_PARAMETERS))
                 glPointParameterf(GL_POINT_SIZE_MIN, mPointSizeMin);
         }
+
+        if(maxSize > -1)
 #ifdef OGRE_ENABLE_STATE_CACHE
         if (maxSize != mPointSizeMax)
 #endif
@@ -625,6 +612,8 @@ namespace Ogre {
             if (caps->hasCapability(RSC_POINT_EXTENDED_PARAMETERS))
                 glPointParameterf(GL_POINT_SIZE_MAX, mPointSizeMax);
         }
+
+        if(attenuation)
 #ifdef OGRE_ENABLE_STATE_CACHE
         if (attenuation[0] != mPointAttenuation[0] || attenuation[1] != mPointAttenuation[1] || attenuation[2] != mPointAttenuation[2])
 #endif

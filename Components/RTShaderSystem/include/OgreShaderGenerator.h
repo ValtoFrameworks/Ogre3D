@@ -35,6 +35,7 @@ THE SOFTWARE.
 #include "OgreShaderRenderState.h"
 #include "OgreScriptTranslator.h"
 #include "OgreShaderScriptTranslator.h"
+#include "OgreMaterialSerializer.h"
 
 
 namespace Ogre {
@@ -48,6 +49,11 @@ namespace RTShader {
 /** \addtogroup RTShader
 *  @{
 */
+
+class SGRenderObjectListener;
+class SGSceneManagerListener;
+class SGScriptTranslatorManager;
+class SGResourceGroupListener;
 
 /** Shader generator system main interface. This singleton based class
 enables automatic generation of shader code based on existing material techniques.
@@ -235,7 +241,13 @@ public:
     */
     SubRenderState* createSubRenderState(const String& type);
 
-    
+    /// @overload
+    template<typename T>
+    T* createSubRenderState()
+    {
+        return static_cast<T*>(createSubRenderState(T::Type));
+    }
+
     /** 
     Destroy an instance of sub render state. 
     @param subRenderState The instance to destroy.
@@ -284,9 +296,6 @@ public:
      @param dstTechniqueSchemeName The destination shader based technique scheme name.
      */
     bool removeShaderBasedTechnique(const Technique* srcTech, const String& dstTechniqueSchemeName);
-
-    /// @deprecated
-    OGRE_DEPRECATED bool removeShaderBasedTechnique(const String& materialName, const String& groupName, const String& srcTechniqueSchemeName, const String& dstTechniqueSchemeName);
 
     /** 
     Remove all shader based techniques of the given material. 
@@ -381,7 +390,7 @@ public:
     3. Add the return instance of serializer listener to the MaterialSerializer.
     4. Call one of the export methods of MaterialSerializer.
     */
-    SGMaterialSerializerListener* getMaterialSerializerListener();
+    MaterialSerializer::Listener* getMaterialSerializerListener();
 
     /** Return the current number of generated shaders. */
     size_t getShaderCount(GpuProgramType type) const;
@@ -481,10 +490,6 @@ protected:
         /** Release the CPU/GPU programs of this pass. */
         void releasePrograms();
 
-
-        /** Called when a single object is about to be rendered. */
-        void notifyRenderSingleObject(Renderable* rend, const AutoParamDataSource* source, const LightList* pLightList, bool suppressRenderStateChanges);
-
         /** Get source pass. */
         Pass* getSrcPass() { return mSrcPass; }
 
@@ -497,21 +502,13 @@ protected:
 		/** Get illumination state. */
 		bool isIlluminationPass() { return mStage != IS_UNKNOWN; }
 
-        /** Get custom FPP sub state of this pass. */
-        SubRenderState* getCustomFFPSubState(int subStateOrder);
-
         /** Get custom render state of this pass. */
         RenderState* getCustomRenderState() { return mCustomRenderState; }
 
         /** Set the custom render state of this pass. */
         void setCustomRenderState(RenderState* customRenderState) { mCustomRenderState = customRenderState; }
 
-        /// Key name for associating with a Pass instance.
-        static String UserKey;
-    
-    protected:
-        SubRenderState* getCustomFFPSubState(int subStateOrder, const RenderState* renderState);
-
+        const SGTechnique* getParent() const { return mParent; }
     protected:
         // Parent technique.
         SGTechnique* mParent;
@@ -524,7 +521,7 @@ protected:
         // Custom render state.
         RenderState* mCustomRenderState;
         // The compiled render state.
-        TargetRenderState* mTargetRenderState;
+        std::unique_ptr<TargetRenderState> mTargetRenderState;
     };
 
     
@@ -582,6 +579,8 @@ protected:
         /// whether shaders are created for passes with shaders
         bool overProgrammablePass() { return mOverProgrammable; }
 
+        const SGPassList& getPassList() const  { return mPassEntries; }
+
         // Key name for associating with a Technique instance.
         static String UserKey;
 
@@ -608,6 +607,7 @@ protected:
 		// All passes entries, both normal and illumination.
         SGPassList mPassEntries;
         // The custom render states of all passes.
+        typedef std::vector<RenderState*> RenderStateList;
         RenderStateList mCustomRenderStates;
         // Flag that tells if destination technique should be build.        
         bool mBuildDstTechnique;
@@ -723,7 +723,7 @@ protected:
         // Tells if this scheme is out of date.
         bool mOutOfDate;
         // The global render state of this scheme.
-        RenderState* mRenderState;
+        std::unique_ptr<RenderState> mRenderState;
         // Current fog mode.
         FogMode mFogMode;
     };
@@ -731,117 +731,6 @@ protected:
 
 // Protected types.
 protected:
-    
-    /** Shader generator RenderObjectListener sub class. */
-    class _OgreRTSSExport SGRenderObjectListener : public RenderObjectListener, public RTShaderSystemAlloc
-    {
-    public:
-        SGRenderObjectListener(ShaderGenerator* owner)
-        {
-            mOwner = owner;
-        }
-
-        /** 
-        Listener overridden function notify the shader generator when rendering single object.
-        */
-        virtual void notifyRenderSingleObject(Renderable* rend, const Pass* pass,  
-            const AutoParamDataSource* source, 
-            const LightList* pLightList, bool suppressRenderStateChanges)
-        {
-            mOwner->notifyRenderSingleObject(rend, pass, source, pLightList, suppressRenderStateChanges);
-        }
-
-    protected:
-        ShaderGenerator* mOwner;
-    };
-
-    /** Shader generator scene manager sub class. */
-    class _OgreRTSSExport SGSceneManagerListener : public SceneManager::Listener, public RTShaderSystemAlloc
-    {
-    public:
-        SGSceneManagerListener(ShaderGenerator* owner)
-        {
-            mOwner = owner;
-        }
-
-        /** 
-        Listener overridden function notify the shader generator when finding visible objects process started.
-        */
-        virtual void preFindVisibleObjects(SceneManager* source, 
-            SceneManager::IlluminationRenderStage irs, Viewport* v)
-        {
-            mOwner->preFindVisibleObjects(source, irs, v);
-        }
-
-        virtual void postFindVisibleObjects(SceneManager* source, 
-            SceneManager::IlluminationRenderStage irs, Viewport* v)
-        {
-
-        }
-
-        virtual void shadowTexturesUpdated(size_t numberOfShadowTextures) 
-        {
-
-        }
-
-        virtual void shadowTextureCasterPreViewProj(Light* light, 
-            Camera* camera, size_t iteration) 
-        {
-
-        }
-
-        virtual void shadowTextureReceiverPreViewProj(Light* light, 
-            Frustum* frustum)
-        {
-
-        }
-
-    protected:
-        // The shader generator instance.
-        ShaderGenerator* mOwner;
-    };
-
-    /** Shader generator ScriptTranslatorManager sub class. */
-    class _OgreRTSSExport SGScriptTranslatorManager : public ScriptTranslatorManager
-    {
-    public:
-        SGScriptTranslatorManager(ShaderGenerator* owner)
-        {
-            mOwner = owner;
-        }
-        
-        /// Returns a manager for the given object abstract node, or null if it is not supported
-        virtual ScriptTranslator *getTranslator(const AbstractNodePtr& node)
-        {
-            return mOwner->getTranslator(node);
-        }
-
-    protected:
-        // The shader generator instance.
-        ShaderGenerator* mOwner;
-    };
-
-    class _OgreRTSSExport SGResourceGroupListener : public ResourceGroupListener
-    {
-    public:
-        SGResourceGroupListener(ShaderGenerator* owner)
-        {
-            mOwner = owner;
-        }
-
-        /// sync our internal list if material gets dropped
-        virtual void resourceRemove(const ResourcePtr& resource)
-        {
-            if(!dynamic_cast<Material*>(resource.get()))
-                return;
-            mOwner->removeAllShaderBasedTechniques(resource->getName(), resource->getGroup());
-        }
-
-    protected:
-        // The shader generator instance.
-        ShaderGenerator* mOwner;
-    };
-
     //-----------------------------------------------------------------------------
     typedef std::map<String, SubRenderStateFactory*>       SubRenderStateFactoryMap;
     typedef SubRenderStateFactoryMap::iterator              SubRenderStateFactoryIterator;
@@ -852,6 +741,8 @@ protected:
     typedef SceneManagerMap::iterator                       SceneManagerIterator;
     typedef SceneManagerMap::const_iterator                 SceneManagerConstIterator;
 
+    friend class SGRenderObjectListener;
+    friend class SGSceneManagerListener;
 protected:
     /** Class default constructor */
     ShaderGenerator();
@@ -872,10 +763,10 @@ protected:
     void preFindVisibleObjects(SceneManager* source, SceneManager::IlluminationRenderStage irs, Viewport* v);
 
     /** Create sub render state core extensions factories */
-    void createSubRenderStateExFactories();
+    void createBuiltinSRSFactories();
 
     /** Destroy sub render state core extensions factories */
-    void destroySubRenderStateExFactories();
+    void destroyBuiltinSRSFactories();
 
     /** Create an instance of the SubRenderState based on script properties using the
     current sub render state factories.
@@ -933,6 +824,9 @@ protected:
 
     /** Used to check if finalizing */
     bool getIsFinalizing() const;
+
+    /** Internal method that creates list of SGPass instances composing the given material. */
+    SGPassList createSGPassList(Material* mat) const;
 protected:  
     // Auto mutex.
     OGRE_AUTO_MUTEX;
@@ -941,15 +835,15 @@ protected:
     // A map of all scene managers this generator is bound to.
     SceneManagerMap mSceneManagerMap;
     // Render object listener.
-    SGRenderObjectListener* mRenderObjectListener;
+    std::unique_ptr<SGRenderObjectListener> mRenderObjectListener;
     // Scene manager listener.
-    SGSceneManagerListener* mSceneManagerListener;
+    std::unique_ptr<SGSceneManagerListener> mSceneManagerListener;
     // Script translator manager.
-    SGScriptTranslatorManager* mScriptTranslatorManager;
+    std::unique_ptr<SGScriptTranslatorManager> mScriptTranslatorManager;
     // Custom material Serializer listener - allows exporting material that contains shader generated techniques.
-    SGMaterialSerializerListener* mMaterialSerializerListener;
+    std::unique_ptr<SGMaterialSerializerListener> mMaterialSerializerListener;
     // get notified if materials get dropped
-    SGResourceGroupListener* mResourceGroupListener;
+    std::unique_ptr<SGResourceGroupListener> mResourceGroupListener;
     // The core translator of the RT Shader System.
     SGScriptTranslator mCoreScriptTranslator;
     // The target shader language (currently only cg supported).
@@ -965,13 +859,13 @@ protected:
     // Path for caching the generated shaders.
     String mShaderCachePath;
     // Shader program manager.
-    ProgramManager* mProgramManager;
+    std::unique_ptr<ProgramManager> mProgramManager;
     // Shader program writer manager.
-    ProgramWriterManager* mProgramWriterManager;
+    std::unique_ptr<ProgramWriterManager> mProgramWriterManager;
     // File system layer manager.
     FileSystemLayer* mFSLayer;
     // Fixed Function Render state builder.
-    FFPRenderStateBuilder* mFFPRenderStateBuilder;
+    std::unique_ptr<FFPRenderStateBuilder> mFFPRenderStateBuilder;
     // Material entries map.
     SGMaterialMap mMaterialEntriesMap;
     // Scheme entries map.
@@ -981,7 +875,7 @@ protected:
     // Sub render state registered factories.
     SubRenderStateFactoryMap mSubRenderStateFactories;
     // Sub render state core extension factories.
-    SubRenderStateFactoryMap mSubRenderStateExFactories;
+    std::vector<SubRenderStateFactory*> mBuiltinSRSFactories;
     // True if active view port use a valid SGScheme.
     bool mActiveViewportValid;
     // Light count per light type.

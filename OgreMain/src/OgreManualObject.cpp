@@ -139,7 +139,7 @@ namespace Ogre {
     }
     //-----------------------------------------------------------------------------
     void ManualObject::begin(const String& materialName,
-        RenderOperation::OperationType opType, const String & groupName)
+        RenderOperation::OperationType opType, const String& groupName)
     {
         if (mCurrentSection)
         {
@@ -151,17 +151,18 @@ namespace Ogre {
         // Check that a valid material was provided
         MaterialPtr material = MaterialManager::getSingleton().getByName(materialName, groupName);
 
-        if( !material )
+        if(!material)
         {
             LogManager::getSingleton().logMessage("Can't assign material " + materialName +
                                                   " to the ManualObject " + mName + " because this "
-                                                  "Material does not exist in group "+groupName+". Have you forgotten to define it in a "
+                                                  "Material does not exist in group " + groupName +
+                                                  ". Have you forgotten to define it in a "
                                                   ".material script?", LML_CRITICAL);
 
             material = MaterialManager::getSingleton().getDefaultMaterial();
         }
 
-        mCurrentSection = OGRE_NEW ManualObjectSection(this, materialName, opType, groupName);
+        mCurrentSection = OGRE_NEW ManualObjectSection(this, material, opType);
         mCurrentUpdating = false;
         mCurrentSection->setUseIdentityProjection(mUseIdentityProjection);
         mCurrentSection->setUseIdentityView(mUseIdentityView);
@@ -169,6 +170,35 @@ namespace Ogre {
         mFirstVertex = true;
         mDeclSize = 0;
         mTexCoordIndex = 0;
+    }
+    //-----------------------------------------------------------------------------
+    void ManualObject::begin(const MaterialPtr& mat, RenderOperation::OperationType opType)
+    {
+      if (mCurrentSection)
+      {
+          OGRE_EXCEPT(Exception::ERR_INVALIDPARAMS,
+              "You cannot call begin() again until after you call end()",
+              "ManualObject::begin");
+      }
+
+      if (mat)
+      {
+          mCurrentSection = OGRE_NEW ManualObjectSection(this, mat, opType);
+      }
+      else
+      {
+          LogManager::getSingleton().logMessage("Can't assign null material", LML_CRITICAL);
+          const MaterialPtr defaultMat = MaterialManager::getSingleton().getDefaultMaterial();
+          mCurrentSection = OGRE_NEW ManualObjectSection(this, defaultMat, opType);
+      }
+
+      mCurrentUpdating = false;
+      mCurrentSection->setUseIdentityProjection(mUseIdentityProjection);
+      mCurrentSection->setUseIdentityView(mUseIdentityView);
+      mSectionList.push_back(mCurrentSection);
+      mFirstVertex = true;
+      mDeclSize = 0;
+      mTexCoordIndex = 0;
     }
     //-----------------------------------------------------------------------------
     void ManualObject::beginUpdate(size_t sectionIndex)
@@ -759,6 +789,18 @@ namespace Ogre {
 
     }
     //-----------------------------------------------------------------------------
+    void ManualObject::setMaterial(size_t subIndex, const MaterialPtr &mat)
+    {
+        if (subIndex >= mSectionList.size())
+        {
+            OGRE_EXCEPT(Exception::ERR_INVALIDPARAMS,
+                "Index out of bounds!",
+                "ManualObject::setMaterial");
+        }
+
+        mSectionList[subIndex]->setMaterial(mat);
+    }
+    //-----------------------------------------------------------------------------
     MeshPtr ManualObject::convertToMesh(const String& meshName, const String& groupName)
     {
         if (mCurrentSection)
@@ -776,25 +818,11 @@ namespace Ogre {
         }
         MeshPtr m = MeshManager::getSingleton().createManual(meshName, groupName);
 
-        for (SectionList::iterator i = mSectionList.begin(); i != mSectionList.end(); ++i)
+        for (auto sec : mSectionList)
         {
-            ManualObjectSection* sec = *i;
-            RenderOperation* rop = sec->getRenderOperation();
             SubMesh* sm = m->createSubMesh();
-            sm->useSharedVertices = false;
-            sm->operationType = rop->operationType;
-            sm->setMaterialName(sec->getMaterialName(), groupName);
-            // Copy vertex data; replicate buffers too
-            sm->vertexData = rop->vertexData->clone(true);
-            // Copy index data; replicate buffers too; delete the default, old one to avoid memory leaks
-
-            // check if index data is present
-            if (rop->indexData)
-            {
-                // Copy index data; replicate buffers too; delete the default, old one to avoid memory leaks
-                OGRE_DELETE sm->indexData;
-                sm->indexData = rop->indexData->clone(true);
-            }
+            sec->convertToSubMesh(sm);
+            sm->setMaterial(sec->getMaterial());
         }
         // update bounds
         m->_setBounds(mAABB);
@@ -803,8 +831,6 @@ namespace Ogre {
         m->load();
 
         return m;
-
-
     }
     //-----------------------------------------------------------------------------
     void ManualObject::setUseIdentityProjection(bool useIdentityProjection)
@@ -1036,7 +1062,20 @@ namespace Ogre {
         mRenderOperation.useGlobalInstancingVertexBufferIsAvailable = false;
         mRenderOperation.vertexData = OGRE_NEW VertexData();
         mRenderOperation.vertexData->vertexCount = 0;
+    }
+    ManualObject::ManualObjectSection::ManualObjectSection(ManualObject* parent,
+        const MaterialPtr& mat, RenderOperation::OperationType opType)
+        : mParent(parent), mMaterial(mat), m32BitIndices(false)
+    {
+        assert(mMaterial);
+        mMaterialName = mMaterial->getName();
+        mMaterialName = mMaterial->getGroup();
 
+        mRenderOperation.operationType = opType;
+        mRenderOperation.useIndexes = false;
+        mRenderOperation.useGlobalInstancingVertexBufferIsAvailable = false;
+        mRenderOperation.vertexData = OGRE_NEW VertexData();
+        mRenderOperation.vertexData->vertexCount = 0;
     }
     //-----------------------------------------------------------------------------
     ManualObject::ManualObjectSection::~ManualObjectSection()
@@ -1054,14 +1093,13 @@ namespace Ogre {
     {
         if (!mMaterial)
         {
-            // Load from default group. If user wants to use alternate groups,
-            // they can define it and preload
             mMaterial = static_pointer_cast<Material>(MaterialManager::getSingleton().load(mMaterialName, mGroupName));
         }
         return mMaterial;
     }
     //-----------------------------------------------------------------------------
-    void ManualObject::ManualObjectSection::setMaterialName( const String& name, const String& groupName /* = ResourceGroupManager::AUTODETECT_RESOURCE_GROUP_NAME */)
+    void ManualObject::ManualObjectSection::setMaterialName(const String& name,
+        const String& groupName /* = ResourceGroupManager::AUTODETECT_RESOURCE_GROUP_NAME */)
     {
         if (mMaterialName != name || mGroupName != groupName)
         {
@@ -1069,6 +1107,14 @@ namespace Ogre {
             mGroupName = groupName;
             mMaterial.reset();
         }
+    }
+    //-----------------------------------------------------------------------------
+    void ManualObject::ManualObjectSection::setMaterial(const MaterialPtr& mat)
+    {
+        assert(mat);
+        mMaterial = mat;
+        mMaterialName = mat->getName();
+        mGroupName = mat->getGroup();
     }
     //-----------------------------------------------------------------------------
     void ManualObject::ManualObjectSection::getRenderOperation(RenderOperation& op)
@@ -1094,6 +1140,23 @@ namespace Ogre {
         return mParent->queryLights();
     }
     //-----------------------------------------------------------------------------
+    void ManualObject::ManualObjectSection::convertToSubMesh(SubMesh* sm) const
+    {
+        sm->useSharedVertices = false;
+        sm->operationType = mRenderOperation.operationType;
+        // Copy vertex data; replicate buffers too
+        sm->vertexData = mRenderOperation.vertexData->clone(true);
+
+        // Copy index data; replicate buffers too; delete the default, old one to avoid memory leaks
+
+        // check if index data is present
+        if (mRenderOperation.indexData)
+        {
+            // Copy index data; replicate buffers too; delete the default, old one to avoid memory leaks
+            OGRE_DELETE sm->indexData;
+            sm->indexData = mRenderOperation.indexData->clone(true);
+        }
+    }
     //--------------------------------------------------------------------------
     ManualObject::ManualObjectSectionShadowRenderable::ManualObjectSectionShadowRenderable(
         ManualObject* parent, HardwareIndexBufferSharedPtr* indexBuffer,

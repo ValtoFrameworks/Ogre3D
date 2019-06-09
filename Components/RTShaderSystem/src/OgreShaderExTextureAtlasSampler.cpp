@@ -132,7 +132,7 @@ bool TextureAtlasSampler::addFunctionInvocations(ProgramSet* programSet)
     Function* vsMain   = vsProgram->getEntryPointFunction();    
     Program* psProgram = programSet->getCpuProgram(GPT_FRAGMENT_PROGRAM);
     Function* psMain   = psProgram->getEntryPointFunction();    
-    FunctionInvocation* curFuncInvocation = NULL;   
+    FunctionAtom* curFuncInvocation = NULL;
 
     //
     // Calculate the position and size of the texture in the atlas in the vertex shader
@@ -243,7 +243,7 @@ void TextureAtlasSampler::copyFrom(const SubRenderState& rhs)
 }
 
 //-----------------------------------------------------------------------
-void TextureAtlasSampler::updateGpuProgramsParams(Renderable* rend, Pass* pass,  const AutoParamDataSource* source, const LightList* pLightList)
+void TextureAtlasSampler::updateGpuProgramsParams(Renderable* rend, const Pass* pass,  const AutoParamDataSource* source, const LightList* pLightList)
 {
     if (mIsTableDataUpdated == false)
     {
@@ -409,9 +409,9 @@ bool TextureAtlasSamplerFactory::addTexutreAtlasDefinition( DataStreamPtr stream
                     String textureName = strings[1];
 
                     TextureAtlasMap::iterator it = tmpMap.find(textureName);
-                    if (tmpMap.find(textureName) == tmpMap.end())
+                    if (it == tmpMap.end())
                     {
-                        it = tmpMap.insert(TextureAtlasMap::value_type(textureName, TextureAtlasTablePtr(new TextureAtlasTable))).first;
+                        it = tmpMap.emplace(textureName, TextureAtlasTablePtr(new TextureAtlasTable)).first;
                     }
                     
                     // file line format:  <original texture filename>/t/t<atlas filename>, <atlas idx>, <atlas type>, <woffset>, <hoffset>, <depth offset>, <width>, <height>
@@ -462,7 +462,7 @@ void TextureAtlasSamplerFactory::setTextureAtlasTable(const String& textureName,
 {
     if (!atlasData || atlasData->empty())
         removeTextureAtlasTable(textureName);
-    else mAtlases.insert(TextureAtlasMap::value_type(textureName, atlasData));
+    else mAtlases.emplace(textureName, atlasData);
 }
 
 //-----------------------------------------------------------------------

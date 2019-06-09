@@ -44,8 +44,8 @@ namespace Ogre {
     * Implementation of GL ES 2.x as a rendering system.
     *  @{
     */
-    class GLRTTManager;
-    class GLES2GpuProgramManager;
+    class GLES2FBOManager;
+    class GpuProgramManager;
     class GLSLESProgramCommon;
     class GLSLESProgramFactory;
     class GLES2StateCacheManager;
@@ -77,19 +77,12 @@ namespace Ogre {
             /// List of background thread contexts
             GLContextList mBackgroundContextList;
 
-            GLES2GpuProgramManager *mGpuProgramManager;
+            GpuProgramManager *mGpuProgramManager;
             GLSLESProgramFactory* mGLSLESProgramFactory;
 #if !OGRE_NO_GLES2_CG_SUPPORT
             GLSLESCgProgramFactory* mGLSLESCgProgramFactory;
 #endif
             HardwareBufferManager* mHardwareBufferManager;
-
-            /** Manager object for creating render textures.
-                Direct render to texture via GL_OES_framebuffer_object is preferable 
-                to pbuffers, which depend on the GL support used and are generally 
-                unwieldy and slow. However, FBO support for stencil buffers is poor.
-              */
-            GLRTTManager *mRTTManager;
 
             /// Check if the GL system has already been initialised
             bool mGLInitialised;
@@ -134,7 +127,7 @@ namespace Ogre {
 
             const String& getName(void) const;
 
-            RenderWindow* _initialise(bool autoCreateWindow, const String& windowTitle = "OGRE Render NativeWindowType");
+            void _initialise() override;
 
             virtual RenderSystemCapabilities* createRenderSystemCapabilities() const;
 
@@ -148,10 +141,6 @@ namespace Ogre {
 
             /// @copydoc RenderSystem::_createDepthBufferFor
             DepthBuffer* _createDepthBufferFor( RenderTarget *renderTarget );
-
-            /// Mimics D3D9RenderSystem::_getDepthStencilFormatFor, if no FBO RTT manager, outputs GL_NONE
-            void _getDepthStencilFormatFor( PixelFormat internalColourFormat, GLenum *depthFormat,
-                                            GLenum *stencilFormat );
 
             /// @copydoc RenderSystem::createMultiRenderTarget
             virtual MultiRenderTarget * createMultiRenderTarget(const String & name);
@@ -167,10 +156,6 @@ namespace Ogre {
             void _setSampler(size_t unit, Sampler& sampler);
 
             void _setTextureAddressingMode(size_t stage, const Sampler::UVWAddressingMode& uvw);
-
-            void _setTextureBorderColour(size_t stage, const ColourValue& colour) { };   // Not supported
-
-            void _setTextureMipmapBias(size_t unit, float bias) { };   // Not supported
 
             void _setLineWidth(float width);
 
@@ -206,18 +191,10 @@ namespace Ogre {
                     bool twoSidedOperation = false,
                     bool readBackAsTexture = false);
 
-            void _setTextureUnitCompareFunction(size_t unit, CompareFunction function);
-
-            void _setTextureUnitCompareEnabled(size_t unit, bool compare);          
-
             virtual void _setTextureUnitFiltering(size_t unit, FilterOptions minFilter,
                 FilterOptions magFilter, FilterOptions mipFilter);              
 
             void _setTextureUnitFiltering(size_t unit, FilterType ftype, FilterOptions filter);
-
-            void _setTextureLayerAnisotropy(size_t unit, unsigned int maxAnisotropy);
-
-            virtual bool hasAnisotropicMipMapFilter() const { return false; }   
 
             void _render(const RenderOperation& op);
 

@@ -225,23 +225,16 @@ namespace Ogre {
         return xt;
     }
 
-
-    static void DefaultError (void *iData, int iLine, const char *iError,
-                              const char *iToken, size_t iTokenLen)
+    void CPreprocessor::Error(int iLine, const char *iError, const Token *iToken)
     {
-        (void)iData;
         char line [1000];
         if (iToken)
             snprintf (line, sizeof (line), "line %d: %s: `%.*s'\n",
-                      iLine, iError, int (iTokenLen), iToken);
+                      iLine, iError, int (iToken->Length), iToken->String);
         else
             snprintf (line, sizeof (line), "line %d: %s\n", iLine, iError);
         LogManager::getSingleton ().logMessage (line, LML_CRITICAL);
     }
-
-
-    CPreprocessor::ErrorHandlerFunc CPreprocessor::ErrorHandler = DefaultError;
-
 
     CPreprocessor::CPreprocessor (const Token &iToken, int iLine) : MacroList (NULL)
     {
@@ -256,16 +249,6 @@ namespace Ogre {
     {
         delete MacroList;
     }
-
-
-    void CPreprocessor::Error (int iLine, const char *iError, const Token *iToken)
-    {
-        if (iToken)
-            ErrorHandler (ErrorData, iLine, iError, iToken->String, iToken->Length);
-        else
-            ErrorHandler (ErrorData, iLine, iError, NULL, 0);
-    }
-
 
     CPreprocessor::Token CPreprocessor::GetToken (bool iExpand)
     {
@@ -1218,7 +1201,7 @@ namespace Ogre {
     Done:
 
 #define IS_DIRECTIVE(s)                                                 \
-        (dirlen == strlen(s) && (strncmp (directive, s, strlen(s)) == 0))
+        (dirlen == strlen(s) && (strncmp (directive, s, dirlen) == 0))
 
         bool outputEnabled = ((EnableOutput & (EnableOutput + 1)) == 0);
         bool rc;

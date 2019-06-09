@@ -70,7 +70,7 @@ public:
     /** 
     @see SubRenderState::updateGpuProgramsParams.
     */
-    virtual void updateGpuProgramsParams(Renderable* rend, Pass* pass, const AutoParamDataSource* source, const LightList* pLightList);
+    virtual void updateGpuProgramsParams(Renderable* rend, const Pass* pass, const AutoParamDataSource* source, const LightList* pLightList);
 
     /** 
     @see SubRenderState::copyFrom.
@@ -111,15 +111,15 @@ protected:
         UniformParameterPtr mSpecularColour;
 
         // for normal mapping:
+        /// light position direction (texture space for normal mapping, else same as mToLightDir).
+        ParameterPtr mToLight;
+        /// light direction (texture space for normal mapping, else same as mDirection).
+        ParameterPtr mPSInDirection;
 
         /// Vertex shader output vertex position to light position direction (texture space).
         ParameterPtr mVSOutToLightDir;
-        /// Pixel shader input vertex position to light position direction (texture space).
-        ParameterPtr mPSInToLightDir;
         /// Vertex shader output light direction (texture space).
         ParameterPtr mVSOutDirection;
-        /// Pixel shader input light direction (texture space).
-        ParameterPtr mPSInDirection;
     };
 
     typedef std::vector<LightParams>               LightParamsList;
@@ -144,13 +144,13 @@ protected:
     Set the light count per light type that this sub render state will generate.
     @see ShaderGenerator::setLightCount.
     */
-    void setLightCount(const int lightCount[3]);
+    void setLightCount(const Vector3i& lightCount);
 
     /** 
     Get the light count per light type that this sub render state will generate.
     @see ShaderGenerator::getLightCount.
     */
-    void getLightCount(int lightCount[3]) const;
+    Vector3i getLightCount() const;
 
     /** 
     Set the specular component state. If set to true this sub render state will compute a specular
@@ -183,12 +183,12 @@ protected:
     /** 
     Internal method that adds global illumination component functions invocations.
     */
-    bool addGlobalIlluminationInvocation(Function* vsMain, const int groupOrder);
+    void addGlobalIlluminationInvocation(const FunctionStageRef& stage);
             
     /** 
     Internal method that adds per light illumination component functions invocations.
     */
-    bool addIlluminationInvocation(LightParams* curLightParams, Function* vsMain, const int groupOrder);
+    void addIlluminationInvocation(const LightParams* curLightParams, const FunctionStageRef& stage);
 
 
 // Attributes.
@@ -208,6 +208,10 @@ protected:
     ParameterPtr mViewNormal;
     // Transformed view position
     ParameterPtr mViewPos;
+    // Transformed direction to light
+    ParameterPtr mToLight;
+    // Transformed direction to view
+    ParameterPtr mToView;
     // Vertex shader input position parameter.
     ParameterPtr mVSInPosition;
     // Vertex shader input normal.
@@ -224,12 +228,6 @@ protected:
     UniformParameterPtr mLightAmbientColour;
     // Derived ambient light colour parameter.
     UniformParameterPtr mDerivedAmbientLightColour;
-    // Surface ambient colour parameter.
-    UniformParameterPtr mSurfaceAmbientColour;
-    // Surface diffuse colour parameter.
-    UniformParameterPtr mSurfaceDiffuseColour;
-    // Surface specular colour parameter.
-    UniformParameterPtr mSurfaceSpecularColour;
     // Surface emissive colour parameter.
     UniformParameterPtr mSurfaceEmissiveColour;
     // Surface shininess parameter.

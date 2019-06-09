@@ -166,7 +166,7 @@ namespace Ogre
             D3D11RenderSystem* rsys = static_cast<D3D11RenderSystem*>(Root::getSingleton().getRenderSystem());
             // http://msdn.microsoft.com/en-us/library/windows/desktop/ff476150%28v=vs.85%29.aspx#ID3D11Device_CreateTexture2D
             // 10Level9, When using D3D11_BIND_SHADER_RESOURCE, SampleDesc.Count must be 1.
-            if(rsys->_getFeatureLevel() >= D3D_FEATURE_LEVEL_10_0 || (mUsage & TU_NOTSHADERRESOURCE))
+            if(rsys->_getFeatureLevel() >= D3D_FEATURE_LEVEL_10_0 || (mUsage & TU_NOT_SRV))
                 rsys->determineFSAASettings(mFSAA, mFSAAHint, mD3DFormat, &mFSAAType);
         }
 
@@ -596,41 +596,20 @@ namespace Ogre
                 "D3D11RenderTexture::rebind" );
         }
     }
-    //---------------------------------------------------------------------
-    void D3D11RenderTexture::getCustomAttribute( const String& name, void *pData )
+
+    uint D3D11RenderTexture::getNumberOfViews() const { return 1; }
+
+    ID3D11Texture2D* D3D11RenderTexture::getSurface(uint index) const
     {
-        if(name == "DDBACKBUFFER")
-        {
-            *(HardwarePixelBuffer**)pData = mBuffer;
-        }
-		else if(name == "HWND" || name == "WINDOW")
-        {
-            *(HWND*)pData = NULL;
-        }
-        else if(name == "isTexture")
-        {
-            *(bool*)pData = true;
-        }
-        else if(name == "BUFFER")
-        {
-            *(HardwarePixelBuffer**)pData = mBuffer;
-        }
-        else if( name == "ID3D11Texture2D" )
-        {
-            *(ID3D11Texture2D**)pData = static_cast<D3D11HardwarePixelBuffer*>(mBuffer)->getParentTexture()->GetTex2D();
-        }
-        else if(name == "ID3D11RenderTargetView")
-        {
-            *(ID3D11RenderTargetView**)pData = mRenderTargetView.Get();
-        }
-        else if( name == "numberOfViews" )
-        {
-            *(unsigned*)pData = 1;
-        }
-        else
-            RenderTexture::getCustomAttribute(name, pData);
+        return index == 0 ? static_cast<D3D11HardwarePixelBuffer*>(mBuffer)->getParentTexture()->GetTex2D()
+                          : NULL;
     }
-    //---------------------------------------------------------------------
+
+    ID3D11RenderTargetView* D3D11RenderTexture::getRenderTargetView(uint index) const
+    {
+        return index == 0 ? mRenderTargetView.Get() : NULL;
+    }
+
     D3D11RenderTexture::D3D11RenderTexture( const String &name, D3D11HardwarePixelBuffer *buffer, uint32 zoffset, D3D11Device & device )
         : RenderTexture(buffer, zoffset)
         , mDevice(device)

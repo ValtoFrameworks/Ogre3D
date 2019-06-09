@@ -144,15 +144,16 @@ UniformParameterPtr Program::resolveParameter(GpuProgramParameters::AutoConstant
 
     // Check if parameter already exists.
     param = getParameterByAutoType(autoType);
-    if (param)
+
+    size_t size = 0;
+    if(isArray(autoType)) std::swap(size, data); // for array autotypes the extra parameter is the size
+
+    if (param && param->getAutoConstantIntData() == data)
     {
         return param;
     }
     
     // Create new parameter
-    size_t size = 0;
-    if(isArray(autoType)) std::swap(size, data); // for array autotypes the extra parameter is the size
-
     param = UniformParameterPtr(OGRE_NEW UniformParameter(autoType, data, size));
     addParameter(param);
 
@@ -203,31 +204,6 @@ UniformParameterPtr Program::resolveAutoParameterReal(GpuProgramParameters::Auto
     
     // Create new parameter.
     param = UniformParameterPtr(OGRE_NEW UniformParameter(autoType, data, size, type));
-    addParameter(param);
-
-    return param;
-}
-
-//-----------------------------------------------------------------------------
-UniformParameterPtr Program::resolveAutoParameterInt(GpuProgramParameters::AutoConstantType autoType,
-                                           size_t data, size_t size)
-{
-    UniformParameterPtr param;
-
-    // Check if parameter already exists.
-    param = getParameterByAutoType(autoType);
-    if (param.get() != NULL)
-    {
-        if (param->isAutoConstantIntParameter() &&
-            param->getAutoConstantIntData() == data)
-        {
-            param->setSize(std::max(size, param->getSize()));
-            return param;
-        }
-    }
-
-    // Create new parameter.
-    param = UniformParameterPtr(OGRE_NEW UniformParameter(autoType, data, size));
     addParameter(param);
 
     return param;

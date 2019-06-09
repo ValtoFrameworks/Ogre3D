@@ -496,30 +496,21 @@ namespace Ogre {
         GLES2FBORenderTexture *retval = new GLES2FBORenderTexture(this, name, target, writeGamma, fsaa);
         return retval;
     }
-    MultiRenderTarget *GLES2FBOManager::createMultiRenderTarget(const String & name)
-    {
-        return new GLES2FBOMultiRenderTarget(this, name);
-    }
 
     void GLES2FBOManager::bind(RenderTarget *target)
     {
-        // Check if the render target is in the rendertarget->FBO map
         if(auto fbo = dynamic_cast<GLRenderTarget*>(target)->getFBO())
             fbo->bind(true);
-            // Old style context (window/pbuffer) or copying render texture
-#if OGRE_PLATFORM == OGRE_PLATFORM_APPLE_IOS
         else
         {
             // Non-multisampled screen buffer is FBO #1 on iOS, multisampled is yet another,
             // so give the target ability to influence decision which FBO to use
-            GLuint glfbo = 0;
-            target->getCustomAttribute("GLFBO", &glfbo);
-            OGRE_CHECK_GL_ERROR(glBindFramebuffer(GL_FRAMEBUFFER, glfbo));
-        }
-#else
-        else
-            OGRE_CHECK_GL_ERROR(glBindFramebuffer(GL_FRAMEBUFFER, 0));
+            GLuint mainfbo = 0;
+#if OGRE_PLATFORM == OGRE_PLATFORM_APPLE_IOS
+            target->getCustomAttribute("GLFBO", &mainfbo);
 #endif
+            OGRE_CHECK_GL_ERROR(glBindFramebuffer(GL_FRAMEBUFFER, mainfbo));
+        }
     }
     
     GLSurfaceDesc GLES2FBOManager::requestRenderBuffer(GLenum format, uint32 width, uint32 height, uint fsaa)

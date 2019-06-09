@@ -37,12 +37,20 @@ if (APPLE AND NOT ANDROID)
   set(CMAKE_XCODE_ATTRIBUTE_GCC_VERSION "com.apple.compilers.llvm.clang.1_0")
   set(CMAKE_XCODE_ATTRIBUTE_CLANG_CXX_LANGUAGE_STANDARD "c++11")
   set(CMAKE_XCODE_ATTRIBUTE_CLANG_CXX_LIBRARY "libc++")
-  
+
+  if(POLICY CMP0068)
+    cmake_policy(SET CMP0068 NEW)  # CMake 3.9+: `RPATH` settings on macOS do not affect `install_name`.
+  endif()
+
+  if (NOT CMAKE_OSX_ARCHITECTURES)
+    set(CMAKE_OSX_ARCHITECTURES "x86_64" CACHE STRING "") # target the common case
+  endif()
+
   # otherwise apple defines a macro named check that conflicts with boost
   add_definitions(-D__ASSERT_MACROS_DEFINE_VERSIONS_WITHOUT_UNDERSCORES=0)
 endif ()
 
-project(OGRE VERSION 1.12.0)
+project(OGRE VERSION 1.12.1)
 
 # extra version info
 set(OGRE_VERSION_SUFFIX "")
@@ -97,7 +105,7 @@ if (WIN32)
 endif ()
 
 # Set compiler specific build flags
-if (NOT ANDROID AND UNIX OR MINGW)
+if (NOT ANDROID AND NOT EMSCRIPTEN AND UNIX OR MINGW)
   include(CheckCXXCompilerFlag)
   check_cxx_compiler_flag(-msse OGRE_GCC_HAS_SSE)
   if (OGRE_GCC_HAS_SSE)
@@ -111,6 +119,9 @@ if(UNIX)
   if (EMSCRIPTEN)
       set(OGRE_WARNING_FLAGS "${OGRE_WARNING_FLAGS} -Wno-warn-absolute-paths")
   endif ()
+  if (CMAKE_CXX_COMPILER_ID MATCHES "Clang")
+    set(OGRE_WARNING_FLAGS "${OGRE_WARNING_FLAGS} -Wno-inconsistent-missing-override")
+  endif()
   set(CMAKE_CXX_FLAGS "${OGRE_WARNING_FLAGS} ${CMAKE_CXX_FLAGS}")
 endif ()
 if (MSVC)
@@ -270,22 +281,6 @@ elseif (APPLE AND NOT APPLE_IOS)
     set(CMAKE_OSX_SYSROOT macosx)
   endif()
 
-  if (NOT CMAKE_OSX_ARCHITECTURES)
-    if(OGRE_BUILD_RENDERSYSTEM_GL3PLUS)
-      if(CMAKE_GENERATOR STREQUAL "Unix Makefiles")
-        set(CMAKE_OSX_ARCHITECTURES "${ARCHS_STANDARD_64_BIT}")
-      else()
-        set(CMAKE_OSX_ARCHITECTURES "$(ARCHS_STANDARD_64_BIT)")
-      endif()
-    else()
-      if(CMAKE_GENERATOR STREQUAL "Unix Makefiles")
-        set(CMAKE_OSX_ARCHITECTURES "${ARCHS_STANDARD_32_64_BIT}")
-      else()
-        set(CMAKE_OSX_ARCHITECTURES "$(ARCHS_STANDARD_32_64_BIT)")
-      endif()
-    endif()
-  endif()
-
   # Make sure that the OpenGL render system is selected for non-iOS Apple builds
   set(OGRE_BUILD_RENDERSYSTEM_GLES2 FALSE)
 endif ()
@@ -342,7 +337,9 @@ cmake_dependent_option(OGRE_BUILD_COMPONENT_OVERLAY "Build Overlay component" TR
 option(OGRE_BUILD_COMPONENT_HLMS "Build HLMS component" TRUE)
 cmake_dependent_option(OGRE_BUILD_COMPONENT_BITES "Build OgreBites component" TRUE "OGRE_BUILD_COMPONENT_OVERLAY" FALSE)
 cmake_dependent_option(OGRE_BUILD_COMPONENT_PYTHON "Build Python bindings" TRUE "NOT OGRE_STATIC" FALSE)
-option(OGRE_BUILD_COMPONENT_JAVA "Build Java (JNI) bindings" TRUE)
+if (NOT EMSCRIPTEN)
+  option(OGRE_BUILD_COMPONENT_JAVA "Build Java (JNI) bindings" TRUE)
+endif()
 cmake_dependent_option(OGRE_BUILD_COMPONENT_CSHARP "Build Csharp bindings" TRUE "NOT ANDROID" FALSE)
 option(OGRE_BUILD_COMPONENT_RTSHADERSYSTEM "Build RTShader System component" TRUE)
 cmake_dependent_option(OGRE_BUILD_RTSHADERSYSTEM_CORE_SHADERS "Build RTShader System FFP core shaders" TRUE "OGRE_BUILD_COMPONENT_RTSHADERSYSTEM" FALSE)
@@ -394,7 +391,8 @@ option(OGRE_INSTALL_TOOLS "Install Ogre tools." TRUE)
 option(OGRE_INSTALL_DOCS "Install documentation." TRUE)
 option(OGRE_INSTALL_SAMPLES_SOURCE "Install samples source files." FALSE)
 cmake_dependent_option(OGRE_INSTALL_PDB "Install debug pdb files" TRUE "MSVC" FALSE)
-option(OGRE_PROFILING "Enable internal profiling support." FALSE)
+option(OGRE_PROFILING "Enable internal instrumentation." FALSE)
+set(OGRE_PROFILING_REMOTERY_PATH "" CACHE PATH "set this to Remotery/lib to use Remotery instead of the buildin profiler")
 cmake_dependent_option(OGRE_CONFIG_STATIC_LINK_CRT "Statically link the MS CRT dlls (msvcrt)" FALSE "MSVC" FALSE)
 set(OGRE_LIB_DIRECTORY "lib${LIB_SUFFIX}" CACHE STRING "Install path for libraries, e.g. 'lib64' on some 64-bit Linux distros.")
 if (WIN32)
@@ -499,9 +497,10 @@ endif ()
 # Install documentation
 add_subdirectory(Docs)
 
-# Install media files
+# Install sample media files
+install(DIRECTORY Media/ShadowVolume DESTINATION "${OGRE_MEDIA_PATH}/")
 if (OGRE_INSTALL_SAMPLES OR OGRE_INSTALL_SAMPLES_SOURCE)
-  add_subdirectory(Samples/Media)
+  install(DIRECTORY Samples/Media/ DESTINATION ${OGRE_MEDIA_PATH})
 endif ()
 
 # Install CMake modules

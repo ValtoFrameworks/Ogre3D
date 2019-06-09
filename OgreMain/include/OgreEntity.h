@@ -47,12 +47,12 @@ namespace Ogre {
     *  @{
     */
     /** Defines an instance of a discrete, movable object based on a Mesh.
-    @remarks
-        Ogre generally divides renderable objects into 2 groups, discrete
+
+        %Ogre generally divides renderable objects into 2 groups, discrete
         (separate) and relatively small objects which move around the world,
         and large, sprawling geometry which makes up generally immovable
         scenery, aka 'level geometry'.
-    @par
+
         The Mesh and SubMesh classes deal with the definition of the geometry
         used by discrete movable objects. Entities are actual instances of
         objects based on this geometry in the world. Therefore there is
@@ -66,14 +66,13 @@ namespace Ogre {
         individual changes is kept in the SubEntity class. There is a 1:1
         relationship between SubEntity instances and the SubMesh instances
         associated with the Mesh the Entity is based on.
-    @par
+
         Entity and SubEntity classes are never created directly. Use the
         createEntity method of the SceneManager (passing a model name) to
         create one.
-    @par
+
         Entities are included in the scene by associating them with a
-        SceneNode, using the attachEntity method. See the SceneNode class
-        for full information.
+        SceneNode, using the @ref SceneNode::attachObject method.
     @note
         No functions were declared virtual to improve performance.
     */
@@ -309,7 +308,7 @@ namespace Ogre {
 
     public:
         /// Contains the child objects (attached to bones) indexed by name.
-        typedef std::map<String, MovableObject*> ChildObjectList;
+        typedef std::vector<MovableObject*> ChildObjectList;
     protected:
         ChildObjectList mChildObjectList;
 
@@ -601,9 +600,11 @@ namespace Ogre {
         /// Detach all MovableObjects previously attached using attachObjectToBone
         void detachAllObjectsFromBone(void);
 
-        typedef MapIterator<ChildObjectList> ChildObjectListIterator;
+        typedef VectorIterator<ChildObjectList> ChildObjectListIterator;
+        /// @deprecated use getAttachedObjects()
+        OGRE_DEPRECATED ChildObjectListIterator getAttachedObjectIterator(void);
         /** Gets an iterator to the list of objects attached to bones on this entity. */
-        ChildObjectListIterator getAttachedObjectIterator(void);
+        const ChildObjectList& getAttachedObjects() const { return mChildObjectList; }
         /** @copydoc MovableObject::getBoundingRadius */
         Real getBoundingRadius(void) const;
 

@@ -50,11 +50,9 @@ if (WINDOWS_STORE OR WINDOWS_PHONE)
     set(SHORT_NAME ${EXE_NAME})
     set(PACKAGE_GUID "ef31484f-4f23-4b9f-8748-af5482696ae5")
     set(APP_MANIFEST_NAME Package.appxmanifest)
-    if(WINDOWS_PHONE AND "${CMAKE_SYSTEM_VERSION}" STREQUAL "8.0")
-        set(APP_MANIFEST_NAME WMAppManifest.xml)
-    endif()
+    string(SUBSTRING ${MSVC_VERSION} 0 2 MSVC_SHORT)
     configure_file(
-        ${OGRE_TEMPLATES_DIR}/Package_vc${MSVC_VERSION}.${CMAKE_SYSTEM_NAME}.appxmanifest.in
+        ${OGRE_TEMPLATES_DIR}/Package_vc${MSVC_SHORT}00.WindowsStore.appxmanifest.in
         ${CMAKE_CURRENT_BINARY_DIR}/${APP_MANIFEST_NAME}
         @ONLY)
 
@@ -313,9 +311,8 @@ if (ANDROID)
 
     copy_assets_to_android_proj()
 
-    file(MAKE_DIRECTORY "${NDKOUT}/libs")
-    file(MAKE_DIRECTORY "${NDKOUT}/libs/${ANDROID_NDK_ABI_NAME}")
-    set_target_properties(SampleBrowser PROPERTIES LIBRARY_OUTPUT_DIRECTORY "${NDKOUT}/libs/${ANDROID_NDK_ABI_NAME}")
+    file(MAKE_DIRECTORY "${NDKOUT}/app/src/main/jniLibs/${ANDROID_NDK_ABI_NAME}")
+    set_target_properties(SampleBrowser PROPERTIES LIBRARY_OUTPUT_DIRECTORY "${NDKOUT}/app/src/main/jniLibs/${ANDROID_NDK_ABI_NAME}")
     set_target_properties(SampleBrowser PROPERTIES OUTPUT_NAME "OgreSampleBrowser")
 
     create_android_proj(SampleBrowser)

@@ -56,6 +56,7 @@ static GpuConstantType typeFromContent(Parameter::Content content)
     case Parameter::SPC_TANGENT_OBJECT_SPACE:
     case Parameter::SPC_POSTOCAMERA_TANGENT_SPACE:
     case Parameter::SPC_POSTOCAMERA_OBJECT_SPACE:
+    case Parameter::SPC_POSTOCAMERA_VIEW_SPACE:
     case Parameter::SPC_POSITION_VIEW_SPACE:
     case Parameter::SPC_POSITION_WORLD_SPACE:
     case Parameter::SPC_LIGHTDIRECTION_OBJECT_SPACE0:
@@ -90,6 +91,7 @@ static GpuConstantType typeFromContent(Parameter::Content content)
     case Parameter::SPC_POSTOLIGHT_TANGENT_SPACE5:
     case Parameter::SPC_POSTOLIGHT_TANGENT_SPACE6:
     case Parameter::SPC_POSTOLIGHT_TANGENT_SPACE7:
+    case Parameter::SPC_LIGHTDIRECTION_VIEW_SPACE0:
         return GCT_FLOAT3;
     case Parameter::SPC_POINTSPRITE_COORDINATE:
         return GCT_FLOAT2;
@@ -165,6 +167,13 @@ void FunctionStageRef::sampleTexture(const std::vector<Operand>& params) const
 void FunctionStageRef::assign(const std::vector<Operand>& params) const
 {
     auto function = new AssignmentAtom(mStage);
+    function->setOperands(params);
+    mParent->addAtomInstance(function);
+}
+
+void FunctionStageRef::binaryOp(char op, const std::vector<Operand>& params) const
+{
+    auto function = new BinaryOpAtom(op, mStage);
     function->setOperands(params);
     mParent->addAtomInstance(function);
 }
@@ -304,11 +313,11 @@ ParameterPtr Function::resolveInputParameter(Parameter::Semantic semantic,
         param = ParameterFactory::createInTangent(index);
         break;
     case Parameter::SPS_UNKNOWN:
+        OGRE_EXCEPT(Exception::ERR_INVALIDPARAMS, "unknown semantic");
         break;
     }
 
-    if (param.get() != NULL)
-        addInputParameter(param);
+    addInputParameter(param);
 
     return param;
 }
@@ -410,11 +419,11 @@ ParameterPtr Function::resolveOutputParameter(Parameter::Semantic semantic,
         param = ParameterFactory::createOutTangent(index);
         break;
     case Parameter::SPS_UNKNOWN:
+        OGRE_EXCEPT(Exception::ERR_INVALIDPARAMS, "unknown semantic");
         break;
     }
 
-    if (param.get() != NULL)
-        addOutputParameter(param);
+    addOutputParameter(param);
 
     return param;
 }
@@ -626,12 +635,6 @@ void Function::addAtomInstance(FunctionAtom* atomInstance)
 {
     mAtomInstances[atomInstance->getGroupExecutionOrder()].push_back(atomInstance);
     mSortedAtomInstances.clear();
-}
-
-//-----------------------------------------------------------------------------
-void Function::addAtomAssign(ParameterPtr lhs, ParameterPtr rhs, int groupOrder)
-{
-    addAtomInstance(OGRE_NEW AssignmentAtom(lhs, rhs, groupOrder));
 }
 
 //-----------------------------------------------------------------------------

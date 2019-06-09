@@ -42,30 +42,36 @@ namespace Ogre {
     }
     PixelBox PixelBox::getSubVolume(const Box &def, bool resetOrigin /* = true */) const
     {
-        if(PixelUtil::isCompressed(format))
-        {
-            if(def.left == left && def.top == top && def.right == right &&
-			   def.bottom == bottom)
-            {
-                // Entire buffer is being queried
-                return *this;
-            }
-            OGRE_EXCEPT(Exception::ERR_INVALIDPARAMS, "Cannot return subvolume of compressed PixelBuffer", "PixelBox::getSubVolume");
-        }
         if(!contains(def))
             OGRE_EXCEPT(Exception::ERR_INVALIDPARAMS, "Bounds out of range", "PixelBox::getSubVolume");
+
+        if(PixelUtil::isCompressed(format) && (def.left != left || def.top != top || def.right != right || def.bottom != bottom))
+            OGRE_EXCEPT(Exception::ERR_INVALIDPARAMS, "Cannot return subvolume of compressed PixelBuffer with less than slice granularity", "PixelBox::getSubVolume");
 
         // Calculate new pixelbox and optionally reset origin.
         PixelBox rval(def, format, data);
         rval.rowPitch = rowPitch;
         rval.slicePitch = slicePitch;
+
         if(resetOrigin)
         {
-            rval.data = rval.getTopLeftFrontPixelPtr();
-            rval.right -= rval.left;
-            rval.bottom -= rval.top;
-            rval.back -= rval.front;
-            rval.front = rval.top = rval.left = 0;
+            if(PixelUtil::isCompressed(format))
+            {
+                if(rval.front > 0)
+                {
+                    rval.data = (uint8*)rval.data + rval.front * PixelUtil::getMemorySize(getWidth(), getHeight(), 1, format);
+                    rval.back -= rval.front;
+                    rval.front = 0;
+                }
+            }
+            else
+            {
+                rval.data = rval.getTopLeftFrontPixelPtr();
+                rval.right -= rval.left;
+                rval.bottom -= rval.top;
+                rval.back -= rval.front;
+                rval.front = rval.top = rval.left = 0;
+            }
         }
 
         return rval;
@@ -311,35 +317,6 @@ namespace Ogre {
             return PF_BYTE_BGRA;
 
         return PF_UNKNOWN;
-    }
-    //-----------------------------------------------------------------------
-    String PixelUtil::getBNFExpressionOfPixelFormats(bool accessibleOnly)
-    {
-        // Collect format names sorted by length, it's required by BNF compiler
-        // that similar tokens need longer ones comes first.
-        typedef std::multimap<String::size_type, String> FormatNameMap;
-        FormatNameMap formatNames;
-        for (size_t i = 0; i < PF_COUNT; ++i)
-        {
-            PixelFormat pf = static_cast<PixelFormat>(i);
-            if (!accessibleOnly || isAccessible(pf))
-            {
-                String formatName = getFormatName(pf);
-                formatNames.insert(std::make_pair(formatName.length(), formatName));
-            }
-        }
-
-        // Populate the BNF expression in reverse order
-        String result;
-        // Note: Stupid M$ VC7.1 can't dealing operator!= with FormatNameMap::const_reverse_iterator.
-        for (FormatNameMap::reverse_iterator j = formatNames.rbegin(); j != formatNames.rend(); ++j)
-        {
-            if (!result.empty())
-                result += " | ";
-            result += "'" + j->second + "'";
-        }
-
-        return result;
     }
     //-----------------------------------------------------------------------
     PixelFormat PixelUtil::getFormatForBitDepths(PixelFormat fmt, ushort integerBits, ushort floatBits)
@@ -712,12 +689,13 @@ namespace Ogre {
     void PixelUtil::bulkPixelConversion(const PixelBox &src, const PixelBox &dst)
     {
         assert(src.getWidth() == dst.getWidth() &&
-               src.getHeight() == dst.getHeight());
+               src.getHeight() == dst.getHeight() &&
+               src.getDepth() == dst.getDepth());
 
         // Check for compressed formats, we don't support decompression, compression or recoding
         if(PixelUtil::isCompressed(src.format) || PixelUtil::isCompressed(dst.format))
         {
-            if(src.format == dst.format && src.left == 0 && src.top == 0 && dst.left == 0 && dst.top == 0)
+            if(src.format == dst.format && src.isConsecutive() && dst.isConsecutive())
             {
                 // we can copy with slice granularity, useful for Tex2DArray handling
                 size_t bytesPerSlice = getMemorySize(src.getWidth(), src.getHeight(), 1, src.format);

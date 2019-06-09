@@ -30,10 +30,11 @@ THE SOFTWARE.
 namespace Ogre {
 namespace RTShader {
 //-----------------------------------------------------------------------------
-Operand::Operand(ParameterPtr parameter, Operand::OpSemantic opSemantic, int opMask, ushort indirectionLevel) : mParameter(parameter), mSemantic(opSemantic), mMask(opMask), mIndirectionLevel(indirectionLevel)
+Operand::Operand(ParameterPtr parameter, OpSemantic opSemantic, OpMask opMask, ushort indirectionLevel) : mParameter(parameter), mSemantic(opSemantic), mMask(opMask), mIndirectionLevel(indirectionLevel)
 {
-    OgreAssert(mParameter, "NULL parameter is not a valid operand");
-    parameter->setUsed(true);
+    // delay null check until FunctionInvocation
+    if(parameter)
+        parameter->setUsed(true);
 }
 //-----------------------------------------------------------------------------
 Operand::Operand(const Operand& other) 
@@ -82,7 +83,7 @@ String Operand::getMaskAsString(int mask)
 {
     String retVal = "";
 
-    if (mask & ~OPM_ALL) 
+    if (mask != OPM_ALL)
     {
         if (mask & OPM_X)
         {
@@ -163,7 +164,7 @@ GpuConstantType Operand::getGpuConstantType(int mask)
 String Operand::toString() const
 {
     String retVal = mParameter->toString();
-    if ((mMask & OPM_ALL) || ((mMask & OPM_X) && (mMask & OPM_Y) && (mMask & OPM_Z) && (mMask & OPM_W)))
+    if (mMask == OPM_ALL)
     {
         return retVal;
     }
@@ -185,20 +186,20 @@ int FunctionAtom::getGroupExecutionOrder() const
     return mGroupExecutionOrder;
 }
 
-String FunctionInvocation::Type = "FunctionInvocation";
-
 //-----------------------------------------------------------------------
 FunctionInvocation::FunctionInvocation(const String& functionName, int groupOrder,
                                        const String& returnType)
-    : mFunctionName(functionName), mReturnType(returnType)
+    : mReturnType(returnType)
 {
+    mFunctionName = functionName;
     mGroupExecutionOrder = groupOrder;
 }
 
 //-----------------------------------------------------------------------------
 FunctionInvocation::FunctionInvocation(const FunctionInvocation& other) :
-    mFunctionName(other.mFunctionName), mReturnType(other.mReturnType)
+    mReturnType(other.mReturnType)
 {
+    mFunctionName = other.mFunctionName;
     mGroupExecutionOrder = other.mGroupExecutionOrder;
     
     for ( OperandVector::const_iterator it = other.mOperands.begin(); it != other.mOperands.end(); ++it)
@@ -215,7 +216,27 @@ void FunctionInvocation::writeSourceCode(std::ostream& os, const String& targetL
     os << ");";
 }
 
-void FunctionInvocation::writeOperands(std::ostream& os, OperandVector::const_iterator begin,
+//-----------------------------------------------------------------------
+static String parameterNullMsg(const String& name, size_t pos)
+{
+    return StringUtil::format("%s: parameter #%zu is NULL", name.c_str(), pos);
+}
+
+void FunctionAtom::pushOperand(ParameterPtr parameter, Operand::OpSemantic opSemantic, Operand::OpMask opMask, int indirectionLevel)
+{
+    OgreAssert(parameter, parameterNullMsg(mFunctionName, mOperands.size()).c_str());
+    mOperands.push_back(Operand(parameter, opSemantic, opMask, indirectionLevel));
+}
+
+void FunctionAtom::setOperands(const OperandVector& ops)
+{
+    for (size_t i = 0; i < ops.size(); i++)
+        OgreAssert(ops[i].getParameter(), parameterNullMsg(mFunctionName, i).c_str());
+
+    mOperands = ops;
+}
+
+void FunctionAtom::writeOperands(std::ostream& os, OperandVector::const_iterator begin,
                                        OperandVector::const_iterator end) const
 {
     // Write parameters.
@@ -267,18 +288,6 @@ void FunctionInvocation::writeOperands(std::ostream& os, OperandVector::const_it
 }
 
 //-----------------------------------------------------------------------
-void FunctionInvocation::pushOperand(ParameterPtr parameter, Operand::OpSemantic opSemantic, int opMask, int indirectionLevel)
-{
-    mOperands.push_back(Operand(parameter, opSemantic, opMask, indirectionLevel));
-}
-
-void FunctionInvocation::setOperands(const OperandVector& ops)
-{
-    mOperands = ops;
-}
-
-
-//-----------------------------------------------------------------------
 bool FunctionInvocation::operator == ( const FunctionInvocation& rhs ) const
 {
     return FunctionInvocationCompare()(*this, rhs);
@@ -294,6 +303,15 @@ bool FunctionInvocation::operator != ( const FunctionInvocation& rhs ) const
 bool FunctionInvocation::operator < ( const FunctionInvocation& rhs ) const
 {
     return FunctionInvocationLessThan()(*this, rhs);
+}
+
+static uchar getSwizzledSize(const Operand& op)
+{
+    auto gct = op.getParameter()->getType();
+    if (op.getMask() == Operand::OPM_ALL)
+        return GpuConstantDefinition::getElementSize(gct, false);
+
+    return Operand::getFloatCount(op.getMask());
 }
 
 bool FunctionInvocation::FunctionInvocationLessThan::operator ()(FunctionInvocation const& lhs, FunctionInvocation const& rhs) const
@@ -341,25 +359,8 @@ bool FunctionInvocation::FunctionInvocationLessThan::operator ()(FunctionInvocat
         if (itLHSOps->getSemantic() > itRHSOps->getSemantic())
             return false;
 
-        GpuConstantType leftType    = itLHSOps->getParameter()->getType();
-        GpuConstantType rightType   = itRHSOps->getParameter()->getType();
-        
-        // If a swizzle mask is being applied to the parameter, generate the GpuConstantType to
-        // perform the parameter type comparison the way that the compiler will see it.
-        if ((itLHSOps->getFloatCount(itLHSOps->getMask()) > 0) ||
-           (itRHSOps->getFloatCount(itRHSOps->getMask()) > 0))
-        {
-            if (itLHSOps->getFloatCount(itLHSOps->getMask()) > 0)
-            {
-                leftType = (GpuConstantType)((itLHSOps->getParameter()->getType() - itLHSOps->getParameter()->getType()) +
-                                             itLHSOps->getFloatCount(itLHSOps->getMask()));
-            }
-            if (itRHSOps->getFloatCount(itRHSOps->getMask()) > 0)
-            {
-                rightType = (GpuConstantType)((itRHSOps->getParameter()->getType() - itRHSOps->getParameter()->getType()) +
-                                             itRHSOps->getFloatCount(itRHSOps->getMask()));
-            }
-        }
+        uchar leftType    = getSwizzledSize(*itLHSOps);
+        uchar rightType   = getSwizzledSize(*itRHSOps);
 
         if (leftType < rightType)
             return true;
@@ -393,36 +394,7 @@ bool FunctionInvocation::FunctionInvocationCompare::operator ()(FunctionInvocati
         if (itLHSOps->getSemantic() != itRHSOps->getSemantic())
             return false;
 
-        GpuConstantType leftType    = itLHSOps->getParameter()->getType();
-        GpuConstantType rightType   = itRHSOps->getParameter()->getType();
-        
-        if (Ogre::Root::getSingletonPtr()->getRenderSystem()->getName().find("OpenGL ES 2") != String::npos)
-        {
-            if (leftType == GCT_SAMPLER1D)
-                leftType = GCT_SAMPLER2D;
-
-            if (rightType == GCT_SAMPLER1D)
-                rightType = GCT_SAMPLER2D;
-        }
-
-        // If a swizzle mask is being applied to the parameter, generate the GpuConstantType to
-        // perform the parameter type comparison the way that the compiler will see it.
-        if ((itLHSOps->getFloatCount(itLHSOps->getMask()) > 0) ||
-           (itRHSOps->getFloatCount(itRHSOps->getMask()) > 0))
-        {
-            if (itLHSOps->getFloatCount(itLHSOps->getMask()) > 0)
-            {
-                leftType = (GpuConstantType)((itLHSOps->getParameter()->getType() - itLHSOps->getParameter()->getType()) +
-                                             itLHSOps->getFloatCount(itLHSOps->getMask()));
-            }
-            if (itRHSOps->getFloatCount(itRHSOps->getMask()) > 0)
-            {
-                rightType = (GpuConstantType)((itRHSOps->getParameter()->getType() - itRHSOps->getParameter()->getType()) +
-                                             itRHSOps->getFloatCount(itRHSOps->getMask()));
-            }
-        }
-
-        if (leftType != rightType)
+        if (getSwizzledSize(*itLHSOps) != getSwizzledSize(*itRHSOps))
             return false;
     }
 
@@ -430,11 +402,11 @@ bool FunctionInvocation::FunctionInvocationCompare::operator ()(FunctionInvocati
     return true;
 }
 
-String AssignmentAtom::Type = "AssignmentAtom";
 AssignmentAtom::AssignmentAtom(const Out& lhs, const In& rhs, int groupOrder) {
     // do this backwards for compatibility with FFP_FUNC_ASSIGN calls
     setOperands({rhs, lhs});
     mGroupExecutionOrder = groupOrder;
+    mFunctionName = "assign";
 }
 
 void AssignmentAtom::writeSourceCode(std::ostream& os, const String& targetLanguage) const
@@ -449,11 +421,11 @@ void AssignmentAtom::writeSourceCode(std::ostream& os, const String& targetLangu
     os << ";";
 }
 
-String SampleTextureAtom::Type = "SampleTextureAtom";
 SampleTextureAtom::SampleTextureAtom(const In& sampler, const In& texcoord, const Out& lhs, int groupOrder)
 {
     setOperands({sampler, texcoord, lhs});
     mGroupExecutionOrder = groupOrder;
+    mFunctionName = "sampleTexture";
 }
 
 void SampleTextureAtom::writeSourceCode(std::ostream& os, const String& targetLanguage) const
@@ -492,6 +464,34 @@ void SampleTextureAtom::writeSourceCode(std::ostream& os, const String& targetLa
     os << "(";
     writeOperands(os, mOperands.begin(), outOp);
     os << ");";
+}
+
+BinaryOpAtom::BinaryOpAtom(char op, const In& a, const In& b, const Out& dst, int groupOrder) {
+    // do this backwards for compatibility with FFP_FUNC_ASSIGN calls
+    setOperands({a, b, dst});
+    mGroupExecutionOrder = groupOrder;
+    mOp = op;
+    mFunctionName = op;
+}
+
+void BinaryOpAtom::writeSourceCode(std::ostream& os, const String& targetLanguage) const
+{
+    // find the output operand
+    OperandVector::const_iterator outOp = mOperands.begin();
+    while(outOp->getSemantic() != Operand::OPS_OUT)
+        outOp++;
+
+    // find the second operand
+    OperandVector::const_iterator secondOp = ++(mOperands.begin());
+    while(outOp->getIndirectionLevel() != 0)
+        secondOp++;
+
+    writeOperands(os, outOp, mOperands.end());
+    os << "\t=\t";
+    writeOperands(os, mOperands.begin(), secondOp);
+    os << mOp;
+    writeOperands(os, secondOp, outOp);
+    os << ";";
 }
 
 }

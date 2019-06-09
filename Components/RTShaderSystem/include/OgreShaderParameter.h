@@ -532,6 +532,20 @@ public:
         }
     }
 
+    void setGpuParameter(const Matrix3& val)
+    {
+        if (mParamsPtr == NULL) return;
+
+        if(mElementSize == 9) // check if tight packing is supported
+        {
+            mParamsPtr->_writeRawConstant(mPhysicalIndex, val, 9);
+        }
+        else
+        {
+            mParamsPtr->_writeRawConstant(mPhysicalIndex, Matrix4(val), mElementSize);
+        }
+    }
+
     /** Update the GPU parameter with the given value. */   
     void setGpuParameter(const Matrix4& val)  
     { 
@@ -568,6 +582,16 @@ public:
         }
     }
 
+    /// light index or array size
+    void updateExtraInfo(size_t data)
+    {
+        if (!mParamsPtr)
+            return;
+
+        mParamsPtr->_setRawAutoConstant(mPhysicalIndex, mAutoConstantType, data, mVariability,
+                                        mElementSize);
+    }
+
 protected:
     // Is it auto constant real based parameter.
     bool mIsAutoConstantReal;
@@ -587,6 +611,8 @@ protected:
     GpuProgramParameters* mParamsPtr;
     // The physical index of this parameter in the GPU program.
     size_t mPhysicalIndex;
+    // The size of this parameter in the GPU program
+    size_t mElementSize;
 };
 
 typedef std::vector<UniformParameterPtr>       UniformParameterList;
@@ -660,11 +686,6 @@ public:
     static ParameterPtr createOutTexcoord3(int index, Parameter::Content content);
     static ParameterPtr createInTexcoord4(int index, Parameter::Content content);           
     static ParameterPtr createOutTexcoord4(int index, Parameter::Content content);
-
-    OGRE_DEPRECATED static ParameterPtr createConstParamVector2(Vector2 val) { return createConstParam(val); }
-    OGRE_DEPRECATED static ParameterPtr createConstParamVector3(Vector3 val) { return createConstParam(val); }
-    OGRE_DEPRECATED static ParameterPtr createConstParamVector4(Vector4 val) { return createConstParam(val); }
-    OGRE_DEPRECATED static ParameterPtr createConstParamFloat(float val) { return createConstParam(val); }
 
     static ParameterPtr createConstParam(const Vector2& val);
     static ParameterPtr createConstParam(const Vector3& val);

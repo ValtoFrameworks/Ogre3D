@@ -252,6 +252,8 @@ static GpuConstantType getGCType(const GpuProgramParameters::AutoConstantDefinit
         return GCT_FLOAT4;
     case 8:
         return GCT_MATRIX_2X4;
+    case 9:
+        return GCT_MATRIX_3X3;
     case 12:
         return GCT_MATRIX_3X4;
     case 16:
@@ -364,12 +366,15 @@ void UniformParameter::bind(GpuProgramParametersSharedPtr paramsPtr)
 {   
     if (paramsPtr.get() != NULL)
     {
-        const GpuConstantDefinition* def = paramsPtr->_findNamedConstantDefinition(mBindName.empty() ? mName : mBindName, true);
+        // do not throw on failure: some RS optimize unused uniforms away. Also unit tests run without any RS
+        const GpuConstantDefinition* def = paramsPtr->_findNamedConstantDefinition(mBindName.empty() ? mName : mBindName, false);
 
         if (def != NULL)
         {
             mParamsPtr = paramsPtr.get();
             mPhysicalIndex = def->physicalIndex;
+            mElementSize = def->elementSize;
+            mVariability = def->variability;
         }
     }
 }

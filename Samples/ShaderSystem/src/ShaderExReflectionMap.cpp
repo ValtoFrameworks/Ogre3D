@@ -94,15 +94,7 @@ bool ShaderExReflectionMap::preAddToRenderState(const RenderState* renderState, 
     // Create the reflection texture unit.
     textureUnit = dstPass->createTextureUnitState();
 
-    if (mReflectionMapType == TEX_TYPE_2D)
-    {
-        textureUnit->setTextureName(mReflectionMapTextureName); 
-    }
-    else
-    {
-        textureUnit->setCubicTextureName(mReflectionMapTextureName, true);  
-    }
-        
+    textureUnit->setTextureName(mReflectionMapTextureName, mReflectionMapType);
     mReflectionMapSamplerIndex = dstPass->getNumTextureUnitStates() - 1;
 
     return true;
@@ -284,7 +276,7 @@ void ShaderExReflectionMap::setReflectionPower(const Real reflectionPower)
 }
 
 //-----------------------------------------------------------------------
-void ShaderExReflectionMap::updateGpuProgramsParams(Renderable* rend, Pass* pass, const AutoParamDataSource* source, const LightList* pLightList)
+void ShaderExReflectionMap::updateGpuProgramsParams(Renderable* rend, const Pass* pass, const AutoParamDataSource* source, const LightList* pLightList)
 {
     if (mReflectionPowerChanged)
     {

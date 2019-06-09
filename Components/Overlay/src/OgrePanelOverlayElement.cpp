@@ -115,8 +115,8 @@ namespace Ogre {
         HardwareVertexBufferSharedPtr vbuf =
             HardwareBufferManager::getSingleton().createVertexBuffer(
             decl->getVertexSize(POSITION_BINDING), mRenderOp.vertexData->vertexCount,
-            HardwareBuffer::HBU_STATIC_WRITE_ONLY// mostly static except during resizing
-            );
+            HardwareBuffer::HBU_DYNAMIC_WRITE_ONLY,// mostly static except during resizing
+            true);//Workaround, using shadow buffer to avoid stall due to buffer mapping
         // Bind buffer
         mRenderOp.vertexData->vertexBufferBinding->setBinding(POSITION_BINDING, vbuf);
 
@@ -131,12 +131,14 @@ namespace Ogre {
             return;
 
         VertexBufferBinding* bind = mRenderOp.vertexData->vertexBufferBinding;
-        bind->unsetBinding(POSITION_BINDING);
+        if (bind->isBufferBound(POSITION_BINDING))
+            bind->unsetBinding(POSITION_BINDING);
 
         // Remove all texcoord element declarations
         if(mNumTexCoordsInBuffer > 0)
         {
-            bind->unsetBinding(TEXCOORD_BINDING);
+            if (bind->isBufferBound (TEXCOORD_BINDING))
+                bind->unsetBinding(TEXCOORD_BINDING);
 
             VertexDeclaration* decl = mRenderOp.vertexData->vertexDeclaration;
             for(size_t i = mNumTexCoordsInBuffer; i > 0; --i)
@@ -314,8 +316,8 @@ namespace Ogre {
                 HardwareVertexBufferSharedPtr newbuf =
                     HardwareBufferManager::getSingleton().createVertexBuffer(
                     decl->getVertexSize(TEXCOORD_BINDING), mRenderOp.vertexData->vertexCount,
-                    HardwareBuffer::HBU_STATIC_WRITE_ONLY // mostly static except during resizing
-                    );
+                    HardwareBuffer::HBU_DYNAMIC_WRITE_ONLY, // mostly static except during resizing
+                    true);//Workaround, using shadow buffer to avoid stall due to buffer mapping
                 // Bind buffer, note this will unbind the old one and destroy the buffer it had
                 mRenderOp.vertexData->vertexBufferBinding->setBinding(TEXCOORD_BINDING, newbuf);
                 // Set num tex coords in use now

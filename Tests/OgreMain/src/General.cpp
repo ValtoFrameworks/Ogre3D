@@ -45,6 +45,7 @@ THE SOFTWARE.
 #include "OgreMesh.h"
 #include "OgreSkeletonManager.h"
 #include "OgreCompositorManager.h"
+#include "OgreTextureManager.h"
 
 #include <random>
 using std::minstd_rand;
@@ -166,6 +167,7 @@ TEST_F(SceneQueryTest, Ray) {
 TEST(MaterialSerializer, Basic)
 {
     Root root;
+    DefaultTextureManager texMgr;
 
     String group = "General";
 
@@ -175,6 +177,8 @@ TEST(MaterialSerializer, Basic)
     tus->setContentType(TextureUnitState::CONTENT_SHADOW);
     tus->setName("Test TUS");
     pass->setAmbient(ColourValue::Green);
+
+    pass->createTextureUnitState("TextureName");
 
     // export to string
     MaterialSerializer ser;
@@ -193,6 +197,10 @@ TEST(MaterialSerializer, Basic)
     EXPECT_EQ(mat2->getTechniques()[0]->getPasses()[0]->getAmbient(), ColourValue::Green);
     EXPECT_EQ(mat2->getTechniques()[0]->getPasses()[0]->getTextureUnitState("Test TUS")->getContentType(),
               TextureUnitState::CONTENT_SHADOW);
+    EXPECT_EQ(mat2->getTechniques()[0]->getPasses()[0]->getTextureUnitState("Test TUS")->getTextureNameAlias(),
+              "Test TUS");
+    EXPECT_EQ(mat2->getTechniques()[0]->getPasses()[0]->getTextureUnitState(1)->getTextureName(),
+              "TextureName");
 }
 
 TEST(Image, FlipV)
@@ -250,4 +258,21 @@ TEST_F(ResourceLoading, CollsionUseExisting)
         "Collision", "Tests", "null", GPT_VERTEX_PROGRAM));
     EXPECT_FALSE(HighLevelGpuProgramManager::getSingleton().createProgram(
         "Collision", "Tests", "null", GPT_VERTEX_PROGRAM));
+}
+
+typedef RootWithoutRenderSystemFixture TextureTests;
+TEST_F(TextureTests, Blank)
+{
+    auto mat = std::make_shared<Material>(nullptr, "Material Name", 0, "Group");
+    auto tus = mat->createTechnique()->createPass()->createTextureUnitState();
+
+    EXPECT_EQ(tus->isBlank(), true);
+    EXPECT_EQ(tus->getTextureName(), "");
+    EXPECT_EQ(tus->getTextureType(), TEX_TYPE_2D);
+    EXPECT_EQ(tus->getNumMipmaps(), MIP_DEFAULT);
+    EXPECT_EQ(tus->getDesiredFormat(), PF_UNKNOWN);
+    EXPECT_EQ(tus->getFrameTextureName(0), "");
+    EXPECT_EQ(tus->getIsAlpha(), false);
+    EXPECT_EQ(tus->getGamma(), 1.0f);
+    EXPECT_EQ(tus->isHardwareGammaEnabled(), false);
 }

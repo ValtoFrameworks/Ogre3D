@@ -29,6 +29,7 @@ THE SOFTWARE.
 
 #include "OgreShaderPrerequisites.h"
 #include "OgreShaderSubRenderState.h"
+#include "OgreShaderProgramSet.h"
 
 namespace Ogre {
 namespace RTShader {
@@ -82,17 +83,16 @@ public:
     lightCount[1] defines the directional light count.
     lightCount[2] defines the spot light count.
     */
-    void setLightCount(const int lightCount[3]);
+    void setLightCount(const Vector3i& lightCount);
 
     /** 
     Get the light count per light type.
-    @param 
-    lightCount The light count per type.
+
     lightCount[0] defines the point light count.
     lightCount[1] defines the directional light count.
     lightCount[2] defines the spot light count.
     */
-    void getLightCount(int lightCount[3]) const;
+    const Vector3i& getLightCount() const;
 
     /** 
     Set the light count auto update state.
@@ -116,7 +116,7 @@ protected:
     // The sub render states list.  
     SubRenderStateList mSubRenderStateList;
     // The light count per light type definition.
-    int mLightCount[3];
+    Vector3i mLightCount;
     // True if light count was explicitly set.
     bool mLightCountAutoUpdate;
 
@@ -124,12 +124,6 @@ private:
     friend class ProgramManager;
     friend class FFPRenderStateBuilder;
 };
-
-
-typedef std::vector<RenderState*>              RenderStateList;
-typedef RenderStateList::iterator               RenderStateIterator;
-typedef RenderStateList::const_iterator         RenderStateConstIterator;
-
 
 /** This is the target render state. This class will hold the actual generated CPU/GPU programs.
 It will be initially build from the FFP state of a given Pass by the FFP builder and then will be linked
@@ -143,9 +137,6 @@ public:
     
     /** Class default constructor. */
     TargetRenderState();
-
-    /** Class destructor */
-    virtual ~TargetRenderState();
 
     /** Link this target render state with the given render state.
     Only sub render states with execution order that don't exist in this render state will be added.    
@@ -161,28 +152,7 @@ public:
     @param source The auto parameter auto source instance.
     @param pLightList The light list used for the current rendering operation.
     */
-    void updateGpuProgramsParams(Renderable* rend, Pass* pass, const AutoParamDataSource* source, const LightList* pLightList);
-    
-// Protected methods
-protected:
-
-    /** Sort the sub render states composing this render state. */
-    void sortSubRenderStates();
-    
-    /** Create CPU programs that represent this render state.   
-    */
-    bool createCpuPrograms();
-
-    /** Create the program set of this render state.
-    */
-    ProgramSet* createProgramSet();
-
-    /* Destroy the program set of this render state. */
-    void destroyProgramSet();
-
-    /** Return the program set of this render state.
-    */
-    ProgramSet* getProgramSet() { return mProgramSet; }
+    void updateGpuProgramsParams(Renderable* rend, const Pass* pass, const AutoParamDataSource* source, const LightList* pLightList);
 
     /** Add sub render state to this render state.
     @param subRenderState The sub render state to add.
@@ -193,14 +163,45 @@ protected:
     @param subRenderState The sub render state to remove.
     */
     void removeSubRenderStateInstance(SubRenderState* subRenderState);
+    
+    /** Acquire CPU/GPU programs set associated with the given render state and bind them to the pass.
+    @param pass The pass to bind the programs to.
+    */
+    void acquirePrograms(Pass* pass);
 
+    /** Release CPU/GPU programs set associated with the given render state and pass.
+    @param pass The pass to release the programs from.
+    */
+    void releasePrograms(Pass* pass);
+
+    /// Key name for associating with a Pass instance.
+    static const char* UserKey;
+// Protected methods
+protected:
+    /** Bind the uniform parameters of a given CPU and GPU program set. */
+    static void bindUniformParameters(Program* pCpuProgram, const GpuProgramParametersSharedPtr& passParams);
+
+    /** Sort the sub render states composing this render state. */
+    void sortSubRenderStates();
+    
+    /** Create CPU programs that represent this render state.   
+    */
+    void createCpuPrograms();
+
+    /** Create the program set of this render state.
+    */
+    ProgramSet* createProgramSet();
+
+    /** Return the program set of this render state.
+    */
+    ProgramSet* getProgramSet() { return mProgramSet.get(); }
     
 // Attributes.
 protected:
     // Tells if the list of the sub render states is sorted.
     bool mSubRenderStateSortValid;
     // The program set of this RenderState.
-    ProgramSet* mProgramSet;
+    std::unique_ptr<ProgramSet> mProgramSet;
     
 
 private:

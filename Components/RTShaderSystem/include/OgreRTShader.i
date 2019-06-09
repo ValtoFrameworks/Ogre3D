@@ -1,4 +1,4 @@
-%module OgreRTShader
+%module(package="Ogre") RTShader
 %{
 /* Includes the header in the wrapper code */
 #include "Ogre.h"
@@ -33,4 +33,3 @@
 %include "OgreShaderExIntegratedPSSM3.h"
 %include "OgreShaderExLayeredBlending.h"
 %include "OgreShaderExHardwareSkinning.h"
-%include "OgreShaderMaterialSerializerListener.h"

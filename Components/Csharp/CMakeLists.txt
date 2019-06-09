@@ -10,7 +10,7 @@ include_directories("${PROJECT_BINARY_DIR}/include" "${PROJECT_SOURCE_DIR}/OgreM
 include(${SWIG_USE_FILE})
 
 if(MSVC)
-	add_definitions(/bigobj)
+	add_definitions(/bigobj /wd4700)
 else()
 	add_definitions(-Wno-strict-aliasing -Wno-cast-qual -Wno-shadow -Wno-missing-declarations -Wno-unused-but-set-variable)
 endif()
@@ -42,6 +42,7 @@ if(OGRE_BUILD_COMPONENT_BITES)
 	list(APPEND SWIG_INPUT_MODULES ../Bites/include/OgreBites.i)
 endif()
 
+set(CMAKE_WARN_DEPRECATED OFF)
 swig_add_module(libOgre csharp ${SWIG_INPUT_MODULES})
 SWIG_LINK_LIBRARIES(libOgre OgreBites OgreOverlay OgreRTShaderSystem OgreMain)
 install(TARGETS ${SWIG_MODULE_libOgre_REAL_NAME} LIBRARY DESTINATION lib/)

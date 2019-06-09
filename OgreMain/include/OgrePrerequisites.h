@@ -33,6 +33,9 @@ THE SOFTWARE
 #include <memory>
 
 namespace Ogre {
+    #define OGRE_TOKEN_PASTE_INNER(x, y) x ## y
+    #define OGRE_TOKEN_PASTE(x, y) OGRE_TOKEN_PASTE_INNER(x, y)
+
     #define OGRE_VERSION    ((OGRE_VERSION_MAJOR << 16) | (OGRE_VERSION_MINOR << 8) | OGRE_VERSION_PATCH)
 
     // define the real number values to be used
@@ -222,7 +225,6 @@ namespace Ogre {
     class ShadowCameraSetup;
     class ShadowCaster;
     class ShadowRenderable;
-    class ShadowTextureManager;
     class SimpleRenderable;
     class SimpleSpline;
     class Skeleton;
@@ -252,6 +254,7 @@ namespace Ogre {
     typedef Vector<3, Real> Vector3;
     typedef Vector<3, int> Vector3i;
     typedef Vector<4, Real> Vector4;
+    typedef Vector<4, float> Vector4f;
     class Viewport;
     class VertexAnimationTrack;
     class VertexBufferBinding;

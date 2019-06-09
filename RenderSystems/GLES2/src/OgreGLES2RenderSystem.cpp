@@ -33,7 +33,7 @@ THE SOFTWARE.
 #include "OgreGLES2HardwareBufferManager.h"
 #include "OgreGLES2HardwareIndexBuffer.h"
 #include "OgreGLES2HardwareVertexBuffer.h"
-#include "OgreGLES2GpuProgramManager.h"
+#include "OgreGpuProgramManager.h"
 #include "OgreGLUtil.h"
 #include "OgreGLES2FBORenderTexture.h"
 #include "OgreGLES2HardwareOcclusionQuery.h"
@@ -51,6 +51,7 @@ THE SOFTWARE.
 #include "OgreGLES2StateCacheManager.h"
 #include "OgreRenderWindow.h"
 #include "OgreGLES2PixelFormat.h"
+#include "OgreGLES2FBOMultiRenderTarget.h"
 
 #if OGRE_PLATFORM == OGRE_PLATFORM_APPLE_IOS
 #include "OgreEAGLES2Context.h"
@@ -162,7 +163,6 @@ namespace Ogre {
           mGLSLESCgProgramFactory(0),
 #endif
           mHardwareBufferManager(0),
-          mRTTManager(0),
           mCurTexMipCount(0)
     {
         size_t i;
@@ -199,6 +199,7 @@ namespace Ogre {
         mPolygonMode = GL_FILL;
         mCurrentVertexProgram = 0;
         mCurrentFragmentProgram = 0;
+        mRTTManager = NULL;
     }
 
     GLES2RenderSystem::~GLES2RenderSystem()
@@ -223,23 +224,13 @@ namespace Ogre {
         return strName;
     }
 
-    RenderWindow* GLES2RenderSystem::_initialise(bool autoCreateWindow,
-                                                 const String& windowTitle)
+    void GLES2RenderSystem::_initialise()
     {
-        mGLSupport->start();
+        RenderSystem::_initialise();
 
+        mGLSupport->start();
         // Create the texture manager
         mTextureManager = OGRE_NEW GLES2TextureManager(this);
-
-        RenderWindow* autoWindow = NULL;
-        if(autoCreateWindow) {
-            uint w, h;
-            bool fullscreen;
-            NameValuePairList misc = parseOptions(w, h, fullscreen);
-            autoWindow = _createRenderWindow(windowTitle, w, h, fullscreen, &misc);
-        }
-        RenderSystem::_initialise(autoCreateWindow, windowTitle);
-        return autoWindow;
     }
 
     RenderSystemCapabilities* GLES2RenderSystem::createRenderSystemCapabilities() const
@@ -364,9 +355,6 @@ namespace Ogre {
             rsc->setNumMultiRenderTargets(1);
         }
 
-        // Cube map
-        rsc->setCapability(RSC_CUBEMAPPING);
-
         // Stencil wrapping
         rsc->setCapability(RSC_STENCIL_WRAP);
 
@@ -417,8 +405,11 @@ namespace Ogre {
         OGRE_IF_IOS_VERSION_IS_GREATER_THAN(5.0)
         if(checkExtension("GL_EXT_separate_shader_objects"))
         {
-            rsc->setCapability(RSC_SEPARATE_SHADER_OBJECTS);
-            rsc->setCapability(RSC_GLSL_SSO_REDECLARE);
+            // this relaxes shader matching rules and requires slightly different GLSL declaration
+            // however our usage pattern does not benefit from this and driver support is quite poor
+            // so disable it for now (see below)
+            /*rsc->setCapability(RSC_SEPARATE_SHADER_OBJECTS);
+            rsc->setCapability(RSC_GLSL_SSO_REDECLARE);*/
         }
 
         // Mesa 11.2 does not behave according to spec and throws a "gl_Position redefined"
@@ -538,7 +529,9 @@ namespace Ogre {
         if(caps->getNumVertexAttributes() < 16)
             GLSLProgramCommon::useTightAttributeLayout();
 
-        mGpuProgramManager = OGRE_NEW GLES2GpuProgramManager();
+        mGpuProgramManager = new GpuProgramManager();
+        ResourceGroupManager::getSingleton()._registerResourceManager(mGpuProgramManager->getResourceType(),
+                                                                      mGpuProgramManager);
 
         mGLSLESProgramFactory = OGRE_NEW GLSLESProgramFactory();
         HighLevelGpuProgramManager::getSingleton().addFactory(mGLSLESProgramFactory);
@@ -589,8 +582,12 @@ namespace Ogre {
         }
 #endif
         // Deleting the GPU program manager and hardware buffer manager.  Has to be done before the mGLSupport->stop().
-        OGRE_DELETE mGpuProgramManager;
-        mGpuProgramManager = 0;
+        if(mGpuProgramManager)
+        {
+            ResourceGroupManager::getSingleton()._unregisterResourceManager(mGpuProgramManager->getResourceType());
+            OGRE_DELETE mGpuProgramManager;
+            mGpuProgramManager = 0;
+        }
 
         OGRE_DELETE mHardwareBufferManager;
         mHardwareBufferManager = 0;
@@ -702,7 +699,7 @@ namespace Ogre {
             GLES2DepthBuffer *depthBuffer = OGRE_NEW GLES2DepthBuffer( DepthBuffer::POOL_DEFAULT, this,
                                                             windowContext, 0, 0,
                                                             win->getWidth(), win->getHeight(),
-                                                            win->getFSAA(), 0, true );
+                                                            win->getFSAA(), true );
 
             mDepthBufferPool[depthBuffer->getPoolId()].push_back( depthBuffer );
 
@@ -717,9 +714,6 @@ namespace Ogre {
     {
         GLES2DepthBuffer *retVal = 0;
 
-        // Only FBO & pbuffer support different depth buffers, so everything
-        // else creates dummy (empty) containers
-        // retVal = mRTTManager->_createDepthBufferFor( renderTarget );
         if( auto fbo = dynamic_cast<GLRenderTarget*>(renderTarget)->getFBO() )
         {
             // Presence of an FBO means the manager is an FBO Manager, that's why it's safe to downcast
@@ -745,21 +739,16 @@ namespace Ogre {
 
             // No "custom-quality" multisample for now in GL
             retVal = OGRE_NEW GLES2DepthBuffer( 0, this, mCurrentContext, depthBuffer, stencilBuffer,
-                                        fbo->getWidth(), fbo->getHeight(), fbo->getFSAA(), 0, false );
+                                        fbo->getWidth(), fbo->getHeight(), fbo->getFSAA(), false );
         }
 
         return retVal;
     }
-    //---------------------------------------------------------------------
-    void GLES2RenderSystem::_getDepthStencilFormatFor( PixelFormat internalColourFormat, GLenum *depthFormat,
-                                                      GLenum *stencilFormat )
-    {
-        mRTTManager->getBestDepthStencil( internalColourFormat, depthFormat, stencilFormat );
-    }
 
     MultiRenderTarget* GLES2RenderSystem::createMultiRenderTarget(const String & name)
     {
-        MultiRenderTarget *retval = mRTTManager->createMultiRenderTarget(name);
+        MultiRenderTarget* retval =
+            new GLES2FBOMultiRenderTarget(static_cast<GLES2FBOManager*>(mRTTManager), name);
         attachRenderTarget(*retval);
         return retval;
     }
@@ -831,6 +820,11 @@ namespace Ogre {
             mCurTexMipCount = tex->getNumMipmaps();
 
             mStateCacheManager->bindGLTexture(mTextureTypes[stage], tex->getGLID());
+        }
+        else
+        {
+            // Bind zero texture
+            mStateCacheManager->bindGLTexture(GL_TEXTURE_2D, 0);
         }
     }
 
@@ -1364,22 +1358,6 @@ namespace Ogre {
         }
     }
 
-    void GLES2RenderSystem::_setTextureLayerAnisotropy(size_t unit, unsigned int maxAnisotropy)
-    {
-        if (!mCurrentCapabilities->hasCapability(RSC_ANISOTROPY))
-            return;
-
-        if (!mStateCacheManager->activateGLTextureUnit(unit))
-            return;
-
-        if (maxAnisotropy > mCurrentCapabilities->getMaxSupportedAnisotropy())
-            maxAnisotropy = mCurrentCapabilities->getMaxSupportedAnisotropy() ? 
-            static_cast<uint>(mCurrentCapabilities->getMaxSupportedAnisotropy()) : 1;
-
-        mStateCacheManager->setTexParameterf(mTextureTypes[unit],
-                                              GL_TEXTURE_MAX_ANISOTROPY_EXT, (float)maxAnisotropy);
-    }
-
     void GLES2RenderSystem::_render(const RenderOperation& op)
     {
         // Call super class
@@ -1836,10 +1814,6 @@ namespace Ogre {
 
     void GLES2RenderSystem::_setRenderTarget(RenderTarget *target)
     {
-        // Unbind frame buffer object
-        if(mActiveRenderTarget && mRTTManager)
-            mRTTManager->unbind(mActiveRenderTarget);
-
         mActiveRenderTarget = target;
         if (target && mRTTManager)
         {
@@ -2136,7 +2110,7 @@ namespace Ogre {
         GLES2DepthBuffer *depthBuffer = OGRE_NEW GLES2DepthBuffer( DepthBuffer::POOL_DEFAULT, this,
                                                                   mMainContext, 0, 0,
                                                                   win->getWidth(), win->getHeight(),
-                                                                  win->getFSAA(), 0, true );
+                                                                  win->getFSAA(), true );
         
         mDepthBufferPool[depthBuffer->getPoolId()].push_back( depthBuffer );
         win->attachDepthBuffer( depthBuffer );
@@ -2153,26 +2127,6 @@ namespace Ogre {
         return GLES2RenderSystem::mResourceManager;
     }
 #endif
-
-    void GLES2RenderSystem::_setTextureUnitCompareFunction(size_t unit, CompareFunction function)
-    {
-        if (!mStateCacheManager->activateGLTextureUnit(unit) || !hasMinGLVersion(3, 0))
-            return;
-
-        mStateCacheManager->setTexParameteri(mTextureTypes[unit],
-                                            GL_TEXTURE_COMPARE_FUNC,
-                                            convertCompareFunction(function));
-    }
-
-    void GLES2RenderSystem::_setTextureUnitCompareEnabled(size_t unit, bool compare)
-    {
-        if (!mStateCacheManager->activateGLTextureUnit(unit) || !hasMinGLVersion(3, 0))
-            return;
-
-        mStateCacheManager->setTexParameteri(mTextureTypes[unit],
-                                            GL_TEXTURE_COMPARE_MODE,
-                                            compare ? GL_COMPARE_REF_TO_TEXTURE : GL_NONE);
-    }
 
     void GLES2RenderSystem::bindVertexElementToGpu(
         const VertexElement& elem, const HardwareVertexBufferSharedPtr& vertexBuffer,

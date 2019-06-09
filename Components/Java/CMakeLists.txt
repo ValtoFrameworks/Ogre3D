@@ -21,7 +21,7 @@ include_directories("${PROJECT_BINARY_DIR}/include" "${PROJECT_SOURCE_DIR}/OgreM
 include(${SWIG_USE_FILE})
 
 if(MSVC)
-	add_definitions(/bigobj)
+	add_definitions(/bigobj /wd4700)
 else()
 	add_definitions(-Wno-strict-aliasing -Wno-cast-qual -Wno-shadow -Wno-missing-declarations)
 endif()
@@ -37,7 +37,8 @@ set(CMAKE_LIBRARY_OUTPUT_DIRECTORY "${PROJECT_BINARY_DIR}/java/libs")
 set(CMAKE_SWIG_OUTDIR "${PROJECT_BINARY_DIR}/java/src/org/ogre")
 
 if(ANDROID)
-	set(CMAKE_LIBRARY_OUTPUT_DIRECTORY "${CMAKE_LIBRARY_OUTPUT_DIRECTORY}/${ANDROID_NDK_ABI_NAME}")
+    set(CMAKE_SWIG_OUTDIR "${PROJECT_BINARY_DIR}/java/app/src/main/java/org/ogre")
+    set(CMAKE_LIBRARY_OUTPUT_DIRECTORY "${PROJECT_BINARY_DIR}/java/app/src/main/jniLibs/${ANDROID_NDK_ABI_NAME}")
 	list(APPEND CMAKE_SWIG_FLAGS -D__ANDROID__)
 endif()
 
@@ -68,6 +69,7 @@ if(OGRE_BUILD_COMPONENT_BITES)
 	list(APPEND SWIG_INPUT_MODULES ../Bites/include/OgreBites.i)
 endif()
 
+set(CMAKE_WARN_DEPRECATED OFF)
 swig_add_module(OgreJNI java ${SWIG_INPUT_MODULES})
 swig_link_libraries(OgreJNI OgreBites OgreOverlay OgreRTShaderSystem OgreMain ${JNI_LIBRARIES})
 
@@ -78,7 +80,10 @@ if(${Java_FOUND})
 	add_custom_command(TARGET ${SWIG_MODULE_OgreJNI_REAL_NAME} POST_BUILD
     	COMMAND "${Java_JAVAC_EXECUTABLE}" -d ${CLASS_OUTPUT_PATH} "${PROJECT_BINARY_DIR}/java/src/org/ogre/*.java"
 		COMMAND "${Java_JAR_EXECUTABLE}" cf ${JAR_NAME} -C ${CLASS_OUTPUT_PATH} .
-	)
+    )
+
+    install(FILES ${JAR_NAME} DESTINATION share/java/)
+    ogre_install_target(${SWIG_MODULE_OgreJNI_REAL_NAME} "" FALSE)
 endif()
 
 if(ANDROID)

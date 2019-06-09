@@ -48,7 +48,6 @@ namespace Ogre {
     class _OgreExport GpuProgramManager : public ResourceManager, public Singleton<GpuProgramManager>
     {
         // silence warnings
-        using ResourceManager::createImpl;
         using ResourceManager::load;
     public:
 
@@ -56,7 +55,6 @@ namespace Ogre {
         typedef std::map<String, GpuSharedParametersPtr> SharedParametersMap;
 
         typedef MemoryDataStreamPtr Microcode;
-        OGRE_DEPRECATED typedef std::map<String, Microcode> MicrocodeMap;
 
     protected:
 
@@ -67,10 +65,15 @@ namespace Ogre {
             
         static String addRenderSystemToName( const String &  name );
 
+        /// Generic create method
+        Resource* createImpl(const String& name, ResourceHandle handle,
+            const String& group, bool isManual, ManualResourceLoader* loader,
+            const NameValuePairList* createParams);
+
         /// Specialised create method with specific parameters
         virtual Resource* createImpl(const String& name, ResourceHandle handle, 
             const String& group, bool isManual, ManualResourceLoader* loader,
-            GpuProgramType gptype, const String& syntaxCode) = 0;
+            GpuProgramType gptype, const String& syntaxCode);
     public:
         GpuProgramManager();
         virtual ~GpuProgramManager();
@@ -211,24 +214,10 @@ namespace Ogre {
         */
         bool isMicrocodeAvailableInCache(uint32 id) const;
 
-        /// @deprecated
-        OGRE_DEPRECATED bool isMicrocodeAvailableInCache(String name) const
-        {
-            name = addRenderSystemToName(name);
-            return isMicrocodeAvailableInCache(FastHash(name.c_str(), name.size()));
-        }
-
         /** Returns a microcode for a program from the microcode cache.
         @param id The name of the program.
         */
         const Microcode& getMicrocodeFromCache(uint32 id) const;
-
-        /// @deprecated
-        OGRE_DEPRECATED const Microcode& getMicrocodeFromCache(String name) const
-        {
-            name = addRenderSystemToName(name);
-            return getMicrocodeFromCache(FastHash(name.c_str(), name.size()));
-        }
 
         /** Creates a microcode to be later added to the cache.
         @param size The size of the microcode in bytes
@@ -241,24 +230,10 @@ namespace Ogre {
         */
         void addMicrocodeToCache(uint32 id, const Microcode& microcode);
 
-        /// @deprecated
-        OGRE_DEPRECATED void addMicrocodeToCache(String name, const Microcode& microcode)
-        {
-            name = addRenderSystemToName(name);
-            addMicrocodeToCache(FastHash(name.c_str(), name.size()), microcode);
-        }
-
         /** Removes a microcode for a program from the microcode cache.
         @param id The name of the program.
         */
         void removeMicrocodeFromCache(uint32 id);
-
-        /// @deprecated
-        OGRE_DEPRECATED void removeMicrocodeFromCache(String name)
-        {
-            name = addRenderSystemToName(name);
-            removeMicrocodeFromCache(FastHash(name.c_str(), name.size()));
-        }
 
         /** Saves the microcode cache to disk.
         @param stream The destination stream

@@ -60,29 +60,17 @@ public:
     /** Get the shader GPU program. */
     const GpuProgramPtr& getGpuProgram(GpuProgramType type) const;
 
-    /// @deprecated
-    OGRE_DEPRECATED Program* getCpuVertexProgram() { return getCpuProgram(GPT_VERTEX_PROGRAM); }
-
-    /// @deprecated
-    OGRE_DEPRECATED Program* getCpuFragmentProgram() { return getCpuProgram(GPT_FRAGMENT_PROGRAM); }
-
-    /// @deprecated
-    OGRE_DEPRECATED GpuProgramPtr getGpuVertexProgram() { return getGpuProgram(GPT_VERTEX_PROGRAM); }
-
-    /// @deprecated
-    OGRE_DEPRECATED GpuProgramPtr getGpuFragmentProgram() { return getGpuProgram(GPT_FRAGMENT_PROGRAM); }
-
     // Protected methods.
 protected:
-    void setCpuProgram(Program* program, GpuProgramType type);
-    void setGpuProgram(const GpuProgramPtr& program, GpuProgramType type);
+    void setCpuProgram(std::unique_ptr<Program>&& program);
+    void setGpuProgram(const GpuProgramPtr& program);
 
     // Attributes.
 protected:
     // Vertex shader CPU program.
-    Program* mVSCpuProgram;
+    std::unique_ptr<Program> mVSCpuProgram;
     // Fragment shader CPU program.
-    Program* mPSCpuProgram;
+    std::unique_ptr<Program> mPSCpuProgram;
     // Vertex shader GPU program.
     GpuProgramPtr mVSGpuProgram;
     // Fragment shader CPU program.

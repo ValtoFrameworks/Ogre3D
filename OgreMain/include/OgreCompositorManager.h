@@ -63,10 +63,9 @@ namespace Ogre {
         CompositorManager();
         virtual ~CompositorManager();
 
-        /// Overridden from ResourceManager
         Resource* createImpl(const String& name, ResourceHandle handle,
             const String& group, bool isManual, ManualResourceLoader* loader,
-            const NameValuePairList* params);
+            const NameValuePairList* params) override;
 
         /** Initialises the Compositor manager, which also triggers it to
             parse all available .compositor scripts. */
@@ -143,7 +142,7 @@ namespace Ogre {
             you don't want to get the same texture for both requests!
         */
         TexturePtr getPooledTexture(const String& name, const String& localName, 
-            size_t w, size_t h, 
+            uint32 w, uint32 h,
             PixelFormat f, uint aa, const String& aaHint, bool srgb, UniqueTextureSet& texturesAlreadyAssigned, 
             CompositorInstance* inst, CompositionTechnique::TextureScope scope);
 
@@ -168,18 +167,12 @@ namespace Ogre {
 		/** Check if a compositor logic exists
 		*/
 		bool hasCompositorLogic(const String& name);
-
-		/// @deprecated use hasCompositorLogic
-		OGRE_DEPRECATED bool getHasCompositorLogic(const String& name) { return hasCompositorLogic(name); }
 		
         /** Register a custom composition pass.
         */
         void registerCustomCompositionPass(const String& name, CustomCompositionPass* customPass);
 
         void unregisterCustomCompositionPass(const String& name);
-
-        /// @deprecated use unregisterCustomCompositionPass
-		OGRE_DEPRECATED void unRegisterCustomCompositionPass(const String& name) { unregisterCustomCompositionPass(name); }
 
         /** Get a custom composition pass by its name 
         */
@@ -188,9 +181,6 @@ namespace Ogre {
 		/** Check if a compositor pass exists
 		*/
         bool hasCustomCompositionPass(const String& name);
-		
-        /// @deprecated use hasCustomCompositionPass
-        OGRE_DEPRECATED bool getHasCompositionPass(const String& name) { return hasCustomCompositionPass(name); }
 
         /**
         Relocates a compositor chain from one viewport to another
@@ -279,7 +269,7 @@ namespace Ogre {
                 return false;
             }
         };
-        typedef std::map<TextureDef, TextureList*, TextureDefLess> TexturesByDef;
+        typedef std::map<TextureDef, TextureList, TextureDefLess> TexturesByDef;
         TexturesByDef mTexturesByDef;
 
         typedef std::pair<String, String> StringPair;

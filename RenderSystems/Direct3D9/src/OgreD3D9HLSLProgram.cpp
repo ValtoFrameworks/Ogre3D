@@ -141,7 +141,7 @@ namespace Ogre {
             // get def
             cacheMicrocode->read( &def,  sizeof(GpuConstantDefinition));
 
-            mParametersMap.insert(GpuConstantDefinitionMap::value_type(paramName, def));
+            mParametersMap.emplace(paramName, def);
         }
     }
     //-----------------------------------------------------------------------
@@ -149,76 +149,19 @@ namespace Ogre {
     {
         // Populate preprocessor defines
         String stringBuffer;
-
         std::vector<D3DXMACRO> defines;
         const D3DXMACRO* pDefines = 0;
         if (!mPreprocessorDefines.empty())
         {
             stringBuffer = mPreprocessorDefines;
 
-            // Split preprocessor defines and build up macro array
-            D3DXMACRO macro;
-            String::size_type pos = 0;
-            while (pos != String::npos)
+            for(const auto& def : parseDefines(stringBuffer))
             {
-                macro.Name = &stringBuffer[pos];
-                macro.Definition = 0;
-
-                String::size_type start_pos=pos;
-
-                // Find delims
-                pos = stringBuffer.find_first_of(";,=", pos);
-
-                if(start_pos==pos)
-                {
-                    if( pos >= stringBuffer.length() - 1 )
-                    {
-                        break;
-                    }
-                    ++pos;
-                    continue;
-                }
-
-                if (pos != String::npos)
-                {
-                    // Check definition part
-                    if (stringBuffer[pos] == '=')
-                    {
-                        // Setup null character for macro name
-                        stringBuffer[pos++] = '\0';
-                        macro.Definition = &stringBuffer[pos];
-                        pos = stringBuffer.find_first_of(";,", pos);
-                    }
-                    else
-                    {
-                        // No definition part, define as "1"
-                        macro.Definition = "1";
-                    }
-
-                    if (pos != String::npos)
-                    {
-                        // Setup null character for macro name or definition
-                        stringBuffer[pos++] = '\0';
-                    }
-                }
-                else
-                {
-                    macro.Definition = "1";
-                }
-                if(strlen(macro.Name)>0)
-                {
-                    defines.push_back(macro);
-                }
-                else
-                {
-                    break;
-                }
+                defines.push_back({def.first, def.second});
             }
 
             // Add NULL terminator
-            macro.Name = 0;
-            macro.Definition = 0;
-            defines.push_back(macro);
+            defines.push_back({0, 0});
 
             pDefines = &defines[0];
         }
@@ -399,23 +342,21 @@ namespace Ogre {
             const String & paramName = iter->first;
             GpuConstantDefinition def = iter->second;
 
-            mConstantDefs->map.insert(GpuConstantDefinitionMap::value_type(iter->first, iter->second));
+            mConstantDefs->map.emplace(iter->first, iter->second);
 
             // Record logical / physical mapping
             if (def.isFloat())
             {
                             OGRE_LOCK_MUTEX(mFloatLogicalToPhysical->mutex);
-                mFloatLogicalToPhysical->map.insert(
-                    GpuLogicalIndexUseMap::value_type(def.logicalIndex, 
-                        GpuLogicalIndexUse(def.physicalIndex, def.arraySize * def.elementSize, GPV_GLOBAL)));
+                mFloatLogicalToPhysical->map.emplace(def.logicalIndex,
+                        GpuLogicalIndexUse(def.physicalIndex, def.arraySize * def.elementSize, GPV_GLOBAL));
                 mFloatLogicalToPhysical->bufferSize += def.arraySize * def.elementSize;
             }
             else
             {
                             OGRE_LOCK_MUTEX(mIntLogicalToPhysical->mutex);
-                mIntLogicalToPhysical->map.insert(
-                    GpuLogicalIndexUseMap::value_type(def.logicalIndex, 
-                        GpuLogicalIndexUse(def.physicalIndex, def.arraySize * def.elementSize, GPV_GLOBAL)));
+                mIntLogicalToPhysical->map.emplace(def.logicalIndex,
+                        GpuLogicalIndexUse(def.physicalIndex, def.arraySize * def.elementSize, GPV_GLOBAL));
                 mIntLogicalToPhysical->bufferSize += def.arraySize * def.elementSize;
             }
 
@@ -481,24 +422,22 @@ namespace Ogre {
                 {
                     def.physicalIndex = mFloatLogicalToPhysical->bufferSize;
                     OGRE_LOCK_MUTEX(mFloatLogicalToPhysical->mutex);
-                    mFloatLogicalToPhysical->map.insert(
-                        GpuLogicalIndexUseMap::value_type(paramIndex, 
-                        GpuLogicalIndexUse(def.physicalIndex, def.arraySize * def.elementSize, GPV_GLOBAL)));
+                    mFloatLogicalToPhysical->map.emplace(paramIndex,
+                        GpuLogicalIndexUse(def.physicalIndex, def.arraySize * def.elementSize, GPV_GLOBAL));
                     mFloatLogicalToPhysical->bufferSize += def.arraySize * def.elementSize;
                 }
                 else
                 {
                     def.physicalIndex = mIntLogicalToPhysical->bufferSize;
                     OGRE_LOCK_MUTEX(mIntLogicalToPhysical->mutex);
-                    mIntLogicalToPhysical->map.insert(
-                        GpuLogicalIndexUseMap::value_type(paramIndex, 
-                        GpuLogicalIndexUse(def.physicalIndex, def.arraySize * def.elementSize, GPV_GLOBAL)));
+                    mIntLogicalToPhysical->map.emplace(paramIndex,
+                        GpuLogicalIndexUse(def.physicalIndex, def.arraySize * def.elementSize, GPV_GLOBAL));
                     mIntLogicalToPhysical->bufferSize += def.arraySize * def.elementSize;
                 }
 
                 if( mParametersMap.find(name) == mParametersMap.end())
                 {
-                    mParametersMap.insert(GpuConstantDefinitionMap::value_type(name, def));
+                    mParametersMap.emplace(name, def);
                     mParametersMapSizeAsBuffer += sizeof(size_t);
                     mParametersMapSizeAsBuffer += name.size();
                     mParametersMapSizeAsBuffer += sizeof(GpuConstantDefinition);

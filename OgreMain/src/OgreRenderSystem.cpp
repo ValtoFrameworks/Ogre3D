@@ -36,6 +36,7 @@ THE SOFTWARE.
 #include "OgreDepthBuffer.h"
 #include "OgreIteratorWrappers.h"
 #include "OgreHardwareOcclusionQuery.h"
+#include "OgreComponents.h"
 
 #ifdef OGRE_BUILD_COMPONENT_RTSHADERSYSTEM
 #include "OgreRTShaderConfig.h"
@@ -85,6 +86,65 @@ namespace Ogre {
         mEventNames.push_back("RenderSystemCapabilitiesCreated");
     }
 
+    void RenderSystem::initFixedFunctionParams()
+    {
+        if(mFixedFunctionParams)
+            return;
+
+        GpuLogicalBufferStructPtr nullPtr;
+        GpuLogicalBufferStructPtr logicalBufferStruct(new GpuLogicalBufferStruct());
+        mFixedFunctionParams.reset(new GpuProgramParameters);
+        mFixedFunctionParams->_setLogicalIndexes(logicalBufferStruct, nullPtr, nullPtr);
+        mFixedFunctionParams->setAutoConstant(0, GpuProgramParameters::ACT_WORLD_MATRIX);
+        mFixedFunctionParams->setAutoConstant(4, GpuProgramParameters::ACT_VIEW_MATRIX);
+        mFixedFunctionParams->setAutoConstant(8, GpuProgramParameters::ACT_PROJECTION_MATRIX);
+        mFixedFunctionParams->setAutoConstant(12, GpuProgramParameters::ACT_SURFACE_AMBIENT_COLOUR);
+        mFixedFunctionParams->setAutoConstant(13, GpuProgramParameters::ACT_SURFACE_DIFFUSE_COLOUR);
+        mFixedFunctionParams->setAutoConstant(14, GpuProgramParameters::ACT_SURFACE_SPECULAR_COLOUR);
+        mFixedFunctionParams->setAutoConstant(15, GpuProgramParameters::ACT_SURFACE_EMISSIVE_COLOUR);
+        mFixedFunctionParams->setAutoConstant(16, GpuProgramParameters::ACT_SURFACE_SHININESS);
+        mFixedFunctionParams->setAutoConstant(17, GpuProgramParameters::ACT_POINT_PARAMS);
+        mFixedFunctionParams->setConstant(18, Vector4::ZERO); // ACT_FOG_PARAMS
+        mFixedFunctionParams->setConstant(19, Vector4::ZERO); // ACT_FOG_COLOUR
+        mFixedFunctionParams->setAutoConstant(20, GpuProgramParameters::ACT_AMBIENT_LIGHT_COLOUR);
+
+        // allocate per light parameters. slots 21..69
+        for(int i = 0; i < OGRE_MAX_SIMULTANEOUS_LIGHTS; i++)
+        {
+            size_t light_offset = 21 + i * 6;
+            mFixedFunctionParams->setConstant(light_offset + 0, Vector4::ZERO); // position
+            mFixedFunctionParams->setConstant(light_offset + 1, Vector4::ZERO); // direction
+            mFixedFunctionParams->setConstant(light_offset + 2, Vector4::ZERO); // diffuse
+            mFixedFunctionParams->setConstant(light_offset + 3, Vector4::ZERO); // specular
+            mFixedFunctionParams->setConstant(light_offset + 4, Vector4::ZERO); // attenuation
+            mFixedFunctionParams->setConstant(light_offset + 5, Vector4::ZERO); // spotlight
+        }
+    }
+
+    void RenderSystem::setFFPLightParams(size_t index, bool enabled)
+    {
+        if(!mFixedFunctionParams)
+            return;
+
+        size_t light_offset = 21 + 6 * index;
+        if (!enabled)
+        {
+            mFixedFunctionParams->clearAutoConstant(light_offset + 0);
+            mFixedFunctionParams->clearAutoConstant(light_offset + 1);
+            mFixedFunctionParams->clearAutoConstant(light_offset + 2);
+            mFixedFunctionParams->clearAutoConstant(light_offset + 3);
+            mFixedFunctionParams->clearAutoConstant(light_offset + 4);
+            mFixedFunctionParams->clearAutoConstant(light_offset + 5);
+            return;
+        }
+        mFixedFunctionParams->setAutoConstant(light_offset + 0, GpuProgramParameters::ACT_LIGHT_POSITION, index);
+        mFixedFunctionParams->setAutoConstant(light_offset + 1, GpuProgramParameters::ACT_LIGHT_DIRECTION, index);
+        mFixedFunctionParams->setAutoConstant(light_offset + 2, GpuProgramParameters::ACT_LIGHT_DIFFUSE_COLOUR, index);
+        mFixedFunctionParams->setAutoConstant(light_offset + 3, GpuProgramParameters::ACT_LIGHT_SPECULAR_COLOUR, index);
+        mFixedFunctionParams->setAutoConstant(light_offset + 4, GpuProgramParameters::ACT_LIGHT_ATTENUATION, index);
+        mFixedFunctionParams->setAutoConstant(light_offset + 5, GpuProgramParameters::ACT_SPOTLIGHT_PARAMS, index);
+    }
+
     //-----------------------------------------------------------------------
     RenderSystem::~RenderSystem()
     {
@@ -94,6 +154,79 @@ namespace Ogre {
         // Current capabilities managed externally
         mCurrentCapabilities = 0;
     }
+
+    RenderWindowDescription RenderSystem::getRenderWindowDescription() const
+    {
+        RenderWindowDescription ret;
+        auto& miscParams = ret.miscParams;
+
+        auto end = mOptions.end();
+
+        auto opt = mOptions.find("Full Screen");
+        if (opt == end)
+            OGRE_EXCEPT(Exception::ERR_INVALIDPARAMS, "Can't find 'Full Screen' option");
+
+        ret.useFullScreen = StringConverter::parseBool(opt->second.currentValue);
+
+        opt = mOptions.find("Video Mode");
+        if (opt == end)
+            OGRE_EXCEPT(Exception::ERR_INVALIDPARAMS, "Can't find 'Video Mode' option");
+
+        StringStream mode(opt->second.currentValue);
+        String token;
+
+        mode >> ret.width;
+        mode >> token; // 'x' as seperator between width and height
+        mode >> ret.height;
+
+        // backend specific options. Presence determined by getConfigOptions
+        mode >> token; // '@' as seperator between bpp on D3D
+        if(!mode.eof())
+        {
+            uint32 bpp;
+            mode >> bpp;
+            miscParams.emplace("colourDepth", std::to_string(bpp));
+        }
+
+        if((opt = mOptions.find("FSAA")) != end)
+        {
+            StringStream fsaaMode(opt->second.currentValue);
+            uint32_t fsaa;
+            fsaaMode >> fsaa;
+            miscParams.emplace("FSAA", std::to_string(fsaa));
+
+            // D3D specific
+            String hint;
+            fsaaMode >> hint;
+            if(!fsaaMode.eof())
+                miscParams.emplace("FSAAHint", hint);
+        }
+
+        if((opt = mOptions.find("VSync")) != end)
+            miscParams.emplace("vsync", opt->second.currentValue);
+
+        if((opt = mOptions.find("sRGB Gamma Conversion")) != end)
+            miscParams.emplace("gamma", opt->second.currentValue);
+
+        if((opt = mOptions.find("Colour Depth")) != end)
+            miscParams.emplace("colourDepth", opt->second.currentValue);
+
+        if((opt = mOptions.find("VSync Interval")) != end)
+            miscParams.emplace("vsyncInterval", opt->second.currentValue);
+
+        if((opt = mOptions.find("Display Frequency")) != end)
+            miscParams.emplace("displayFrequency", opt->second.currentValue);
+
+        if((opt = mOptions.find("Content Scaling Factor")) != end)
+            miscParams["contentScalingFactor"] = opt->second.currentValue;
+
+#if OGRE_NO_QUAD_BUFFER_STEREO == 0
+        if((opt = mOptions.find("Stereo Mode")) != end)
+            miscParams["stereoMode"] = opt->second.currentValue;
+#endif
+        return ret;
+    }
+
     //-----------------------------------------------------------------------
     void RenderSystem::_initRenderTargets(void)
     {
@@ -124,6 +257,7 @@ namespace Ogre {
     //-----------------------------------------------------------------------
     void RenderSystem::_swapAllRenderTargetBuffers()
     {
+        OgreProfile("_swapAllRenderTargetBuffers");
         // Update all in order of priority
         // This ensures render-to-texture targets get updated before render windows
         RenderTargetPriorityMap::iterator itarg, itargend;
@@ -135,7 +269,7 @@ namespace Ogre {
         }
     }
     //-----------------------------------------------------------------------
-    RenderWindow* RenderSystem::_initialise(bool autoCreateWindow, const String& windowTitle)
+    void RenderSystem::_initialise()
     {
         // Have I been registered by call to Root::setRenderSystem?
         /** Don't do this anymore, just allow via Root
@@ -156,8 +290,6 @@ namespace Ogre {
         mTessellationHullProgramBound = false;
         mTessellationDomainProgramBound = false;
         mComputeProgramBound = false;
-
-        return 0;
     }
 
     //---------------------------------------------------------------------------------------------
@@ -253,9 +385,8 @@ namespace Ogre {
     {
         assert( target.getPriority() < OGRE_NUM_RENDERTARGET_GROUPS );
 
-        mRenderTargets.insert( RenderTargetMap::value_type( target.getName(), &target ) );
-        mPrioritisedRenderTargets.insert(
-            RenderTargetPriorityMap::value_type(target.getPriority(), &target ));
+        mRenderTargets.emplace(target.getName(), &target);
+        mPrioritisedRenderTargets.emplace(target.getPriority(), &target);
     }
 
     //---------------------------------------------------------------------------------------------
@@ -504,16 +635,6 @@ namespace Ogre {
                                                        "for RT: " + renderTarget->getName());
         }
     }
-    bool RenderSystem::getWBufferEnabled(void) const
-    {
-        return mCurrentCapabilities->hasCapability(RSC_WBUFFER);
-    }
-    //-----------------------------------------------------------------------
-    void RenderSystem::setWBufferEnabled(bool enabled)
-    {
-        enabled ? mCurrentCapabilities->setCapability(RSC_WBUFFER)
-                : mCurrentCapabilities->unsetCapability(RSC_WBUFFER);
-    }
     //-----------------------------------------------------------------------
     void RenderSystem::shutdown(void)
     {
@@ -549,6 +670,23 @@ namespace Ogre {
         mRenderTargets.clear();
 
         mPrioritisedRenderTargets.clear();
+    }
+
+    void RenderSystem::_setProjectionMatrix(Matrix4 m)
+    {
+        if (!mFixedFunctionParams) return;
+
+        if (mActiveRenderTarget->requiresTextureFlipping())
+        {
+            // Invert transformed y
+            m[1][0] = -m[1][0];
+            m[1][1] = -m[1][1];
+            m[1][2] = -m[1][2];
+            m[1][3] = -m[1][3];
+        }
+
+        mFixedFunctionParams->setConstant(8, m);
+        applyFixedFunctionParams(mFixedFunctionParams, GPV_GLOBAL);
     }
     //-----------------------------------------------------------------------
     void RenderSystem::_beginGeometryCount(void)
@@ -637,26 +775,11 @@ namespace Ogre {
         return mInvertVertexWinding;
     }
     //---------------------------------------------------------------------
-    void RenderSystem::addClipPlane (const Plane &p)
-    {
-        mClipPlanes.push_back(p);
-        mClipPlanesDirty = true;
-    }
-    //---------------------------------------------------------------------
     void RenderSystem::setClipPlanes(const PlaneList& clipPlanes)
     {
         if (clipPlanes != mClipPlanes)
         {
             mClipPlanes = clipPlanes;
-            mClipPlanesDirty = true;
-        }
-    }
-    //---------------------------------------------------------------------
-    void RenderSystem::resetClipPlanes()
-    {
-        if (!mClipPlanes.empty())
-        {
-            mClipPlanes.clear();
             mClipPlanesDirty = true;
         }
     }

@@ -372,7 +372,7 @@ namespace Ogre
         }
 
         Camera * c = OGRE_NEW PCZCamera( name, this );
-        mCameras.insert( CameraList::value_type( name, c ) );
+        mCameras.emplace(name, c);
 
         // create visible bounds aab map entry
         mCamVisibleObjectsMap[c] = VisibleObjectsBoundsInfo();
@@ -1077,7 +1077,7 @@ namespace Ogre
     //---------------------------------------------------------------------
     void PCZSceneManager::ensureShadowTexturesCreated()
     {
-        bool shadowTextureConfigDirty = mShadowTextureConfigDirty;
+        bool shadowTextureConfigDirty = mShadowRenderer.mShadowTextureConfigDirty;
         mShadowRenderer.ensureShadowTexturesCreated();
         if (!shadowTextureConfigDirty) return;
 

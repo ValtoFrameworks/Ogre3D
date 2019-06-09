@@ -33,9 +33,6 @@ Copyright (c) 2000-2014 Torus Knot Software Ltd
 
 namespace Ogre
 {
-
-    GpuLogicalBufferStructPtr GpuProgramParameters::mBoolLogicalToPhysical;
-
     //---------------------------------------------------------------------
     GpuProgramParameters::AutoConstantDefinition GpuProgramParameters::AutoConstantDictionary[] = {
         AutoConstantDefinition(ACT_WORLD_MATRIX,                  "world_matrix",                16, ET_REAL, ACDT_NONE),
@@ -66,6 +63,7 @@ namespace Ogre
         AutoConstantDefinition(ACT_INVERSE_WORLDVIEW_MATRIX,      "inverse_worldview_matrix",    16, ET_REAL, ACDT_NONE),
         AutoConstantDefinition(ACT_TRANSPOSE_WORLDVIEW_MATRIX,         "transpose_worldview_matrix",        16, ET_REAL, ACDT_NONE),
         AutoConstantDefinition(ACT_INVERSE_TRANSPOSE_WORLDVIEW_MATRIX, "inverse_transpose_worldview_matrix", 16, ET_REAL, ACDT_NONE),
+        AutoConstantDefinition(ACT_NORMAL_MATRIX,                  "normal_matrix",     9, ET_REAL, ACDT_NONE),
 
         AutoConstantDefinition(ACT_WORLDVIEWPROJ_MATRIX,          "worldviewproj_matrix",        16, ET_REAL, ACDT_NONE),
         AutoConstantDefinition(ACT_INVERSE_WORLDVIEWPROJ_MATRIX,       "inverse_worldviewproj_matrix",      16, ET_REAL, ACDT_NONE),
@@ -131,6 +129,7 @@ namespace Ogre
         AutoConstantDefinition(ACT_SHADOW_EXTRUSION_DISTANCE,     "shadow_extrusion_distance",    1, ET_REAL, ACDT_INT),
         AutoConstantDefinition(ACT_CAMERA_POSITION,               "camera_position",              3, ET_REAL, ACDT_NONE),
         AutoConstantDefinition(ACT_CAMERA_POSITION_OBJECT_SPACE,  "camera_position_object_space", 3, ET_REAL, ACDT_NONE),
+        AutoConstantDefinition(ACT_CAMERA_RELATIVE_POSITION,      "camera_relative_position",     3, ET_REAL, ACDT_NONE),
         AutoConstantDefinition(ACT_TEXTURE_VIEWPROJ_MATRIX,       "texture_viewproj_matrix",     16, ET_REAL, ACDT_INT),
         AutoConstantDefinition(ACT_TEXTURE_VIEWPROJ_MATRIX_ARRAY, "texture_viewproj_matrix_array", 16, ET_REAL, ACDT_INT),
         AutoConstantDefinition(ACT_TEXTURE_WORLDVIEWPROJ_MATRIX,  "texture_worldviewproj_matrix",16, ET_REAL, ACDT_INT),
@@ -211,7 +210,7 @@ namespace Ogre
         for (size_t i = 0; i < maxArrayIndex; i++)
         {
             arrayName = paramName + "[" + StringConverter::toString(i) + "]";
-            map.insert(GpuConstantDefinitionMap::value_type(arrayName, arrayDef));
+            map.emplace(arrayName, arrayDef);
             // increment location
             arrayDef.physicalIndex += arrayDef.elementSize;
         }
@@ -1141,6 +1140,22 @@ namespace Ogre
 
     }
     //-----------------------------------------------------------------------------
+    void GpuProgramParameters::_writeRawConstant(size_t physicalIndex, const Matrix3& m, size_t elementCount)
+    {
+
+        // remember, raw content access uses raw float count rather than float4
+        if (mTransposeMatrices)
+        {
+            Matrix3 t = m.transpose();
+            _writeRawConstants(physicalIndex, t[0], elementCount > 9 ? 9 : elementCount);
+        }
+        else
+        {
+            _writeRawConstants(physicalIndex, m[0], elementCount > 9 ? 9 : elementCount);
+        }
+
+    }
+    //-----------------------------------------------------------------------------
     void GpuProgramParameters::_writeRawConstant(size_t physicalIndex, const TransformBaseReal* pMatrix, size_t numEntries)
     {
         // remember, raw content access uses raw float count rather than float4
@@ -1237,6 +1252,7 @@ namespace Ogre
         case ACT_SURFACE_SHININESS:
         case ACT_SURFACE_ALPHA_REJECTION_VALUE:
         case ACT_CAMERA_POSITION:
+        case ACT_CAMERA_RELATIVE_POSITION:
         case ACT_TIME:
         case ACT_TIME_0_X:
         case ACT_COSTIME_0_X:
@@ -1289,6 +1305,7 @@ namespace Ogre
         case ACT_INVERSE_WORLDVIEW_MATRIX:
         case ACT_TRANSPOSE_WORLDVIEW_MATRIX:
         case ACT_INVERSE_TRANSPOSE_WORLDVIEW_MATRIX:
+        case ACT_NORMAL_MATRIX:
         case ACT_WORLDVIEWPROJ_MATRIX:
         case ACT_INVERSE_WORLDVIEWPROJ_MATRIX:
         case ACT_TRANSPOSE_WORLDVIEWPROJ_MATRIX:
@@ -1449,10 +1466,9 @@ namespace Ogre
                 for (size_t logicalNum = 0; logicalNum < count; ++logicalNum)
                 {
                     GpuLogicalIndexUseMap::iterator it =
-                            logicalToPhysical->map.insert(
-                            GpuLogicalIndexUseMap::value_type(
+                            logicalToPhysical->map.emplace(
                                 logicalIndex + logicalNum,
-                                GpuLogicalIndexUse(currPhys, requestedSize, variability))).first;
+                                GpuLogicalIndexUse(currPhys, requestedSize, variability)).first;
                     currPhys += 4;
 
                     if (logicalNum == 0)
@@ -1546,11 +1562,6 @@ namespace Ogre
         return getConstantLogicalIndexUse(mIntLogicalToPhysical, mIntConstants, logicalIndex,
                                           requestedSize, variability);
     }
-    //---------------------------------------------------------------------()
-    GpuLogicalIndexUse* GpuProgramParameters::_getUnsignedIntConstantLogicalIndexUse(size_t logicalIndex, size_t requestedSize, uint16 variability)
-    {
-        return _getIntConstantLogicalIndexUse(logicalIndex, requestedSize, variability);
-    }
     //-----------------------------------------------------------------------------
     size_t GpuProgramParameters::_getFloatConstantPhysicalIndex(
         size_t logicalIndex, size_t requestedSize, uint16 variability)
@@ -1571,12 +1582,6 @@ namespace Ogre
     {
         GpuLogicalIndexUse* indexUse = _getIntConstantLogicalIndexUse(logicalIndex, requestedSize, variability);
         return indexUse ? indexUse->physicalIndex : 0;
-    }
-    //-----------------------------------------------------------------------------
-    size_t GpuProgramParameters::_getUnsignedIntConstantPhysicalIndex(
-        size_t logicalIndex, size_t requestedSize, uint16 variability)
-    {
-        return _getIntConstantPhysicalIndex(logicalIndex, requestedSize, variability);
     }
     //-----------------------------------------------------------------------------
     static size_t getLogicalIndexForPhysicalIndex(const GpuLogicalBufferStructPtr& logicalToPhysical,
@@ -1601,15 +1606,6 @@ namespace Ogre
     size_t GpuProgramParameters::getIntLogicalIndexForPhysicalIndex(size_t physicalIndex)
     {
         return getLogicalIndexForPhysicalIndex(mIntLogicalToPhysical, physicalIndex);
-    }
-    size_t GpuProgramParameters::getUnsignedIntLogicalIndexForPhysicalIndex(size_t physicalIndex)
-    {
-        return getIntLogicalIndexForPhysicalIndex(physicalIndex);
-    }
-    //-----------------------------------------------------------------------------
-    size_t GpuProgramParameters::getBoolLogicalIndexForPhysicalIndex(size_t physicalIndex)
-    {
-        return std::numeric_limits<size_t>::max();
     }
     //-----------------------------------------------------------------------------
     GpuConstantDefinitionIterator GpuProgramParameters::getConstantDefinitionIterator(void) const
@@ -1832,11 +1828,6 @@ namespace Ogre
         mCombinedVariability = GPV_GLOBAL;
     }
     //-----------------------------------------------------------------------------
-    GpuProgramParameters::AutoConstantIterator GpuProgramParameters::getAutoConstantIterator(void) const
-    {
-        return AutoConstantIterator(mAutoConstants.begin(), mAutoConstants.end());
-    }
-    //-----------------------------------------------------------------------------
     void GpuProgramParameters::setAutoConstantReal(size_t index, AutoConstantType acType, Real rData)
     {
         // Get auto constant definition for sizing
@@ -1986,6 +1977,9 @@ namespace Ogre
 
                 case ACT_CAMERA_POSITION:
                     _writeRawConstant(i->physicalIndex, source->getCameraPosition(), i->elementCount);
+                    break;
+                case ACT_CAMERA_RELATIVE_POSITION:
+                    _writeRawConstant (i->physicalIndex, source->getCameraRelativePosition(), i->elementCount);
                     break;
                 case ACT_TIME:
                     _writeRawConstant(i->physicalIndex, source->getTime() * i->fData);
@@ -2269,6 +2263,13 @@ namespace Ogre
                 case ACT_TRANSPOSE_WORLDVIEW_MATRIX:
                     _writeRawConstant(i->physicalIndex, source->getTransposeWorldViewMatrix(),i->elementCount);
                     break;
+                case ACT_NORMAL_MATRIX:
+                    if(i->elementCount == 9) // check if shader supports packed data
+                    {
+                        _writeRawConstant(i->physicalIndex, source->getInverseTransposeWorldViewMatrix().linear(),i->elementCount);
+                        break;
+                    }
+                    OGRE_FALLTHROUGH; // fallthrough to padded 4x4 matrix
                 case ACT_INVERSE_TRANSPOSE_WORLDVIEW_MATRIX:
                     _writeRawConstant(i->physicalIndex, source->getInverseTransposeWorldViewMatrix(),i->elementCount);
                     break;

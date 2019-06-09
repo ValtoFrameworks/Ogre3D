@@ -241,7 +241,7 @@ namespace Ogre {
         // Order based on Z-order
         Viewport* vp = OGRE_NEW Viewport(cam, this, left, top, width, height, ZOrder);
 
-        mViewportList.insert(ViewportList::value_type(ZOrder, vp));
+        mViewportList.emplace(ZOrder, vp);
 
         fireViewportAdded(vp);
 
@@ -495,15 +495,13 @@ namespace Ogre {
         struct tm *pTime;
         time_t ctTime; time(&ctTime);
         pTime = localtime( &ctTime );
-        Ogre::StringStream oss;
-        oss << std::setw(2) << std::setfill('0') << (pTime->tm_mon + 1)
-            << std::setw(2) << std::setfill('0') << pTime->tm_mday
-            << std::setw(2) << std::setfill('0') << (pTime->tm_year + 1900)
-            << "_" << std::setw(2) << std::setfill('0') << pTime->tm_hour
-            << std::setw(2) << std::setfill('0') << pTime->tm_min
-            << std::setw(2) << std::setfill('0') << pTime->tm_sec
-            << std::setw(3) << std::setfill('0') << (mTimer->getMilliseconds() % 1000);
-        String filename = filenamePrefix + oss.str() + filenameSuffix;
+        // use ISO 8601 order
+        StringStream oss;
+        oss << filenamePrefix
+            << std::put_time(pTime, "%Y%m%d_%H%M%S")
+            << std::setw(3) << std::setfill('0') << (mTimer->getMilliseconds() % 1000)
+            << filenameSuffix;
+        String filename = oss.str();
         writeContentsToFile(filename);
         return filename;
 
@@ -566,7 +564,7 @@ namespace Ogre {
     //-----------------------------------------------------------------------
     void RenderTarget::update(bool swap)
     {
-        OgreProfileBeginGPUEvent("RenderTarget: " + getName());
+        OgreProfileBeginGPUEvent(getName());
         // call implementation
         updateImpl();
 
@@ -576,7 +574,7 @@ namespace Ogre {
             // Swap buffers
             swapBuffers();
         }
-        OgreProfileEndGPUEvent("RenderTarget: " + getName());
+        OgreProfileEndGPUEvent(getName());
     }
     
 

@@ -151,10 +151,20 @@ namespace Ogre
             rendering operation (triangles, points or lines for example).
         @param materialName The name of the material to render this part of the
             object with.
-        @param opType The type of operation to use to render. 
+        @param opType The type of operation to use to render.
+        @param groupName The resource group of the material to render this part
+            of the object with.
         */
         virtual void begin(const String& materialName,
-            RenderOperation::OperationType opType = RenderOperation::OT_TRIANGLE_LIST, const String & groupName = ResourceGroupManager::DEFAULT_RESOURCE_GROUP_NAME);
+            RenderOperation::OperationType opType = RenderOperation::OT_TRIANGLE_LIST,
+            const String& groupName = ResourceGroupManager::DEFAULT_RESOURCE_GROUP_NAME);
+
+        /** @overload
+        @param mat The material to render this part of the object with.
+        @param opType The type of operation to use to render.
+        */
+        virtual void begin(const MaterialPtr& mat,
+            RenderOperation::OperationType opType = RenderOperation::OT_TRIANGLE_LIST);
 
         /** Use before defining geometry to indicate that you intend to update the
             geometry regularly and want the internal structure to reflect that.
@@ -285,8 +295,16 @@ namespace Ogre
             you can do so by calling this method.
         @param subIndex The index of the subsection to alter
         @param name The name of the new material to use
+        @param group The resource group of the new material to use
         */
-        virtual void setMaterialName(size_t subIndex, const String& name, const String & group = ResourceGroupManager::DEFAULT_RESOURCE_GROUP_NAME);
+        virtual void setMaterialName(size_t subIndex, const String& name,
+            const String & group = ResourceGroupManager::DEFAULT_RESOURCE_GROUP_NAME);
+
+        /** @overload
+        @param subIndex The index of the subsection to alter
+        @param mat The new material to use
+        */
+        virtual void setMaterial(size_t subIndex, const MaterialPtr &mat);
 
         /** Convert this object to a Mesh. 
         @remarks
@@ -390,8 +408,7 @@ namespace Ogre
         void _updateRenderQueue(RenderQueue* queue);
         /** Implement this method to enable stencil shadows */
         EdgeData* getEdgeList(void);
-        /** Overridden member from ShadowCaster. */
-        bool hasEdgeList(void);
+        bool hasEdgeList(void) override;
         /** Implement this method to enable stencil shadows. */
         ShadowRenderableListIterator getShadowVolumeRenderableIterator(
             ShadowTechnique shadowTechnique, const Light* light, 
@@ -410,12 +427,16 @@ namespace Ogre
             RenderOperation mRenderOperation;
             bool m32BitIndices;
 
-            
+
         public:
             ManualObjectSection(ManualObject* parent, const String& materialName,
-                RenderOperation::OperationType opType, const String & groupName = ResourceGroupManager::DEFAULT_RESOURCE_GROUP_NAME);
+                RenderOperation::OperationType opType,
+                const String & groupName = ResourceGroupManager::DEFAULT_RESOURCE_GROUP_NAME);
+            /// @remark mat should not be null.
+            ManualObjectSection(ManualObject* parent, const MaterialPtr& mat,
+                RenderOperation::OperationType opType);
             virtual ~ManualObjectSection();
-            
+
             /// Retrieve render operation for manipulation
             RenderOperation* getRenderOperation(void);
             /// Retrieve the material name in use
@@ -423,7 +444,12 @@ namespace Ogre
             /// Retrieve the material group in use
             const String& getMaterialGroup(void) const { return mGroupName; }
             /// update the material name in use
-            void setMaterialName(const String& name, const String& groupName = ResourceGroupManager::AUTODETECT_RESOURCE_GROUP_NAME );
+            void setMaterialName(const String& name,
+                const String& groupName = ResourceGroupManager::AUTODETECT_RESOURCE_GROUP_NAME);
+            /// Update the material in use
+            /// @remark mat should not be null.
+            void setMaterial(const MaterialPtr& mat);
+
             /// Set whether we need 32-bit indices
             void set32BitIndices(bool n32) { m32BitIndices = n32; }
             /// Get whether we need 32-bit indices
@@ -441,7 +467,8 @@ namespace Ogre
             /** @copydoc Renderable::getLights */
             const LightList &getLights(void) const;
 
-
+            /// convert this section to a SubMesh
+            void convertToSubMesh(SubMesh* sm) const;
                     
         };
         /** Nested class to allow shadows. */
@@ -459,12 +486,10 @@ namespace Ogre
                 HardwareIndexBufferSharedPtr* indexBuffer, const VertexData* vertexData, 
                 bool createSeparateLightCap, bool isLightCap = false);
             ~ManualObjectSectionShadowRenderable();
-            /// Overridden from ShadowRenderable
-            void getWorldTransforms(Matrix4* xform) const;
+            void getWorldTransforms(Matrix4* xform) const override;
             HardwareVertexBufferSharedPtr getPositionBuffer(void) { return mPositionBuffer; }
             HardwareVertexBufferSharedPtr getWBuffer(void) { return mWBuffer; }
-            /// Overridden from ShadowRenderable
-            virtual void rebindIndexBuffer(const HardwareIndexBufferSharedPtr& indexBuffer);
+            virtual void rebindIndexBuffer(const HardwareIndexBufferSharedPtr& indexBuffer) override;
 
             
 

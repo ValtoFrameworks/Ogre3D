@@ -7,14 +7,11 @@
 
 #include "OgreTrays.h"
 
-#if OGRE_UNICODE_SUPPORT
-    #define DISPLAY_STRING_TO_STRING(DS) (DS.asUTF8())
-#else
-    #define DISPLAY_STRING_TO_STRING(DS) (DS)
-#endif
-
 namespace OgreBites
 {
+
+// maximal rate to update widgets internally
+static unsigned FRAME_UPDATE_DELAY = 250; // ms
 
 Widget::Widget()
 {
@@ -77,7 +74,7 @@ Ogre::Vector2 Widget::cursorOffset(Ogre::OverlayElement *element, const Ogre::Ve
 Ogre::Real Widget::getCaptionWidth(const Ogre::DisplayString &caption, Ogre::TextAreaOverlayElement *area)
 {
     Ogre::FontPtr font = area->getFont();
-    Ogre::String current = DISPLAY_STRING_TO_STRING(caption);
+    Ogre::String current = caption.asUTF8();
     Ogre::Real lineWidth = 0;
 
     for (unsigned int i = 0; i < current.length(); i++)
@@ -99,7 +96,7 @@ Ogre::Real Widget::getCaptionWidth(const Ogre::DisplayString &caption, Ogre::Tex
 void Widget::fitCaptionToArea(const Ogre::DisplayString &caption, Ogre::TextAreaOverlayElement *area, Ogre::Real maxWidth)
 {
     Ogre::FontPtr f = area->getFont();
-    Ogre::String s = DISPLAY_STRING_TO_STRING(caption);
+    Ogre::String s = caption.asUTF8();
 
     size_t nl = s.find('\n');
     if (nl != Ogre::String::npos) s = s.substr(0, nl);
@@ -238,7 +235,7 @@ void TextBox::setText(const Ogre::DisplayString &text)
 
     Ogre::FontPtr font = mTextArea->getFont();
 
-    Ogre::String current = DISPLAY_STRING_TO_STRING(text);
+    Ogre::String current = text.asUTF8();
     bool firstWord = true;
     unsigned int lastSpace = 0;
     unsigned int lineBegin = 0;
@@ -923,6 +920,10 @@ void Slider::_cursorMoved(const Ogre::Vector2 &cursorPos, float wheelDelta)
 
         mHandle->setLeft(Ogre::Math::Clamp<int>((int)newLeft, 0, (int)rightBoundary));
         setValue(getSnappedValue(newLeft / rightBoundary));
+
+        // sync mHandle's mPixelLeft with mLeft
+        // if multiple "mouseMoved" happened during one frame, mLeft could be incorrect otherwise
+        mHandle->_update();
     }
 }
 
@@ -961,15 +962,15 @@ void ParamsPanel::setParamValue(const Ogre::DisplayString &paramName, const Ogre
 {
     for (unsigned int i = 0; i < mNames.size(); i++)
     {
-        if (mNames[i] == DISPLAY_STRING_TO_STRING(paramName))
+        if (mNames[i] == paramName.asUTF8())
         {
-            mValues[i] = DISPLAY_STRING_TO_STRING(paramValue);
+            mValues[i] = paramValue.asUTF8();
             updateText();
             return;
         }
     }
 
-    Ogre::String desc = "ParamsPanel \"" + getName() + "\" has no parameter \"" + DISPLAY_STRING_TO_STRING(paramName) + "\".";
+    Ogre::String desc = "ParamsPanel \"" + getName() + "\" has no parameter \"" + paramName.asUTF8() + "\".";
     OGRE_EXCEPT(Ogre::Exception::ERR_ITEM_NOT_FOUND, desc, "ParamsPanel::setParamValue");
 }
 
@@ -982,7 +983,7 @@ void ParamsPanel::setParamValue(unsigned int index, const Ogre::DisplayString &p
         OGRE_EXCEPT(Ogre::Exception::ERR_ITEM_NOT_FOUND, desc, "ParamsPanel::setParamValue");
     }
 
-    mValues[index] = DISPLAY_STRING_TO_STRING(paramValue);
+    mValues[index] = paramValue.asUTF8();
     updateText();
 }
 
@@ -990,10 +991,10 @@ Ogre::DisplayString ParamsPanel::getParamValue(const Ogre::DisplayString &paramN
 {
     for (unsigned int i = 0; i < mNames.size(); i++)
     {
-        if (mNames[i] == DISPLAY_STRING_TO_STRING(paramName)) return mValues[i];
+        if (mNames[i] == paramName.asUTF8()) return mValues[i];
     }
 
-    Ogre::String desc = "ParamsPanel \"" + getName() + "\" has no parameter \"" + DISPLAY_STRING_TO_STRING(paramName) + "\".";
+    Ogre::String desc = "ParamsPanel \"" + getName() + "\" has no parameter \"" + paramName.asUTF8() + "\".";
     OGRE_EXCEPT(Ogre::Exception::ERR_ITEM_NOT_FOUND, desc, "ParamsPanel::getParamValue");
     return "";
 }
@@ -1131,7 +1132,7 @@ TrayManager::TrayManager(const Ogre::String &name, Ogre::RenderWindow *window, T
     mGroupInitProportion(0.0f), mGroupLoadProportion(0.0f), mLoadInc(0.0f)
 {
     mTimer = Ogre::Root::getSingleton().getTimer();
-    mLastStatUpdateTime = 0;
+    mLastStatUpdateTime = -FRAME_UPDATE_DELAY; // update immediately on first call
 
     Ogre::OverlayManager& om = Ogre::OverlayManager::getSingleton();
 
@@ -1931,7 +1932,7 @@ void TrayManager::frameRendered(const Ogre::FrameEvent &evt)
 
 
     unsigned long currentTime = mTimer->getMilliseconds();
-    if (areFrameStatsVisible() && currentTime - mLastStatUpdateTime > 250)
+    if (areFrameStatsVisible() && currentTime - mLastStatUpdateTime >= FRAME_UPDATE_DELAY)
     {
         Ogre::RenderTarget::FrameStats stats = mWindow->getStatistics();
 
@@ -1976,7 +1977,12 @@ void TrayManager::frameRendered(const Ogre::FrameEvent &evt)
 void TrayManager::windowUpdate()
 {
 #if OGRE_PLATFORM != OGRE_PLATFORM_APPLE_IOS
-    mWindow->update();
+    unsigned long currentTime = mTimer->getMilliseconds();
+    if (currentTime - mLastStatUpdateTime >= FRAME_UPDATE_DELAY)
+    {
+        mLastStatUpdateTime = currentTime;
+        mWindow->update();
+    }
 #endif
 }
 

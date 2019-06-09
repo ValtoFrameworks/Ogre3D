@@ -79,13 +79,11 @@ namespace Ogre {
                 " already defined.", "OverlayContainer::addChild");
         }
 
-        mChildren.insert(ChildMap::value_type(name, elem));
+        mChildren.emplace(name, elem);
         // tell child about parent & Z-order
         elem->_notifyParent(this, mOverlay);
         elem->_notifyZOrder(Math::uint16Cast(mZOrder + 1));
         elem->_notifyWorldTransforms(mXForm);
-        elem->_notifyViewport();
-
     }
     //---------------------------------------------------------------------
     void OverlayContainer::addChildImpl(OverlayContainer* cont)
@@ -113,7 +111,7 @@ namespace Ogre {
         */
 
         // Now add to specific map too
-        mChildContainers.insert(ChildContainerMap::value_type(cont->getName(), cont));
+        mChildContainers.emplace(cont->getName(), cont);
 
     }
     //---------------------------------------------------------------------

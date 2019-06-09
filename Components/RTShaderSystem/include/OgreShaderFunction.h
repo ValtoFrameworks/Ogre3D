@@ -73,6 +73,22 @@ public:
     void assign(const In& from, const Out& to) const { assign({from, to}); }
     /// @overload
     void assign(const std::vector<Operand>& params) const;
+
+    /// dst = arg0 * arg1;
+    void mul(const In& arg0, const In& arg1, const Out& dst) const { binaryOp('*', {arg0, arg1, dst}); }
+
+    /// dst = arg0 / arg1;
+    void div(const In& arg0, const In& arg1, const Out& dst) const { binaryOp('/', {arg0, arg1, dst}); }
+
+    /// dst = arg0 - arg1;
+    void sub(const In& arg0, const In& arg1, const Out& dst) const { binaryOp('-', {arg0, arg1, dst}); }
+
+    /// dst = arg0 + arg1;
+    void add(const In& arg0, const In& arg1, const Out& dst) const { binaryOp('+', {arg0, arg1, dst}); }
+
+    /// dst = arg0 OP arg1;
+    void binaryOp(char op, const std::vector<Operand>& params) const;
+
 private:
     size_t mStage;
     Function* mParent;
@@ -196,22 +212,6 @@ public:
         return _getParameterByName(mLocalParameters, name);
     }
 
-    /// @deprecated do not use
-    OGRE_DEPRECATED static ParameterPtr getParameterByName(const ShaderParameterList& parameterList, const String& name)
-    {
-        return _getParameterByName(parameterList, name);
-    }
-    /// @deprecated do not use
-    OGRE_DEPRECATED static ParameterPtr getParameterBySemantic(const ShaderParameterList& parameterList, const Parameter::Semantic semantic, int index)
-    {
-        return _getParameterBySemantic(parameterList, semantic, index);
-    }
-    /// @deprecated use getInputParameter / getOutputParameter / getLocalParameter instead
-    OGRE_DEPRECATED static ParameterPtr getParameterByContent(const ShaderParameterList& parameterList, const Parameter::Content content, GpuConstantType type)
-    {
-        return _getParameterByContent(parameterList, content, type);
-    }
-
     /** Return a list of input parameters. */
     const ShaderParameterList& getInputParameters() const { return mInputParameters; }  
 
@@ -225,9 +225,6 @@ public:
     @param atomInstance The atom instance to add.
     */
     void addAtomInstance(FunctionAtom* atomInstance);
-
-    /// @deprecated use FunctionStageRef::assign instead
-    OGRE_DEPRECATED void addAtomAssign(ParameterPtr lhs, ParameterPtr rhs, int groupOrder);
 
     /// get a @ref FFPShaderStage of this function
     FunctionStageRef getStage(size_t s)

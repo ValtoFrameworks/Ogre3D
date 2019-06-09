@@ -49,7 +49,7 @@ Ogre-dependent is in the visualization/logging routines and the use of the Timer
 #   define OgreProfile( a ) Ogre::Profile _OgreProfileInstance( (a) )
 #   define OgreProfileBegin( a ) Ogre::Profiler::getSingleton().beginProfile( (a) )
 #   define OgreProfileEnd( a ) Ogre::Profiler::getSingleton().endProfile( (a) )
-#   define OgreProfileGroup( a, g ) Ogre::Profile _OgreProfileInstance( (a), (g) )
+#   define OgreProfileGroup( a, g ) Ogre::Profile OGRE_TOKEN_PASTE(_OgreProfileInstance, __LINE__) ( (a), (g) )
 #   define OgreProfileBeginGroup( a, g ) Ogre::Profiler::getSingleton().beginProfile( (a), (g) )
 #   define OgreProfileEndGroup( a, g ) Ogre::Profiler::getSingleton().endProfile( (a), (g) )
 #   define OgreProfileBeginGPUEvent( g ) Ogre::Profiler::getSingleton().beginGPUEvent(g)
@@ -88,33 +88,6 @@ namespace Ogre {
         OGREPROF_CULLING = 0x40000000,
         /// Rendering
         OGREPROF_RENDERING = 0x20000000
-    };
-
-    /** An individual profile that will be processed by the Profiler
-        @remarks
-            Use the macro OgreProfile(name) instead of instantiating this profile directly
-        @remarks
-            We use this Profile to allow scoping rules to signify the beginning and end of
-            the profile. Use the Profiler singleton (through the macro OgreProfileBegin(name)
-            and OgreProfileEnd(name)) directly if you want a profile to last
-            outside of a scope (i.e. the main game loop).
-        @author Amit Mathew (amitmathew (at) yahoo (dot) com)
-    */
-    class _OgreExport Profile : 
-        public ProfilerAlloc 
-    {
-
-        public:
-            Profile(const String& profileName, uint32 groupID = (uint32)OGREPROF_USER_DEFAULT);
-            ~Profile();
-
-        protected:
-
-            /// The name of this profile
-            String mName;
-            /// The group ID
-            uint32 mGroupID;
-            
     };
 
     /** Represents the total timing information of a profile
@@ -228,15 +201,6 @@ namespace Ogre {
     class _OgreExport ProfileSessionListener
     {
     public:
-        enum DisplayMode
-        {
-            /// Display % frame usage on the overlay
-            DISPLAY_PERCENTAGE,
-            /// Display milliseconds on the overlay
-            DISPLAY_MILLISECONDS
-        };
-
-        ProfileSessionListener() : mDisplayMode(DISPLAY_MILLISECONDS) {}
         virtual ~ProfileSessionListener() {}
 
         /// Create the internal resources
@@ -253,16 +217,6 @@ namespace Ogre {
         
         /// Here we get the real profiling information which we can use 
         virtual void displayResults(const ProfileInstance& instance, ulong maxTotalFrameTime) {};
-
-        /// Set the display mode for the overlay. 
-        void setDisplayMode(DisplayMode d) { mDisplayMode = d; }
-    
-        /// Get the display mode for the overlay. 
-        DisplayMode getDisplayMode() const { return mDisplayMode; }
-    
-    protected:
-        /// How to display the overlay
-        DisplayMode mDisplayMode;
     };
 
     /** The profiler allows you to measure the performance of your code
@@ -486,6 +440,34 @@ namespace Ogre {
 
 
     }; // end class
+
+    /** An individual profile that will be processed by the Profiler
+        @remarks
+            Use the macro OgreProfile(name) instead of instantiating this profile directly
+        @remarks
+            We use this Profile to allow scoping rules to signify the beginning and end of
+            the profile. Use the Profiler singleton (through the macro OgreProfileBegin(name)
+            and OgreProfileEnd(name)) directly if you want a profile to last
+            outside of a scope (i.e. the main game loop).
+        @author Amit Mathew (amitmathew (at) yahoo (dot) com)
+    */
+    class Profile : public ProfilerAlloc
+    {
+
+    public:
+        Profile(const String& profileName, uint32 groupID = (uint32)OGREPROF_USER_DEFAULT)
+            : mName(profileName), mGroupID(groupID)
+        {
+            Profiler::getSingleton().beginProfile(profileName, groupID);
+        }
+        ~Profile() { Profiler::getSingleton().endProfile(mName, mGroupID); }
+
+    protected:
+        /// The name of this profile
+        String mName;
+        /// The group ID
+        uint32 mGroupID;
+    };
     /** @} */
     /** @} */
 

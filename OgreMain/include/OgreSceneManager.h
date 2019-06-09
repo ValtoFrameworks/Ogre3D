@@ -43,7 +43,6 @@ Torus Knot Software Ltd.
 #include "OgreRenderQueue.h"
 #include "OgreRenderQueueSortingGrouping.h"
 #include "OgreResourceGroupManager.h"
-#include "OgreShadowTextureManager.h"
 #include "OgreInstanceManager.h"
 #include "OgreManualObject.h"
 #include "OgreRenderSystem.h"
@@ -58,6 +57,26 @@ namespace Ogre {
     /** \addtogroup Scene
     *  @{
     */
+
+    typedef std::vector<TexturePtr> ShadowTextureList;
+
+    /** Structure containing the configuration for one shadow texture. */
+    struct ShadowTextureConfig
+    {
+        unsigned int width;
+        unsigned int height;
+        PixelFormat format;
+        unsigned int fsaa;
+        uint16      depthBufferPoolId;
+
+        ShadowTextureConfig() : width(512), height(512), format(PF_X8R8G8B8), fsaa(0), depthBufferPoolId(1) {}
+    };
+
+    typedef std::vector<ShadowTextureConfig> ShadowTextureConfigList;
+    typedef ConstVectorIterator<ShadowTextureConfigList> ConstShadowTextureConfigIterator;
+
+    _OgreExport bool operator== ( const ShadowTextureConfig& lhs, const ShadowTextureConfig& rhs );
+    _OgreExport bool operator!= ( const ShadowTextureConfig& lhs, const ShadowTextureConfig& rhs );
 
     /** Structure for holding a position & orientation pair. */
     struct ViewPoint
@@ -138,20 +157,23 @@ namespace Ogre {
     class _OgreExport SceneManager : public SceneMgtAlloc
     {
     public:
-        /// Query type mask which will be used for world geometry @see SceneQuery
-        static uint32 WORLD_GEOMETRY_TYPE_MASK;
-        /// Query type mask which will be used for entities @see SceneQuery
-        static uint32 ENTITY_TYPE_MASK;
-        /// Query type mask which will be used for effects like billboardsets / particle systems @see SceneQuery
-        static uint32 FX_TYPE_MASK;
-        /// Query type mask which will be used for StaticGeometry  @see SceneQuery
-        static uint32 STATICGEOMETRY_TYPE_MASK;
-        /// Query type mask which will be used for lights  @see SceneQuery
-        static uint32 LIGHT_TYPE_MASK;
-        /// Query type mask which will be used for frusta and cameras @see SceneQuery
-        static uint32 FRUSTUM_TYPE_MASK;
-        /// User type mask limit
-        static uint32 USER_TYPE_MASK_LIMIT;
+        enum QueryTypeMask : uint32
+        {
+            /// Query type mask which will be used for world geometry @see SceneQuery
+            WORLD_GEOMETRY_TYPE_MASK = 0x80000000,
+            /// Query type mask which will be used for entities @see SceneQuery
+            ENTITY_TYPE_MASK = 0x40000000,
+            /// Query type mask which will be used for effects like billboardsets / particle systems @see SceneQuery
+            FX_TYPE_MASK = 0x20000000,
+            /// Query type mask which will be used for StaticGeometry  @see SceneQuery
+            STATICGEOMETRY_TYPE_MASK = 0x10000000,
+            /// Query type mask which will be used for lights  @see SceneQuery
+            LIGHT_TYPE_MASK = 0x08000000,
+            /// Query type mask which will be used for frusta and cameras @see SceneQuery
+            FRUSTUM_TYPE_MASK = 0x04000000,
+            /// User type mask limit
+            USER_TYPE_MASK_LIMIT = FRUSTUM_TYPE_MASK
+        };
         /** Comparator for material map, for sorting materials into render order (e.g. transparent last).
         */
         struct materialLess
@@ -417,6 +439,9 @@ namespace Ogre {
         */
         SceneNodeList mSceneNodes;
 
+        /// additional map to speed up lookup by name
+        std::map<String, SceneNode*> mNamedNodes;
+
         /// Camera in progress
         Camera* mCameraInProgress;
         /// Current Viewport
@@ -662,6 +687,11 @@ namespace Ogre {
             Real mShadowTextureOffset; /// Proportion of texture offset in view direction e.g. 0.4
             Real mShadowTextureFadeStart; /// As a proportion e.g. 0.6
             Real mShadowTextureFadeEnd; /// As a proportion e.g. 0.9
+            bool mShadowTextureSelfShadow;
+            bool mShadowTextureConfigDirty;
+            bool mShadowCasterRenderBackFaces;
+
+            ShadowTextureConfigList mShadowTextureConfigList;
 
             /// Array defining shadow count per light type.
             size_t mShadowTextureCountPerType[3];
@@ -750,6 +780,17 @@ namespace Ogre {
             size_t getShadowTexIndex(size_t lightIndex);
 
             void setShadowIndexBufferSize(size_t size);
+
+            const TexturePtr& getShadowTexture(size_t shadowIndex);
+            void setShadowTextureSettings(uint16 size, uint16 count, PixelFormat fmt, uint16 fsaa,
+                                          uint16 depthBufferPoolId);
+            void setShadowTextureSize(unsigned short size);
+            void setShadowTextureCount(size_t count);
+            void setShadowTexturePixelFormat(PixelFormat fmt);
+            void setShadowTextureFSAA(unsigned short fsaa);
+            void setShadowTextureConfig(size_t shadowIndex, const ShadowTextureConfig& config);
+            void setShadowTextureConfig(size_t shadowIndex, uint16 width, uint16 height, PixelFormat format,
+                                        uint16 fsaa, uint16 depthBufferPoolId);
         } mShadowRenderer;
 
         /** Internal method to validate whether a Pass should be allowed to render.
@@ -775,23 +816,18 @@ namespace Ogre {
         AnimationList mAnimationsList;
         OGRE_MUTEX(mAnimationsListMutex);
         AnimationStateSet mAnimationStates;
-
-
-        /** Internal method used by _renderSingleObject to deal with renderables
-            which override the camera's own view / projection materices. */
-        void useRenderableViewProjMode(const Renderable* pRend, bool fixedFunction);
         
         /** Internal method used by _renderSingleObject to set the world transform */
-        void setWorldTransform(Renderable* rend, bool fixedFunction);
+        void setWorldTransform(Renderable* rend);
 
         /** Internal method used by _renderSingleObject to render a single light pass */
         void issueRenderWithLights(Renderable* rend, const Pass* pass,
-                                   const LightList* pLightListToUse, bool fixedFunction,
+                                   const LightList* pLightListToUse,
                                    bool lightScissoringClipping);
 
         /** Internal method used by _renderSingleObject to deal with renderables
             which override the camera's own view / projection matrices. */
-        void resetViewProjMode(bool fixedFunction);
+        void resetViewProjMode();
 
         typedef std::vector<RenderQueueListener*> RenderQueueListenerList;
         RenderQueueListenerList mRenderQueueListeners;
@@ -869,13 +905,12 @@ namespace Ogre {
         /// Utility class for calculating automatic parameters for gpu programs
         std::unique_ptr<AutoParamDataSource> mAutoParamDataSource;
 
+        GpuProgramParametersPtr mFixedFunctionParams;
+
         CompositorChain* mActiveCompositorChain;
         bool mLateMaterialResolving;
 
         IlluminationRenderStage mIlluminationStage;
-        ShadowTextureConfigList mShadowTextureConfigList;
-        bool mShadowTextureConfigDirty;
-        bool mShadowCasterRenderBackFaces;
 
         /// Struct for caching light clipping information for re-use in a frame
         struct LightClippingInfo
@@ -905,11 +940,15 @@ namespace Ogre {
         };
 
 
-        /** Internal method for locating a list of lights which could be affecting the frustum. 
+        /** Internal method for locating a list of lights which could be affecting the frustum.
         @remarks
             Custom scene managers are encouraged to override this method to make use of their
             scene partitioning scheme to more efficiently locate lights, and to eliminate lights
-            which may be occluded by word geometry.
+            which may be occluded by world geometry.
+            If the list of lights is different to the list returned by
+            SceneManager::_getLightsAffectingFrustum before this method was called, then this
+            method should update that cached list and call SceneManager::_notifyLightsDirty to
+            mark that the internal light cache has changed.
         */
         virtual void findLightsAffectingFrustum(const Camera* camera);
         /// Internal method for setting up materials for shadows
@@ -957,7 +996,6 @@ namespace Ogre {
         ShadowCasterList mShadowCasterList;
         std::unique_ptr<SphereSceneQuery> mShadowCasterSphereQuery;
         std::unique_ptr<AxisAlignedBoxSceneQuery> mShadowCasterAABBQuery;
-        bool mShadowTextureSelfShadow;
 
         /// Visibility mask used to show / hide objects
         uint32 mVisibilityMask;
@@ -1001,11 +1039,8 @@ namespace Ogre {
 
         std::unique_ptr<ShadowCasterSceneQueryListener> mShadowCasterQueryListener;
 
-        /** Internal method for locating a list of shadow casters which 
-            could be affecting the frustum for a given light. 
-        @remarks
-            Custom scene managers are encouraged to override this method to add optimisations, 
-            and to add their own custom shadow casters (perhaps for world geometry)
+        /** Internal method for locating a list of shadow casters which
+            could be affecting the frustum for a given light.
         */
         const ShadowCasterList& findShadowCastersForLight(const Light* light,
             const Camera* camera);
@@ -1051,21 +1086,12 @@ namespace Ogre {
 
         /// Last light sets
         uint32 mLastLightHash;
-        unsigned short mLastLightLimit;
         /// Gpu params that need rebinding (mask of GpuParamVariability)
         uint16 mGpuParamsDirty;
 
-        void useLights(const LightList& lights, ushort limit, bool fixedFunction);
-        void setViewMatrix(const Affine3& m);
+        void useLights(const LightList* lights, ushort limit);
         void bindGpuProgram(GpuProgram* prog);
         void updateGpuProgramParameters(const Pass* p);
-
-
-
-
-
-
-
 
         /// Set of registered LOD listeners
         typedef std::set<LodListener*> LodListenerSet;
@@ -1229,37 +1255,28 @@ namespace Ogre {
         */
         virtual void destroyAllLights(void);
 
-        /** Advance method to increase the lights dirty counter due lights changed.
+        /** Advanced method to increase the lights dirty counter due to lights having changed.
         @remarks
-            Scene manager tracking lights that affecting the frustum, if changes
-            detected (the changes includes light list itself and the light's position
-            and attenuation range), then increase the lights dirty counter.
+            The SceneManager tracks the list of lights affecting the current frustum, and if
+            changes are detected (including changes to the light list itself or to a light's
+            position or attenuation range) then it increases the lights dirty counter.
         @par
-            For some reason, you can call this method to force whole scene objects
-            re-populate their light list. But near in mind, call to this method
-            will harm performance, so should avoid if possible.
+            You could call this method to force all the objects in the scene to re-populate
+            their light list, but doing so may harm performance so should be avoided if possible.
         */
         void _notifyLightsDirty(void);
 
-        /** Advance method to gets the lights dirty counter.
+        /** Advanced method to gets the lights dirty counter.
         @remarks
-            Scene manager tracking lights that affecting the frustum, if changes
-            detected (the changes includes light list itself and the light's position
-            and attenuation range), then increase the lights dirty counter.
-        @par
-            When implementing customise lights finding algorithm relied on either
-            SceneManager::_getLightsAffectingFrustum or SceneManager::_populateLightList,
-            might check this value for sure that the light list are really need to
-            re-populate, otherwise, returns cached light list (if exists) for better
-            performance.
+            The SceneManager tracks the list of lights affecting the current frustum, and if
+            changes are detected (including changes to the light list itself or to a light's
+            position or attenuation range) then it increases the lights dirty counter.
         */
         ulong _getLightsDirtyCounter(void) const { return mLightsDirtyCounter; }
 
         /** Get the list of lights which could be affecting the frustum.
         @remarks
-            Note that default implementation of this method returns a cached light list,
-            which is populated when rendering the scene. So by default the list of lights 
-            is only available during scene rendering.
+            This returns a cached light list which is populated when rendering the scene.
         */
         const LightList& _getLightsAffectingFrustum(void) const;
 
@@ -1267,21 +1284,16 @@ namespace Ogre {
         to the position specified.
         @remarks
             Note that since directional lights have no position, they are always considered
-            closer than any point lights and as such will always take precedence. 
+            closer than any point lights and as such will always take precedence.
+            The returned lights are those in the cached list of lights (i.e. those
+            returned by SceneManager::_getLightsAffectingFrustum) sorted by distance.
         @par
-            Subclasses of the default SceneManager may wish to take into account other issues
-            such as possible visibility of the light if that information is included in their
-            data structures. This basic scenemanager simply orders by distance, eliminating 
-            those lights which are out of range or could not be affecting the frustum (i.e.
-            only the lights returned by SceneManager::_getLightsAffectingFrustum are take into
-            account).
-        @par
-            The number of items in the list max exceed the maximum number of lights supported
+            The number of items in the list may exceed the maximum number of lights supported
             by the renderer, but the extraneous ones will never be used. In fact the limit will
             be imposed by Pass::getMaxSimultaneousLights.
         @param position The position at which to evaluate the list of lights
         @param radius The bounding radius to test
-        @param destList List to be populated with ordered set of lights; will be cleared by 
+        @param destList List to be populated with ordered set of lights; will be cleared by
             this method before population.
         @param lightMask The mask with which to include / exclude lights
         */
@@ -1291,27 +1303,19 @@ namespace Ogre {
         to the position of the SceneNode given.
         @remarks
             Note that since directional lights have no position, they are always considered
-            closer than any point lights and as such will always take precedence. 
+            closer than any point lights and as such will always take precedence.
             This overloaded version will take the SceneNode's position and use the second method
             to populate the list.
         @par
-            Subclasses of the default SceneManager may wish to take into account other issues
-            such as possible visibility of the light if that information is included in their
-            data structures. This basic scenemanager simply orders by distance, eliminating 
-            those lights which are out of range or could not be affecting the frustum (i.e.
-            only the lights returned by SceneManager::_getLightsAffectingFrustum are take into
-            account). 
-        @par   
-            Also note that subclasses of the SceneNode might be used here to provide cached
-            scene related data, accelerating the list population (for example light lists for
-            SceneNodes could be cached inside subclassed SceneNode objects).
+            The returned lights are those in the cached list of lights (i.e. those
+            returned by SceneManager::_getLightsAffectingFrustum) sorted by distance.
         @par
             The number of items in the list may exceed the maximum number of lights supported
             by the renderer, but the extraneous ones will never be used. In fact the limit will
             be imposed by Pass::getMaxSimultaneousLights.
         @param sn The SceneNode for which to evaluate the list of lights
         @param radius The bounding radius to test
-        @param destList List to be populated with ordered set of lights; will be cleared by 
+        @param destList List to be populated with ordered set of lights; will be cleared by
             this method before population.
         @param lightMask The mask with which to include / exclude lights
         */
@@ -1367,18 +1371,17 @@ namespace Ogre {
         SceneNode* getRootSceneNode(void);
 
         /** Retrieves a named SceneNode from the scene graph.
-        @remarks
-            If you chose to name a SceneNode as you created it, or if you
-            happened to make a note of the generated name, you can look it
+
+            If you chose to name a SceneNode as you created it, you can look it
             up wherever it is in the scene graph using this method.
-            @note Throws an exception if the named instance does not exist
+            @param name
+            @param throwExceptionIfNotFound Throws an exception if the named instance does not exist
         */
-        SceneNode* getSceneNode(const String& name) const;
+        SceneNode* getSceneNode(const String& name, bool throwExceptionIfNotFound = true) const;
 
         /** Returns whether a scene node with the given name exists.
         */
-        bool hasSceneNode(const String& name) const;
-
+        bool hasSceneNode(const String& name) const { return getSceneNode(name, false) != NULL; }
 
         /** Create an Entity (instance of a discrete mesh).
             @param
@@ -2728,7 +2731,7 @@ namespace Ogre {
         @note This is the simple form, see setShadowTextureConfig for the more 
             complex form.
         */
-        void setShadowTextureSize(unsigned short size);
+        void setShadowTextureSize(unsigned short size) { mShadowRenderer.setShadowTextureSize(size); }
 
         /** Set the detailed configuration for a shadow texture.
         @param shadowIndex The index of the texture to configure, must be < the
@@ -2739,18 +2742,26 @@ namespace Ogre {
         @param fsaa The level of multisampling to use. Ignored if the device does not support it.
         @param depthBufferPoolId The pool # it should query the depth buffers from
         */
-        void setShadowTextureConfig(size_t shadowIndex, unsigned short width,
-            unsigned short height, PixelFormat format, unsigned short fsaa = 0, uint16 depthBufferPoolId=1);
+        void setShadowTextureConfig(size_t shadowIndex, uint16 width, uint16 height, PixelFormat format,
+                                    uint16 fsaa = 0, uint16 depthBufferPoolId = 1)
+        {
+            mShadowRenderer.setShadowTextureConfig(shadowIndex, width, height, format, fsaa, depthBufferPoolId);
+        }
         /** Set the detailed configuration for a shadow texture.
         @param shadowIndex The index of the texture to configure, must be < the
             number of shadow textures setting
         @param config Configuration structure
         */
-        void setShadowTextureConfig(size_t shadowIndex,
-            const ShadowTextureConfig& config);
+        void setShadowTextureConfig(size_t shadowIndex, const ShadowTextureConfig& config)
+        {
+            mShadowRenderer.setShadowTextureConfig(shadowIndex, config);
+        }
 
-        /** Get an iterator over the current shadow texture settings. */
-        ConstShadowTextureConfigIterator getShadowTextureConfigIterator() const;
+        /** Get the current shadow texture settings. */
+        const ShadowTextureConfigList& getShadowTextureConfigList() const { return mShadowRenderer.mShadowTextureConfigList; }
+
+        /// @deprecated use getShadowTextureConfigList
+        OGRE_DEPRECATED ConstShadowTextureConfigIterator getShadowTextureConfigIterator() const;
 
         /** Set the pixel format of the textures used for texture-based shadows.
         @remarks
@@ -2763,14 +2774,17 @@ namespace Ogre {
         @note This is the simple form, see setShadowTextureConfig for the more 
             complex form.
         */
-        void setShadowTexturePixelFormat(PixelFormat fmt);
+        void setShadowTexturePixelFormat(PixelFormat fmt)
+        {
+            mShadowRenderer.setShadowTexturePixelFormat(fmt);
+        }
         /** Set the level of multisample AA of the textures used for texture-based shadows.
         @remarks
             By default, the level of multisample AA is zero.
         @note This is the simple form, see setShadowTextureConfig for the more 
             complex form.
         */
-        void setShadowTextureFSAA(unsigned short fsaa);
+        void setShadowTextureFSAA(unsigned short fsaa) { mShadowRenderer.setShadowTextureFSAA(fsaa); }
 
         /** Set the number of textures allocated for texture-based shadows.
         @remarks
@@ -2779,9 +2793,10 @@ namespace Ogre {
             shadows at the same time. You can increase this number in order to 
             make this more flexible, but be aware of the texture memory it will use.
         */
-        void setShadowTextureCount(size_t count);
-        /// Get the number of the textures allocated for texture based shadows
-        size_t getShadowTextureCount(void) const {return mShadowTextureConfigList.size(); }
+        void setShadowTextureCount(size_t count) { mShadowRenderer.setShadowTextureCount(count); }
+
+        /// @deprecated use getShadowTextureConfigList
+        OGRE_DEPRECATED size_t getShadowTextureCount(void) const {return mShadowRenderer.mShadowTextureConfigList.size(); }
 
         /** Set the number of shadow textures a light type uses.
         @remarks
@@ -2805,8 +2820,11 @@ namespace Ogre {
         @note This is the simple form, see setShadowTextureConfig for the more 
             complex form.
         */
-        void setShadowTextureSettings(unsigned short size, unsigned short count,
-            PixelFormat fmt = PF_X8R8G8B8, unsigned short fsaa = 0, uint16 depthBufferPoolId=1);
+        void setShadowTextureSettings(uint16 size, uint16 count, PixelFormat fmt = PF_X8R8G8B8,
+                                      uint16 fsaa = 0, uint16 depthBufferPoolId = 1)
+        {
+            mShadowRenderer.setShadowTextureSettings(size, count, fmt, fsaa, depthBufferPoolId);
+        }
 
         /** Get a reference to the shadow texture currently in use at the given index.
         @note
@@ -2814,7 +2832,10 @@ namespace Ogre {
             be correct, so be sure not to hold the returned reference over 
             texture shadow configuration changes.
         */
-        const TexturePtr& getShadowTexture(size_t shadowIndex);
+        const TexturePtr& getShadowTexture(size_t shadowIndex)
+        {
+            return mShadowRenderer.getShadowTexture(shadowIndex);
+        }
 
         /** Sets the proportional distance which a texture shadow which is generated from a
             directional light will be offset into the camera view to make best use of texture space.
@@ -2870,7 +2891,7 @@ namespace Ogre {
 
         /// Gets whether or not texture shadows attempt to self-shadow.
         bool getShadowTextureSelfShadow(void) const
-        { return mShadowTextureSelfShadow; }
+        { return mShadowRenderer.mShadowTextureSelfShadow; }
         /** Sets the default material to use for rendering shadow casters.
         @remarks
             By default shadow casters are rendered into the shadow texture using
@@ -2928,12 +2949,12 @@ namespace Ogre {
             if you have objects with holes you may want to turn this option off.
             The default is to enable this option.
         */
-        void setShadowCasterRenderBackFaces(bool bf) { mShadowCasterRenderBackFaces = bf; }
+        void setShadowCasterRenderBackFaces(bool bf) { mShadowRenderer.mShadowCasterRenderBackFaces = bf; }
 
         /** Gets whether or not shadow casters should be rendered into shadow
             textures using their back faces rather than their front faces. 
         */
-        bool getShadowCasterRenderBackFaces() const { return mShadowCasterRenderBackFaces; }
+        bool getShadowCasterRenderBackFaces() const { return mShadowRenderer.mShadowCasterRenderBackFaces; }
 
         /** Set the shadow camera setup to use for all lights which don't have
             their own shadow camera setup.
@@ -3506,10 +3527,8 @@ namespace Ogre {
     /// Bitmask containing scene types
     typedef uint16 SceneTypeMask;
 
-    /** Classification of a scene to allow a decision of what type of
-    SceenManager to provide back to the application.
-    */
-    enum SceneType
+    /// @deprecated do not use
+    enum OGRE_DEPRECATED SceneType
     {
         ST_GENERIC = 1,
         ST_EXTERIOR_CLOSE = 2,

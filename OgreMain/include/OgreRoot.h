@@ -45,6 +45,7 @@ namespace Ogre
     */
 
     class AndroidLogListener;
+    class ShadowTextureManager;
 
     typedef std::vector<RenderSystem*> RenderSystemList;
     
@@ -579,6 +580,13 @@ namespace Ogre
         */
         RenderWindow* createRenderWindow(const String &name, unsigned int width, unsigned int height, 
             bool fullScreen, const NameValuePairList *miscParams = 0) ;
+
+        /// @overload
+        RenderWindow* createRenderWindow(const RenderWindowDescription& desc)
+        {
+            return createRenderWindow(desc.name, desc.width, desc.height,
+                                      desc.useFullScreen, &desc.miscParams);
+        }
 
         /** @copydoc RenderSystem::_createRenderWindows
         */

@@ -101,6 +101,15 @@ bool Sample_NewInstancing::keyPressed(const KeyboardEvent& evt)
 //------------------------------------------------------------------------------
 void Sample_NewInstancing::setupContent()
 {
+#ifdef OGRE_BUILD_COMPONENT_RTSHADERSYSTEM
+    // Make this viewport work with shader generator scheme.
+    mViewport->setMaterialScheme(RTShader::ShaderGenerator::DEFAULT_SCHEME_NAME);
+    RTShader::ShaderGenerator& rtShaderGen = RTShader::ShaderGenerator::getSingleton();
+    RTShader::RenderState* schemRenderState = rtShaderGen.getRenderState(RTShader::ShaderGenerator::DEFAULT_SCHEME_NAME);
+    auto subRenderState = rtShaderGen.createSubRenderState<RTShader::IntegratedPSSM3>();
+    schemRenderState->addTemplateSubRenderState(subRenderState);
+#endif
+
     //Initialize the techniques and current mesh variables
     mInstancingTechnique    = 0;
     mCurrentMesh            = 0;
@@ -114,12 +123,12 @@ void Sample_NewInstancing::setupContent()
 
     if (Ogre::Root::getSingletonPtr()->getRenderSystem()->getName().find("OpenGL ES 2") == String::npos)
     {
-        mSceneMgr->setShadowTextureConfig( 0, 2048, 2048, PF_X8R8G8B8 ); // PF_FLOAT32_R currently broken on all GL RS
+        mSceneMgr->setShadowTextureConfig( 0, 2048, 2048, PF_FLOAT32_R );
     }
     else
     {
         // Use a smaller texture for GL ES 3.0
-        mSceneMgr->setShadowTextureConfig( 0, 512, 512, PF_X8R8G8B8 );
+        mSceneMgr->setShadowTextureConfig( 0, 512, 512, PF_FLOAT32_R );
     }
 
     //LiSPSMShadowCameraSetup *shadowCameraSetup = new LiSPSMShadowCameraSetup();
@@ -138,7 +147,7 @@ void Sample_NewInstancing::setupContent()
 
     // create a ground entity from our mesh and attach it to the origin
     Entity* ground = mSceneMgr->createEntity("Ground", "ground");
-    ground->setMaterialName("Examples/Instancing/Misc/Grass");
+    ground->setMaterialName("Examples/GrassFloor");
     ground->setCastShadows(false);
     mSceneMgr->getRootSceneNode()->attachObject(ground);
 

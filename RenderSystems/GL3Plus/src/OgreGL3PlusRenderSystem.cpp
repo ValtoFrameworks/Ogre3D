@@ -41,7 +41,7 @@ Copyright (c) 2000-2014 Torus Knot Software Ltd
 #include "OgreGL3PlusHardwareVertexBuffer.h"
 #include "OgreGL3PlusHardwareIndexBuffer.h"
 #include "OgreGLSLShader.h"
-#include "OgreGLSLShaderManager.h"
+#include "OgreGpuProgramManager.h"
 #include "OgreException.h"
 #include "OgreGLSLExtSupport.h"
 #include "OgreGL3PlusHardwareOcclusionQuery.h"
@@ -60,6 +60,7 @@ Copyright (c) 2000-2014 Torus Knot Software Ltd
 #include "OgreGL3PlusPixelFormat.h"
 #include "OgreGL3PlusStateCacheManager.h"
 #include "OgreGLSLProgramCommon.h"
+#include "OgreGL3PlusFBOMultiRenderTarget.h"
 
 #if OGRE_PLATFORM == OGRE_PLATFORM_APPLE
 extern "C" void glFlushRenderAPPLE();
@@ -135,7 +136,6 @@ namespace Ogre {
           mShaderManager(0),
           mGLSLShaderFactory(0),
           mHardwareBufferManager(0),
-          mRTTManager(0),
           mActiveTextureUnit(0)
     {
         size_t i;
@@ -169,6 +169,7 @@ namespace Ogre {
         mCurrentDomainShader = 0;
         mCurrentComputeShader = 0;
         mLargestSupportedAnisotropy = 1;
+        mRTTManager = NULL;
     }
 
     GL3PlusRenderSystem::~GL3PlusRenderSystem()
@@ -185,20 +186,10 @@ namespace Ogre {
         return strName;
     }
 
-    RenderWindow* GL3PlusRenderSystem::_initialise(bool autoCreateWindow,
-                                                   const String& windowTitle)
+    void GL3PlusRenderSystem::_initialise()
     {
+        RenderSystem::_initialise();
         mGLSupport->start();
-
-        RenderWindow* autoWindow = NULL;
-        if(autoCreateWindow) {
-            uint w, h;
-            bool fullscreen;
-            NameValuePairList misc = parseOptions(w, h, fullscreen);
-            autoWindow = _createRenderWindow(windowTitle, w, h, fullscreen, &misc);
-        }
-        RenderSystem::_initialise(autoCreateWindow, windowTitle);
-        return autoWindow;
     }
 
     RenderSystemCapabilities* GL3PlusRenderSystem::createRenderSystemCapabilities() const
@@ -239,9 +230,6 @@ namespace Ogre {
 
         // DOT3 support is standard
         rsc->setCapability(RSC_DOT3);
-
-        // Cube map
-        rsc->setCapability(RSC_CUBEMAPPING);
 
         // Point sprites
         rsc->setCapability(RSC_POINT_SPRITES);
@@ -313,8 +301,7 @@ namespace Ogre {
         rsc->setCapability(RSC_ADVANCED_BLEND_OPERATIONS);
 
         // Check for non-power-of-2 texture support
-        if (hasMinGLVersion(3, 1) || checkExtension("GL_ARB_texture_rectangle") || checkExtension("GL_ARB_texture_non_power_of_two"))
-            rsc->setCapability(RSC_NON_POWER_OF_2_TEXTURES);
+        rsc->setCapability(RSC_NON_POWER_OF_2_TEXTURES);
 
         // Check for atomic counter support
         if (hasMinGLVersion(4, 2) || checkExtension("GL_ARB_shader_atomic_counters"))
@@ -363,10 +350,12 @@ namespace Ogre {
         if (getNativeShadingLanguageVersion() >= 130 && !limitedOSXCoreProfile)
             rsc->addShaderProfile("glsl130");
 
-        // FIXME: This isn't working right yet in some rarer cases
         if (hasMinGLVersion(4, 1) || checkExtension("GL_ARB_separate_shader_objects")) {
-            rsc->setCapability(RSC_SEPARATE_SHADER_OBJECTS);
-            rsc->setCapability(RSC_GLSL_SSO_REDECLARE);
+            // this relaxes shader matching rules and requires slightly different GLSL declaration
+            // however our usage pattern does not benefit from this and driver support is quite poor
+            // so disable it for now (see below)
+            /*rsc->setCapability(RSC_SEPARATE_SHADER_OBJECTS);
+            rsc->setCapability(RSC_GLSL_SSO_REDECLARE);*/
         }
 
         // Mesa 11.2 does not behave according to spec and throws a "gl_Position redefined"
@@ -392,21 +381,19 @@ namespace Ogre {
         rsc->setFragmentProgramConstantIntCount((Ogre::ushort)constantCount);
 
         // Geometry Program Properties
-        if (hasMinGLVersion(3, 2) || checkExtension("ARB_geometry_shader4")) {
-            rsc->setCapability(RSC_GEOMETRY_PROGRAM);
+        rsc->setCapability(RSC_GEOMETRY_PROGRAM);
 
-            OGRE_CHECK_GL_ERROR(glGetIntegerv(GL_MAX_GEOMETRY_UNIFORM_COMPONENTS, &constantCount));
-            rsc->setGeometryProgramConstantFloatCount(constantCount);
+        OGRE_CHECK_GL_ERROR(glGetIntegerv(GL_MAX_GEOMETRY_UNIFORM_COMPONENTS, &constantCount));
+        rsc->setGeometryProgramConstantFloatCount(constantCount);
 
-            OGRE_CHECK_GL_ERROR(glGetIntegerv(GL_MAX_GEOMETRY_OUTPUT_VERTICES, &constantCount));
-            rsc->setGeometryProgramNumOutputVertices(constantCount);
+        OGRE_CHECK_GL_ERROR(glGetIntegerv(GL_MAX_GEOMETRY_OUTPUT_VERTICES, &constantCount));
+        rsc->setGeometryProgramNumOutputVertices(constantCount);
 
-            //FIXME Is this correct?
-            OGRE_CHECK_GL_ERROR(glGetIntegerv(GL_MAX_GEOMETRY_UNIFORM_COMPONENTS, &constantCount));
-            rsc->setGeometryProgramConstantFloatCount(constantCount);
-            rsc->setGeometryProgramConstantBoolCount(constantCount);
-            rsc->setGeometryProgramConstantIntCount(constantCount);
-        }
+        //FIXME Is this correct?
+        OGRE_CHECK_GL_ERROR(glGetIntegerv(GL_MAX_GEOMETRY_UNIFORM_COMPONENTS, &constantCount));
+        rsc->setGeometryProgramConstantFloatCount(constantCount);
+        rsc->setGeometryProgramConstantBoolCount(constantCount);
+        rsc->setGeometryProgramConstantIntCount(constantCount);
 
         // Tessellation Program Properties
         if (hasMinGLVersion(4, 0) || checkExtension("GL_ARB_tessellation_shader"))
@@ -456,10 +443,7 @@ namespace Ogre {
                 rsc->setCapability(RSC_CAN_GET_COMPILED_SHADER_BUFFER);
         }
 
-        if (hasMinGLVersion(3, 3) || checkExtension("GL_ARB_instanced_arrays"))
-        {
-            rsc->setCapability(RSC_VERTEX_BUFFER_INSTANCE_DATA);
-        }
+        rsc->setCapability(RSC_VERTEX_BUFFER_INSTANCE_DATA);
 
         // Check for Float textures
         rsc->setCapability(RSC_TEXTURE_FLOAT);
@@ -503,7 +487,9 @@ namespace Ogre {
                         "GL3PlusRenderSystem::initialiseFromRenderSystemCapabilities");
         }
 
-        mShaderManager = OGRE_NEW GLSLShaderManager();
+        mShaderManager = new GpuProgramManager();
+        ResourceGroupManager::getSingleton()._registerResourceManager(mShaderManager->getResourceType(),
+                                                                      mShaderManager);
 
         // Create GLSL shader factory
         mGLSLShaderFactory = new GLSLShaderFactory(this);
@@ -545,8 +531,12 @@ namespace Ogre {
         }
 
         // Deleting the GPU program manager and hardware buffer manager.  Has to be done before the mGLSupport->stop().
-        OGRE_DELETE mShaderManager;
-        mShaderManager = 0;
+        if(mShaderManager)
+        {
+            ResourceGroupManager::getSingleton()._unregisterResourceManager(mShaderManager->getResourceType());
+            OGRE_DELETE mShaderManager;
+            mShaderManager = 0;
+        }
 
         OGRE_DELETE mHardwareBufferManager;
         mHardwareBufferManager = 0;
@@ -679,7 +669,7 @@ namespace Ogre {
             GL3PlusDepthBuffer *depthBuffer = new GL3PlusDepthBuffer( DepthBuffer::POOL_DEFAULT, this,
                                                                       windowContext, 0, 0,
                                                                       win->getWidth(), win->getHeight(),
-                                                                      win->getFSAA(), 0, true );
+                                                                      win->getFSAA(), true );
 
             mDepthBufferPool[depthBuffer->getPoolId()].push_back( depthBuffer );
 
@@ -693,10 +683,6 @@ namespace Ogre {
     DepthBuffer* GL3PlusRenderSystem::_createDepthBufferFor( RenderTarget *renderTarget )
     {
         GL3PlusDepthBuffer *retVal = 0;
-
-        // Only FBOs support different depth buffers, so everything
-        // else creates dummy (empty) containers
-        // retVal = mRTTManager->_createDepthBufferFor( renderTarget );
 
         if ( auto fbo = dynamic_cast<GLRenderTarget*>(renderTarget)->getFBO() )
         {
@@ -723,21 +709,16 @@ namespace Ogre {
 
             // No "custom-quality" multisample for now in GL
             retVal = new GL3PlusDepthBuffer( 0, this, mCurrentContext, depthBuffer, stencilBuffer,
-                                             fbo->getWidth(), fbo->getHeight(), fbo->getFSAA(), 0, false );
+                                             fbo->getWidth(), fbo->getHeight(), fbo->getFSAA(), false );
         }
 
         return retVal;
     }
 
-    void GL3PlusRenderSystem::_getDepthStencilFormatFor( PixelFormat internalColourFormat, GLenum *depthFormat,
-                                                         GLenum *stencilFormat )
-    {
-        mRTTManager->getBestDepthStencil( internalColourFormat, depthFormat, stencilFormat );
-    }
-
     MultiRenderTarget* GL3PlusRenderSystem::createMultiRenderTarget(const String & name)
     {
-        MultiRenderTarget *retval = mRTTManager->createMultiRenderTarget(name);
+        MultiRenderTarget* retval =
+            new GL3PlusFBOMultiRenderTarget(static_cast<GL3PlusFBOManager*>(mRTTManager), name);
         attachRenderTarget(*retval);
         return retval;
     }
@@ -803,62 +784,16 @@ namespace Ogre {
 
             mStateCacheManager->bindGLTexture( mTextureTypes[stage], tex->getGLID() );
         }
+        else
+        {
+            // Bind zero texture.
+            mStateCacheManager->bindGLTexture(GL_TEXTURE_2D, 0);
+        }
     }
 
     void GL3PlusRenderSystem::_setSampler(size_t unit, Sampler& sampler)
     {
-        if(hasMinGLVersion(3, 3))
-        {
-            static_cast<GL3PlusSampler&>(sampler).bind(unit);
-            return;
-        }
-
-        if (!mStateCacheManager->activateGLTextureUnit(unit))
-            return;
-
-        GLenum target = mTextureTypes[unit];
-
-        const Sampler::UVWAddressingMode& uvw = sampler.getAddressingMode();
-        mStateCacheManager->setTexParameteri(target, GL_TEXTURE_WRAP_S,
-                                             GL3PlusSampler::getTextureAddressingMode(uvw.u));
-        mStateCacheManager->setTexParameteri(target, GL_TEXTURE_WRAP_T,
-                                             GL3PlusSampler::getTextureAddressingMode(uvw.v));
-        mStateCacheManager->setTexParameteri(target, GL_TEXTURE_WRAP_R,
-                                             GL3PlusSampler::getTextureAddressingMode(uvw.w));
-
-        if (uvw.u == TAM_BORDER || uvw.v == TAM_BORDER || uvw.w == TAM_BORDER)
-            OGRE_CHECK_GL_ERROR(glTexParameterfv( target, GL_TEXTURE_BORDER_COLOR, sampler.getBorderColour().ptr()));
-        OGRE_CHECK_GL_ERROR(glTexParameterf(target, GL_TEXTURE_LOD_BIAS, sampler.getMipmapBias()));
-
-        if (mCurrentCapabilities->hasCapability(RSC_ANISOTROPY))
-            mStateCacheManager->setTexParameteri(
-                target, GL_TEXTURE_MAX_ANISOTROPY_EXT,
-                std::min<uint>(mLargestSupportedAnisotropy, sampler.getAnisotropy()));
-
-        mStateCacheManager->setTexParameteri(target, GL_TEXTURE_COMPARE_MODE,
-                                             sampler.getCompareEnabled() ? GL_COMPARE_REF_TO_TEXTURE
-                                                                         : GL_NONE);
-        if (sampler.getCompareEnabled())
-            mStateCacheManager->setTexParameteri(target, GL_TEXTURE_COMPARE_FUNC,
-                                                 convertCompareFunction(sampler.getCompareFunction()));
-
-        // Combine with existing mip filter
-        mStateCacheManager->setTexParameteri(
-            target, GL_TEXTURE_MIN_FILTER,
-            GL3PlusSampler::getCombinedMinMipFilter(sampler.getFiltering(FT_MIN),
-                                                    sampler.getFiltering(FT_MIP)));
-
-        switch (sampler.getFiltering(FT_MAG))
-        {
-        case FO_ANISOTROPIC: // GL treats linear and aniso the same
-        case FO_LINEAR:
-            mStateCacheManager->setTexParameteri(target, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-            break;
-        case FO_POINT:
-        case FO_NONE:
-            mStateCacheManager->setTexParameteri(target, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
-            break;
-        }
+        static_cast<GL3PlusSampler&>(sampler).bind(unit);
     }
 
     void GL3PlusRenderSystem::_setTextureAddressingMode(size_t stage, const Sampler::UVWAddressingMode& uvw)
@@ -871,22 +806,6 @@ namespace Ogre {
                                              GL3PlusSampler::getTextureAddressingMode(uvw.v));
         mStateCacheManager->setTexParameteri(mTextureTypes[stage], GL_TEXTURE_WRAP_R,
                                              GL3PlusSampler::getTextureAddressingMode(uvw.w));
-    }
-
-    void GL3PlusRenderSystem::_setTextureBorderColour(size_t stage, const ColourValue& colour)
-    {
-        if (mStateCacheManager->activateGLTextureUnit(stage))
-        {
-            OGRE_CHECK_GL_ERROR(glTexParameterfv( mTextureTypes[stage], GL_TEXTURE_BORDER_COLOR, colour.ptr()));
-        }
-    }
-
-    void GL3PlusRenderSystem::_setTextureMipmapBias(size_t stage, float bias)
-    {
-        if (mStateCacheManager->activateGLTextureUnit(stage))
-        {
-            OGRE_CHECK_GL_ERROR(glTexParameterf(mTextureTypes[stage], GL_TEXTURE_LOD_BIAS, bias));
-        }
     }
 
     void GL3PlusRenderSystem::_setLineWidth(float width)
@@ -1292,38 +1211,6 @@ namespace Ogre {
                 GL3PlusSampler::getCombinedMinMipFilter(mMinFilter, mMipFilter));
             break;
         }
-    }
-
-    void GL3PlusRenderSystem::_setTextureUnitCompareFunction(size_t unit, CompareFunction function)
-    {
-        if (!mStateCacheManager->activateGLTextureUnit(unit))
-            return;
-
-        mStateCacheManager->setTexParameteri(mTextureTypes[unit],
-                                            GL_TEXTURE_COMPARE_FUNC,
-                                            convertCompareFunction(function));
-    }
-
-    void GL3PlusRenderSystem::_setTextureUnitCompareEnabled(size_t unit, bool compare)
-    {
-        if (!mStateCacheManager->activateGLTextureUnit(unit))
-            return;
-
-        mStateCacheManager->setTexParameteri(mTextureTypes[unit],
-                                            GL_TEXTURE_COMPARE_MODE,
-                                            compare ? GL_COMPARE_REF_TO_TEXTURE : GL_NONE);
-    }
-
-    void GL3PlusRenderSystem::_setTextureLayerAnisotropy(size_t unit, unsigned int maxAnisotropy)
-    {
-        if (!mCurrentCapabilities->hasCapability(RSC_ANISOTROPY))
-            return;
-
-        if (!mStateCacheManager->activateGLTextureUnit(unit))
-            return;
-
-        maxAnisotropy = std::min<uint>(mLargestSupportedAnisotropy, maxAnisotropy);
-        mStateCacheManager->setTexParameteri(mTextureTypes[unit], GL_TEXTURE_MAX_ANISOTROPY_EXT, maxAnisotropy);
     }
 
     void GL3PlusRenderSystem::_dispatchCompute(const Vector3i& workgroupDim)
@@ -1849,17 +1736,10 @@ namespace Ogre {
             OGRE_CHECK_GL_ERROR(glGetIntegerv(GL_MAX_TEXTURE_MAX_ANISOTROPY_EXT, &mLargestSupportedAnisotropy));
         }
 
-        if (hasMinGLVersion(3, 2) || checkExtension("GL_ARB_seamless_cube_map"))
-        {
-            // Enable seamless cube maps
-            OGRE_CHECK_GL_ERROR(glEnable(GL_TEXTURE_CUBE_MAP_SEAMLESS));
-        }
-
-        if (hasMinGLVersion(3, 2) || checkExtension("GL_ARB_provoking_vertex"))
-        {
-            // Set provoking vertex convention
-            OGRE_CHECK_GL_ERROR(glProvokingVertex(GL_FIRST_VERTEX_CONVENTION));
-        }
+        // Enable seamless cube maps
+        OGRE_CHECK_GL_ERROR(glEnable(GL_TEXTURE_CUBE_MAP_SEAMLESS));
+        // Set provoking vertex convention
+        OGRE_CHECK_GL_ERROR(glProvokingVertex(GL_FIRST_VERTEX_CONVENTION));
 
         if (getCapabilities()->hasCapability(RSC_DEBUG))
         {
@@ -1899,13 +1779,13 @@ namespace Ogre {
 
         // Initialise GL3W
         if (gl3wInit2(get_proc)) { // gl3wInit() fails if GL3.0 is not supported
-            OGRE_EXCEPT(Exception::ERR_RENDERINGAPI_ERROR,
-                        "OpenGL 3.0 is not supported",
-                        "GL3PlusRenderSystem::initialiseContext");
+            OGRE_EXCEPT(Exception::ERR_RENDERINGAPI_ERROR, "OpenGL 3.0 is not supported");
         }
 
         // Setup GL3PlusSupport
         initialiseExtensions();
+
+        OgreAssert(hasMinGLVersion(3, 3), "OpenGL 3.3 is not supported");
 
         mStateCacheManager = mCurrentContext->createOrRetrieveStateCacheManager<GL3PlusStateCacheManager>();
 
@@ -1916,15 +1796,11 @@ namespace Ogre {
 
     void GL3PlusRenderSystem::_setRenderTarget(RenderTarget *target)
     {
-        // Unbind frame buffer object
-        if (mActiveRenderTarget)
-            mRTTManager->unbind(mActiveRenderTarget);
-
         mActiveRenderTarget = target;
-        if (target)
+        if (auto gltarget = dynamic_cast<GLRenderTarget*>(target))
         {
             // Switch context if different from current one
-            GL3PlusContext *newContext = dynamic_cast<GLRenderTarget*>(target)->getContext();
+            GL3PlusContext *newContext = gltarget->getContext();
             if (newContext && mCurrentContext != newContext)
             {
                 _switchContext(newContext);
@@ -1941,8 +1817,13 @@ namespace Ogre {
                 setDepthBufferFor( target );
             }
 
-            // Bind frame buffer object
-            mRTTManager->bind(target);
+            /* Bind a certain render target if it is a FBO. If it is not a FBO, bind the
+               main frame buffer.
+            */
+            if(auto fbo = gltarget->getFBO())
+                fbo->bind(true);
+            else
+                _getStateCacheManager()->bindGLFrameBuffer( GL_FRAMEBUFFER, 0 );
 
             // Enable / disable sRGB states
             if (target->isHardwareGammaEnabled())
